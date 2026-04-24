@@ -1,120 +1,114 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Coupon Seva Tracker</title>
-    <link rel="stylesheet" href="styles.css">
-  </head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Coupon Seva Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
 
-  <body>
-    <!-- LOGIN SCREEN -->
-    <section id="loginScreen" class="login-screen">
-      <form id="loginForm" class="login-card">
-        <h1>Coupon Seva Tracker</h1>
-        <p>Login as admin or as a devotee to continue.</p>
+<body>
 
-        <label>
-          Login Type
-          <select id="loginRole">
-            <option value="admin">Admin</option>
-            <option value="devotee">Devotee</option>
-          </select>
-        </label>
+<!-- LOGIN -->
+<section id="loginScreen" class="login-screen">
+  <form id="loginForm" class="login-card">
+    <h1>Coupon Seva Tracker</h1>
+    <p>Login as admin or as a devotee to continue.</p>
 
-        <label id="loginDevoteeLabel" class="hidden">
-          Devotee
-          <select id="loginDevotee"></select>
-        </label>
+    <label>
+      Login Type
+      <select id="loginRole">
+        <option value="admin">Admin</option>
+        <option value="devotee">Devotee</option>
+      </select>
+    </label>
 
-        <label>
-          Password / PIN
-          <input id="loginPassword" type="password" required placeholder="Enter password">
-        </label>
+    <label id="loginDevoteeLabel" class="hidden">
+      Devotee
+      <select id="loginDevotee"></select>
+    </label>
 
-        <button type="submit">Login</button>
-        <p class="hint">First admin password: admin123</p>
-      </form>
-    </section>
+    <label>
+      Password / PIN
+      <input id="loginPassword" type="password" required>
+    </label>
 
-    <!-- HEADER -->
-    <header class="topbar">
-      <div>
-        <h1>Coupon Seva Tracker</h1>
-        <p id="couponSubtitle"></p>
-      </div>
+    <button type="submit">Login</button>
+  </form>
+</section>
 
-      <div class="toolbar">
-        <!-- 🔥 IMPORTANT: Sync status -->
-        <span id="syncBadge" class="user-badge">Local</span>
+<!-- HEADER -->
+<header class="topbar">
+  <div>
+    <h1>Coupon Seva Tracker</h1>
+    <p id="couponSubtitle"></p>
+  </div>
 
-        <span id="userBadge" class="user-badge"></span>
+  <div class="toolbar">
 
-        <button id="csvBtn" class="ghost" type="button">CSV</button>
-        <button id="exportBtn" class="ghost" type="button">Export</button>
+    <!-- ✅ THIS IS THE IMPORTANT ADD -->
+    <span id="syncBadge" class="user-badge">Local</span>
 
-        <label class="ghost file-label">
-          Import
-          <input id="importFile" type="file" accept="application/json,.json">
-        </label>
+    <span id="userBadge" class="user-badge"></span>
 
-        <button id="logoutBtn" class="ghost" type="button">Logout</button>
-      </div>
-    </header>
+    <button id="csvBtn" class="ghost">CSV</button>
+    <button id="exportBtn" class="ghost">Export</button>
 
-    <!-- MAIN -->
-    <main>
-      <section class="stats-grid">
-        <article><span>Total Coupons</span><strong id="totalCoupons">0</strong></article>
-        <article><span>Assigned</span><strong id="assignedCoupons">0</strong></article>
-        <article><span>Sold</span><strong id="soldCoupons">0</strong></article>
-        <article><span>Money Received</span><strong id="moneyReceived">INR 0</strong></article>
-        <article><span>Settled</span><strong id="settledCoupons">0</strong></article>
-      </section>
+    <label class="ghost file-label">
+      Import
+      <input id="importFile" type="file">
+    </label>
 
-      <nav class="tabs">
-        <button class="tab active" data-view="adminView">Admin</button>
-        <button class="tab" data-view="devoteeView">Devotee Entry</button>
-        <button class="tab" data-view="allCouponsView">All Coupons</button>
-      </nav>
+    <button id="logoutBtn" class="ghost">Logout</button>
+  </div>
+</header>
 
-      <section id="adminView" class="view active">
-        <!-- Your existing admin UI stays same -->
-        <div class="panel">
-          <h2>Admin Panel</h2>
-          <p>All your existing admin UI remains unchanged</p>
-        </div>
-      </section>
+<!-- MAIN -->
+<main>
 
-      <section id="devoteeView" class="view">
-        <div class="panel">
-          <h2>Devotee Entry</h2>
-          <select id="entryDevotee"></select>
-          <div id="entryList"></div>
-        </div>
-      </section>
+  <section class="stats-grid">
+    <article><span>Total Coupons</span><strong id="totalCoupons">0</strong></article>
+    <article><span>Assigned</span><strong id="assignedCoupons">0</strong></article>
+    <article><span>Sold</span><strong id="soldCoupons">0</strong></article>
+    <article><span>Money Received</span><strong id="moneyReceived">INR 0</strong></article>
+    <article><span>Settled</span><strong id="settledCoupons">0</strong></article>
+  </section>
 
-      <section id="allCouponsView" class="view">
-        <div class="panel">
-          <h2>All Coupons</h2>
-          <table>
-            <tbody id="allCouponsBody"></tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+  <nav class="tabs">
+    <button class="tab active" data-view="adminView">Admin</button>
+    <button class="tab" data-view="devoteeView">Devotee Entry</button>
+    <button class="tab" data-view="allCouponsView">All Coupons</button>
+  </nav>
 
-    <div id="toast" class="toast"></div>
+  <section id="adminView" class="view active">
+    <div id="devoteeList"></div>
+  </section>
 
-    <!-- ✅ FIREBASE (VERY IMPORTANT) -->
-    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
+  <section id="devoteeView" class="view">
+    <select id="entryDevotee"></select>
+    <div id="entryList"></div>
+  </section>
 
-    <!-- ✅ YOUR CONFIG -->
-    <script src="firebase-config.js"></script>
+  <section id="allCouponsView" class="view">
+    <table>
+      <tbody id="allCouponsBody"></tbody>
+    </table>
+  </section>
 
-    <!-- ✅ YOUR APP -->
-    <script src="app.js"></script>
-  </body>
+</main>
+
+<div id="toast" class="toast"></div>
+
+<!-- ✅ FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
+
+<!-- CONFIG -->
+<script src="firebase-config.js"></script>
+
+<!-- APP -->
+<script src="app.js"></script>
+
+</body>
 </html>
