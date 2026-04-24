@@ -8,10 +8,11 @@ let session = loadSession();
 let activeDevoteeTab = "pending";
 const els = {};
 
-document.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
+  initFirebaseSync();
 });
 
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
