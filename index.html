@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Coupon Seva Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <section id="loginScreen" class="login-screen">
+      <form id="loginForm" class="login-card">
+        <h1>Coupon Seva Tracker</h1>
+        <p>Login as admin or as a devotee to continue.</p>
+        <label>
+          Login Type
+          <select id="loginRole">
+            <option value="admin">Admin</option>
+            <option value="devotee">Devotee</option>
+          </select>
+        </label>
+        <label id="loginDevoteeLabel" class="hidden">
+          Devotee
+          <select id="loginDevotee"></select>
+        </label>
+        <label>
+          Password / PIN
+          <input id="loginPassword" type="password" required placeholder="Enter password">
+        </label>
+        <button type="submit">Login</button>
+        <p class="hint">First admin password: admin123</p>
+      </form>
+    </section>
+
+    <header class="topbar">
+      <div>
+        <h1>Coupon Seva Tracker</h1>
+        <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
+      </div>
+      <div class="toolbar">
+        <span id="userBadge" class="user-badge"></span>
+        <button id="csvBtn" class="ghost" type="button" title="Export spreadsheet CSV">CSV</button>
+        <button id="exportBtn" class="ghost" type="button" title="Export backup">Export</button>
+        <label class="ghost file-label" title="Import backup">
+          Import
+          <input id="importFile" type="file" accept="application/json,.json">
+        </label>
+        <button id="logoutBtn" class="ghost" type="button" title="Logout">Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="stats-grid" aria-label="Coupon summary">
+        <article>
+          <span>Total Coupons</span>
+          <strong id="totalCoupons">0</strong>
+        </article>
+        <article>
+          <span>Assigned</span>
+          <strong id="assignedCoupons">0</strong>
+        </article>
+        <article>
+          <span>Sold</span>
+          <strong id="soldCoupons">0</strong>
+        </article>
+        <article>
+          <span>Money Received</span>
+          <strong id="moneyReceived">INR 0</strong>
+        </article>
+        <article>
+          <span>Settled</span>
+          <strong id="settledCoupons">0</strong>
+        </article>
+      </section>
+
+      <nav class="tabs" aria-label="Views">
+        <button class="tab active" type="button" data-view="adminView">Admin</button>
+        <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
+        <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
+      </nav>
+
+      <section id="adminView" class="view active">
+        <div class="two-column">
+          <form id="devoteeForm" class="panel">
+            <h2>Add Devotee</h2>
+            <label>
+              Name
+              <input id="devoteeName" type="text" autocomplete="name" required placeholder="Example: Ramesh">
+            </label>
+            <label>
+              Contact Number
+              <input id="devoteeContact" type="tel" autocomplete="tel" placeholder="Phone number">
+            </label>
+            <button type="submit">Add Devotee</button>
+          </form>
+
+          <div class="stack">
+            <form id="assignForm" class="panel">
+              <h2>Assign Coupons</h2>
+              <label>
+                Devotee
+                <select id="assignDevotee" required></select>
+              </label>
+              <div class="inline-fields">
+                <label>
+                  From
+                  <input id="assignFrom" type="number" min="1" required placeholder="1">
+                </label>
+                <label>
+                  To
+                  <input id="assignTo" type="number" min="1" required placeholder="100">
+                </label>
+              </div>
+              <button type="submit">Assign Range</button>
+              <p id="assignHint" class="hint"></p>
+            </form>
+
+            <form id="couponSettingsForm" class="panel">
+              <h2>Coupon Settings</h2>
+              <label>
+                Total Coupons
+                <input id="totalCouponInput" type="number" min="1" required placeholder="Example: 3000">
+              </label>
+              <button type="submit">Update Total</button>
+              <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
+            </form>
+
+            <form id="resetCouponForm" class="panel">
+              <h2>Reset Coupons</h2>
+              <label>
+                Coupon Number
+                <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
+              </label>
+              <label>
+                Devotee
+                <select id="resetDevotee"></select>
+              </label>
+              <div class="inline-fields">
+                <button id="selectAllResetCouponsBtn" type="button" class="ghost">Select All Shown</button>
+                <button id="clearResetSelectionBtn" type="button" class="ghost">Clear</button>
+              </div>
+              <div id="resetCouponList" class="reset-list"></div>
+              <div class="inline-fields">
+                <button type="submit" class="ghost">Reset One</button>
+                <button id="resetSelectedCouponsBtn" type="button" class="danger">Reset Selected</button>
+                <button id="resetDevoteeCouponsBtn" type="button" class="danger">Reset Devotee Coupons</button>
+                <button id="resetAllCouponsBtn" type="button" class="danger">Reset All Coupons</button>
+              </div>
+              <p class="hint">Reset clears assignment, buyer details, amount, description, and settlement status.</p>
+            </form>
+
+            <form id="adminPasswordForm" class="panel">
+              <h2>Admin Password</h2>
+              <label>
+                New Password
+                <input id="adminPassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
+              </label>
+              <button type="submit">Update Password</button>
+            </form>
+          </div>
+        </div>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Devotee Dashboard</h2>
+              <p id="adminPeriodSummary" class="hint"></p>
+            </div>
+            <div class="entry-controls compact">
+              <input id="devoteeSearch" type="search" placeholder="Search devotees">
+              <input id="settledFromDate" type="date" title="Settled from date">
+              <input id="settledToDate" type="date" title="Settled to date">
+            </div>
+          </div>
+          <div id="devoteeList" class="devotee-list"></div>
+        </section>
+      </section>
+
+      <section id="devoteeView" class="view">
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Devotee Coupon Entry</h2>
+              <p class="hint">Select a devotee to see only coupons assigned to them.</p>
+            </div>
+            <select id="entryDevotee"></select>
+          </div>
+          <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
+          <nav class="subtabs" aria-label="Devotee coupon views">
+            <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
+            <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
+          </nav>
+          <div class="entry-controls">
+            <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
+            <select id="entryStatus">
+              <option value="all">All assigned coupons</option>
+              <option value="unsold">Pending only</option>
+              <option value="sold">Sold only</option>
+              <option value="unsettled">Settlement pending</option>
+              <option value="settled">Settled only</option>
+            </select>
+          </div>
+          <div id="entryList" class="coupon-editor"></div>
+        </section>
+      </section>
+
+      <section id="allCouponsView" class="view">
+        <section class="panel">
+          <div class="section-head">
+            <h2>All Coupon Records</h2>
+            <div class="entry-controls compact">
+              <input id="allSearch" type="search" placeholder="Search all coupons">
+              <select id="allStatus">
+                <option value="all">All</option>
+                <option value="unassigned">Unassigned</option>
+                <option value="assigned">Assigned</option>
+                <option value="sold">Sold</option>
+                <option value="unsettled">Settlement Pending</option>
+                <option value="settled">Settled</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Coupon</th>
+                  <th>Assigned To</th>
+                  <th>Buyer</th>
+                  <th>Contact</th>
+                  <th>Amount</th>
+                  <th>Settlement</th>
+                  <th>Settled Date</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody id="allCouponsBody"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
