@@ -951,3 +951,81 @@ function newId() {
   }
   return `${Date.now()}-${Math.random()}`;
 }
+// ================= FIREBASE SYNC (ADD ONLY THIS) =================
+
+let firebaseReady = false;
+let dbRef = null;
+
+function updateSyncBadge(text) {
+  const badge = document.getElementById("syncBadge");
+  if (badge) badge.textContent = text;
+}
+
+function initFirebaseSync() {
+  try {
+    // Check Firebase availability
+    if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
+      updateSyncBadge("Local");
+      return;
+    }
+
+    updateSyncBadge("Connecting...");
+
+    // Initialize Firebase (only once)
+    if (!firebase.apps.length) {
+      firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
+    }
+
+    // Anonymous login
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        firebaseReady = true;
+
+        dbRef = firebase.database().ref(
+          window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
+        );
+
+        // 🔥 Listen to realtime updates
+        dbRef.on("value", (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+
+            // Replace local state (no logic change)
+            if (data.settings) state.settings = data.settings;
+            if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+            if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+
+            render();
+          }
+        });
+
+        updateSyncBadge("Realtime");
+
+        // First-time push if DB empty
+        dbRef.once("value").then((snap) => {
+          if (!snap.exists()) {
+            dbRef.set(state);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Firebase Auth Error:", err);
+        updateSyncBadge("Auth error");
+      });
+
+  } catch (err) {
+    console.error("Firebase Init Error:", err);
+    updateSyncBadge("Error");
+  }
+}
+
+// 🔥 Override saveState (no logic change)
+const originalSaveState = saveState;
+
+saveState = function () {
+  originalSaveState();
+
+  if (firebaseReady && dbRef) {
+    dbRef.set(state);
+  }
+};
