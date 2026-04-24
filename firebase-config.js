@@ -3,7 +3,7 @@ window.COUPON_TRACKER_FIREBASE = {
   config: {
     apiKey: "AIzaSyD8dSCMn4aB2ltinbkDzzuRQR6I1gI_D0M",
     authDomain: "coupons-tracker.firebaseapp.com",
-    databaseURL: "",
+   databaseURL: "https://coupons-tracker-default-rtdb.firebaseio.com",
     projectId: "coupons-tracker",
     storageBucket: "coupons-tracker.firebasestorage.app",
     messagingSenderId: "342199257416",
