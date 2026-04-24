@@ -13,12 +13,14 @@ window.addEventListener("load", () => {
   bindEvents();
   render();
 
-  // 🔥 Delay Firebase init (important fix)
-  setTimeout(() => {
-    initFirebaseSync();
-  }, 1000);
+  // Wait until Firebase function exists
+  const waitFirebase = setInterval(() => {
+    if (typeof initFirebaseSync === "function") {
+      clearInterval(waitFirebase);
+      initFirebaseSync();
+    }
+  }, 200);
 });
-
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
