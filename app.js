@@ -12,7 +12,11 @@ window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
-  initFirebaseSync();
+
+  // 🔥 Delay Firebase init (important fix)
+  setTimeout(() => {
+    initFirebaseSync();
+  }, 1000);
 });
 
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
