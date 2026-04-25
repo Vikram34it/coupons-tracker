@@ -6,13 +6,24 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
+let isEditing = false;
 const els = {};
 
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input, textarea")) {
+    isEditing = true;
+  }
+});
 
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches("input, textarea")) {
+    isEditing = false;
+  }
+});
   // Wait until Firebase function exists
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
@@ -139,7 +150,7 @@ function bindEvents() {
       activeDevoteeTab = tab.dataset.devoteeTab;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
-      renderEntryList();
+      List();
     });
   });
 }
@@ -608,7 +619,7 @@ function renderEntryList() {
   }).join("");
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
-    field.addEventListener("input", updateCouponField);
+    field.addEventListener("change", updateCouponField);
   });
 }
 
@@ -993,16 +1004,18 @@ function initFirebaseSync() {
 
         // 🔥 Listen to realtime updates
         dbRef.on("value", (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-
-            // Replace local state (no logic change)
-            if (data.settings) state.settings = data.settings;
-            if (Array.isArray(data.devotees)) state.devotees = data.devotees;
-            if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-
-            render();
-          }
+          if (!snapshot.exists()) return;
+        
+          // 🚫 Don't re-render while typing
+          if (isEditing) return;
+        
+          const data = snapshot.val();
+        
+          if (data.settings) state.settings = data.settings;
+          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+        
+          render(); // ✅ safe now
         });
 
         updateSyncBadge("Realtime");
