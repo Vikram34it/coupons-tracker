@@ -118,6 +118,18 @@ function bindEvents() {
       render();
     });
   });
+  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
+
+    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    document.querySelectorAll("[data-admin-content]").forEach(c => {
+      c.style.display = (c.dataset.adminContent === activeAdminTab) ? "block" : "none";
+    });
+  });
+});
 
   els.loginForm.addEventListener("submit", login);
   els.loginRole.addEventListener("change", renderLoginRole);
@@ -380,6 +392,9 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   renderSevaReport();
+  document.querySelectorAll("[data-admin-content]").forEach(c => {
+  c.style.display = (c.dataset.adminContent === activeAdminTab) ? "block" : "none";
+});
 }
 
 function renderSelectors() {
