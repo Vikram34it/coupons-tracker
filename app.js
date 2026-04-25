@@ -1032,7 +1032,7 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-          if (isEditing) return;
+          if (isEditing && document.hasFocus()) return;
         
           const data = snapshot.val();
         
