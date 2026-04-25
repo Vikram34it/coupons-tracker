@@ -516,6 +516,9 @@ function renderDevotees() {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-reset-pin="${escapeAttr(devotee.id)}">Reset PIN</button>
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
+          Delete
+        </button>
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
@@ -539,7 +542,41 @@ function renderDevotees() {
       showToast(`New PIN for ${devotee.name}: ${devotee.pin}`);
     });
   });
+els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    deleteDevotee(btn.dataset.deleteDevotee);
+  });
+});
+ }
+
+function deleteDevotee(devoteeId) {
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+  if (!devotee) return;
+
+  const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId);
+
+  if (assignedCoupons.length > 0) {
+    const confirmDelete = confirm(
+      `${devotee.name} has ${assignedCoupons.length} assigned coupons.\n\nDelete anyway?`
+    );
+    if (!confirmDelete) return;
+  }
+
+  // Remove devotee
+  state.devotees = state.devotees.filter(d => d.id !== devoteeId);
+
+  // Unassign coupons
+  state.coupons.forEach(c => {
+    if (c.devoteeId === devoteeId) {
+      c.devoteeId = "";
+    }
+  });
+
+  saveState();
+  render();
+  showToast("Devotee deleted successfully");
 }
+
 
 function renderResetCouponList() {
   if (!els.resetCouponList) return;
