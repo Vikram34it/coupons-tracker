@@ -589,6 +589,7 @@ td {
   gap: 10px;
   margin: 15px 0;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 #adminTabs .subtab {
@@ -598,6 +599,8 @@ td {
   background: #f5f5f5;
   cursor: pointer;
   font-weight: 500;
+  min-width: 120px;
+  text-align: center;
 }
 
 #adminTabs .subtab.active {
