@@ -3,15 +3,10 @@ const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
-const state = {
-  settings: {},
-  devotees: [],
-  coupons: []
-};
+const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
-let isFirebaseLoaded = false;
 let isEditing = false;
 const els = {};
 
@@ -389,9 +384,6 @@ function assignCoupons(event) {
 }
 
 function render() {
-  if (!isFirebaseLoaded) {
-  return;   // ⛔ stop showing old data
-}
   validateSession();
   renderSelectors();
   applyRoleAccess();
@@ -1109,7 +1101,7 @@ function initFirebaseSync() {
           if (data.settings) state.settings = data.settings;
           if (Array.isArray(data.devotees)) state.devotees = data.devotees;
           if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-          isFirebaseLoaded = true;
+        
           render(); // ✅ safe now
         });
 
