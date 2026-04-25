@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "pending";
+let activeDevoteeTab = "dashboard";
 let isEditing = false;
 const els = {};
 
@@ -150,7 +150,7 @@ function bindEvents() {
       activeDevoteeTab = tab.dataset.devoteeTab;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
-      List();
+      renderEntryList();
     });
   });
 }
@@ -557,6 +557,11 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
+  if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
@@ -708,6 +713,7 @@ function emptyCoupon(number) {
     buyerContact: "",
     amount: "",
     description: "",
+    receiptNumber: "",
     settled: false,
     settledAt: ""
   };
@@ -725,6 +731,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       buyerContact: savedCoupon.buyerContact || "",
       amount: savedCoupon.amount || "",
       description: savedCoupon.description || "",
+      receiptNumber: savedCoupon.receiptNumber || "",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || ""
     };
