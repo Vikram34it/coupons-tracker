@@ -80,6 +80,13 @@
       </nav>
 
       <section id="adminView" class="view active">
+              <nav class="subtabs" aria-label="Admin sections">
+              <button class="subtab active" data-admin-tab="dashboard">Dashboard</button>
+              <button class="subtab" data-admin-tab="setup">Setup</button>
+              <button class="subtab" data-admin-tab="reset">Reset</button>
+            </nav>
+<div data-admin-content="setup">
+  <!-- existing content continues -->
         <div class="two-column">
           <form id="devoteeForm" class="panel">
             <h2>Add Devotee</h2>
@@ -114,7 +121,9 @@
               <button type="submit">Assign Range</button>
               <p id="assignHint" class="hint"></p>
             </form>
+        </div>
 
+          <div data-admin-content="reset">
             <form id="couponSettingsForm" class="panel">
               <h2>Coupon Settings</h2>
               <label>
@@ -148,7 +157,7 @@
               </div>
               <p class="hint">Reset clears assignment, buyer details, amount, description, and settlement status.</p>
             </form>
-
+      </div>
             <form id="adminPasswordForm" class="panel">
               <h2>Admin Password</h2>
               <label>
@@ -159,12 +168,11 @@
             </form>
           </div>
         </div>
-
+<div data-admin-content="dashboard">
         <section class="panel">
           <div class="section-head">
             <div>
               <h2>Devotee Dashboard</h2>
-              
               <p id="adminPeriodSummary" class="hint"></p>
             </div>
             <section class="panel">
@@ -185,7 +193,7 @@
         </div>
         <div id="sevaReport" class="devotee-list"></div>
       </section>
-
+</div>
       <section id="devoteeView" class="view">
         <section class="panel">
           <div class="section-head">
