@@ -835,14 +835,9 @@ function getSevaSummary() {
 
   return result;
 }
+
+
 function renderSevaReport() {
-  const container = document.getElementById("sevaReport");
-  if (!container) return;
-
-  container.innerHTML = "TEST WORKING";
-}
-
-/*function renderSevaReport() {
   const container = document.getElementById("sevaReport");
   if (!container) return;
 
@@ -868,7 +863,7 @@ function renderSevaReport() {
       </article>
     `;
   }).join("");
-}*/
+}
 
 function devoteeName(devoteeId) {
   const devotee = state.devotees.find((item) => item.id === devoteeId);
