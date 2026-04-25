@@ -3,7 +3,11 @@ const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
-const state = loadState();
+const state = {
+  settings: {},
+  devotees: [],
+  coupons: []
+};
 let session = loadSession();
 let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
