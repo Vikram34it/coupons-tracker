@@ -1018,7 +1018,11 @@ function updateSyncBadge(text) {
 }
 
 function updateAdminView() {
+  console.log("Active tab:", activeAdminTab);
+
   document.querySelectorAll("[data-admin-section]").forEach(section => {
+    console.log("Section:", section.dataset.adminSection);
+
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
