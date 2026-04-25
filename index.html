@@ -86,6 +86,7 @@
           <button class="subtab" data-admin-tab="reset">Reset</button>
         </nav>
         <div class="two-column">
+          <div data-admin-section="setup">
           <form id="devoteeForm" class="panel">
             <h2>Add Devotee</h2>
             <label>
@@ -100,7 +101,6 @@
           </form>
 
          
-          
           <div class="stack">
              <form id="assignForm" class="panel">
               <h2>Assign Coupons</h2>
@@ -121,7 +121,7 @@
               <button type="submit">Assign Range</button>
               <p id="assignHint" class="hint"></p>
             </form>
-
+          </div>
             <form id="couponSettingsForm" class="panel">
               <h2>Coupon Settings</h2>
               <label>
@@ -131,7 +131,7 @@
               <button type="submit">Update Total</button>
               <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
             </form>
-
+<div data-admin-section="reset">
             <form id="resetCouponForm" class="panel">
               <h2>Reset Coupons</h2>
               <label>
@@ -155,7 +155,7 @@
               </div>
               <p class="hint">Reset clears assignment, buyer details, amount, description, and settlement status.</p>
             </form>
-
+</div>
             <form id="adminPasswordForm" class="panel">
               <h2>Admin Password</h2>
               <label>
