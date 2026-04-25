@@ -6,7 +6,6 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "dashboard";
-let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
 
@@ -119,18 +118,6 @@ function bindEvents() {
       render();
     });
   });
-  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-  tab.addEventListener("click", () => {
-    activeAdminTab = tab.dataset.adminTab;
-
-    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
-
-    document.querySelectorAll("[data-admin-content]").forEach(c => {
-      c.style.display = (c.dataset.adminContent === activeAdminTab) ? "block" : "none";
-    });
-  });
-});
 
   els.loginForm.addEventListener("submit", login);
   els.loginRole.addEventListener("change", renderLoginRole);
@@ -392,10 +379,6 @@ function render() {
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
-  renderSevaReport();
-  document.querySelectorAll("[data-admin-content]").forEach(c => {
-  c.style.display = (c.dataset.adminContent === activeAdminTab) ? "block" : "none";
-});
 }
 
 function renderSelectors() {
@@ -814,55 +797,6 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
     pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
     periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
   };
-}
-
-function getSevaSummary() {
-  const result = {};
-
-  state.coupons.forEach((coupon) => {
-    if (!coupon.description) return;
-
-    if (!result[coupon.description]) {
-      result[coupon.description] = {
-        count: 0,
-        amount: 0
-      };
-    }
-
-    result[coupon.description].count += 1;
-    result[coupon.description].amount += amountValue(coupon.amount);
-  });
-
-  return result;
-}
-
-
-function renderSevaReport() {
-  const container = document.getElementById("sevaReport");
-  if (!container) return;
-
-  const summary = getSevaSummary();
-
-  const keys = Object.keys(summary);
-
-  if (!keys.length) {
-    container.innerHTML = `<div class="empty">No seva data available.</div>`;
-    return;
-  }
-
-  container.innerHTML = keys.map((seva) => {
-    const item = summary[seva];
-
-    return `
-      <article class="devotee-row">
-        <div>
-          <strong>${escapeHtml(seva)}</strong>
-        </div>
-        <span><strong>${item.count}</strong><span class="small-stat"> entries</span></span>
-        <span><strong>${formatMoney(item.amount)}</strong><span class="small-stat"> total</span></span>
-      </article>
-    `;
-  }).join("");
 }
 
 function devoteeName(devoteeId) {
