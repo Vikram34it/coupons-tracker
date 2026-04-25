@@ -614,9 +614,25 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
+          <label>
+            Receipt Number
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
+          </label>
           <label class="wide">
             Description / Purpose
-            <textarea data-field="description" placeholder="Coupon sold for..." ${locked}>${escapeHtml(coupon.description)}</textarea>
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
         </div>
       </article>
