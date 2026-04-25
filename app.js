@@ -663,6 +663,7 @@ function renderAllCoupons() {
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
+      <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>
         <button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">
           ${coupon.settled ? "Settled" : "Mark Settled"}
@@ -832,6 +833,7 @@ function couponSearchText(coupon) {
     coupon.buyerName,
     coupon.buyerContact,
     coupon.amount,
+    coupon.receiptNumber,
     coupon.description,
     coupon.settledAt,
     coupon.settled ? "settled" : "not settled"
