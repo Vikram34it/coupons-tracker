@@ -10,7 +10,6 @@ let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
 
-
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
@@ -1102,10 +1101,7 @@ function initFirebaseSync() {
           if (data.settings) state.settings = data.settings;
           if (Array.isArray(data.devotees)) state.devotees = data.devotees;
           if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-
-           // ✅ SHOW UI ONLY AFTER DATA IS READY
-           document.body.style.display = "block";
-          
+        
           render(); // ✅ safe now
         });
 
