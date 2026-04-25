@@ -144,30 +144,39 @@
         </div>
       </section>
 
-  <h2>RESET WORKING</h2>
-            <form id="resetCouponForm" class="panel">
-              <h2>Reset Coupons</h2>
-              <label>
-                Coupon Number
-                <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
-              </label>
-              <label>
-                Devotee
-                <select id="resetDevotee"></select>
-              </label>
-              <div class="inline-fields">
-                <button id="selectAllResetCouponsBtn" type="button" class="ghost">Select All Shown</button>
-                <button id="clearResetSelectionBtn" type="button" class="ghost">Clear</button>
-              </div>
-              <div id="resetCouponList" class="reset-list"></div>
-              <div class="inline-fields">
-                <button type="submit" class="ghost">Reset One</button>
-                <button id="resetSelectedCouponsBtn" type="button" class="danger">Reset Selected</button>
-                <button id="resetDevoteeCouponsBtn" type="button" class="danger">Reset Devotee Coupons</button>
-                <button id="resetAllCouponsBtn" type="button" class="danger">Reset All Coupons</button>
-              </div>
-              <p class="hint">Reset clears assignment, buyer details, amount, description, and settlement status.</p>
-            </form>
+  <div data-admin-section="reset">
+  <form id="resetCouponForm" class="panel">
+    <h2>Reset Coupons</h2>
+
+    <label>
+      Coupon Number
+      <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
+    </label>
+
+    <label>
+      Devotee
+      <select id="resetDevotee"></select>
+    </label>
+
+    <div class="inline-fields">
+      <button id="selectAllResetCouponsBtn" type="button" class="ghost">Select All Shown</button>
+      <button id="clearResetSelectionBtn" type="button" class="ghost">Clear</button>
+    </div>
+
+    <div id="resetCouponList" class="reset-list"></div>
+
+    <div class="inline-fields">
+      <button type="submit" class="ghost">Reset One</button>
+      <button id="resetSelectedCouponsBtn" type="button" class="danger">Reset Selected</button>
+      <button id="resetDevoteeCouponsBtn" type="button" class="danger">Reset Devotee Coupons</button>
+      <button id="resetAllCouponsBtn" type="button" class="danger">Reset All Coupons</button>
+    </div>
+
+    <p class="hint">
+      Reset clears assignment, buyer details, amount, description, and settlement status.
+    </p>
+  </form>
+</div>
         
 <div data-admin-section="dashboard">
         <section class="panel">
