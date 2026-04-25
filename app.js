@@ -1020,7 +1020,7 @@ function updateSyncBadge(text) {
 function updateAdminView() {
   document.querySelectorAll("[data-admin-section]").forEach(section => {
     section.style.display =
-      section.dataset.adminSection === activeAdminTab ? "block" : "none";
+      section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
 }
 
