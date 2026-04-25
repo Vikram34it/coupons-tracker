@@ -10,8 +10,6 @@ let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
 
-document.getElementById("loading").style.display = "none";
-document.body.style.display = "block";
 
 window.addEventListener("load", () => {
   cacheElements();
