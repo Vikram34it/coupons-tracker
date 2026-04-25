@@ -14,13 +14,13 @@ window.addEventListener("load", () => {
   bindEvents();
   render();
 document.addEventListener("focusin", (e) => {
-  if (e.target.matches("input, textarea")) {
+  if (e.target.matches("input, textarea, select")) {
     isEditing = true;
   }
 });
 
 document.addEventListener("focusout", (e) => {
-  if (e.target.matches("input, textarea")) {
+  if (e.target.matches("input, textarea, select")) {
     isEditing = false;
   }
 });
