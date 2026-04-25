@@ -6,6 +6,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "dashboard";
+let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
 
@@ -153,6 +154,18 @@ function bindEvents() {
       renderEntryList();
     });
   });
+
+  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
+
+    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    updateAdminView();
+  });
+});
+  
 }
 
 function login(event) {
@@ -379,6 +392,7 @@ function render() {
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
+  updateAdminView();
 }
 
 function renderSelectors() {
@@ -1001,6 +1015,13 @@ let dbRef = null;
 function updateSyncBadge(text) {
   const badge = document.getElementById("syncBadge");
   if (badge) badge.textContent = text;
+}
+
+function updateAdminView() {
+  document.querySelectorAll("[data-admin-section]").forEach(section => {
+    section.style.display =
+      section.dataset.adminSection === activeAdminTab ? "block" : "none";
+  });
 }
 
 function initFirebaseSync() {
