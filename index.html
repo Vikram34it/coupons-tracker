@@ -121,7 +121,6 @@
               <button type="submit">Assign Range</button>
               <p id="assignHint" class="hint"></p>
             </form>
-          </div>
             <form id="couponSettingsForm" class="panel">
               <h2>Coupon Settings</h2>
               <label>
@@ -131,6 +130,19 @@
               <button type="submit">Update Total</button>
               <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
             </form>
+          </div>
+
+            <form id="adminPasswordForm" class="panel">
+              <h2>Admin Password</h2>
+              <label>
+                New Password
+                <input id="adminPassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
+              </label>
+              <button type="submit">Update Password</button>
+            </form>
+          </div>
+        </div>
+      </section>
 <div data-admin-section="reset">
   <h2>RESET WORKING</h2>
             <form id="resetCouponForm" class="panel">
@@ -157,16 +169,7 @@
               <p class="hint">Reset clears assignment, buyer details, amount, description, and settlement status.</p>
             </form>
 </div>
-            <form id="adminPasswordForm" class="panel">
-              <h2>Admin Password</h2>
-              <label>
-                New Password
-                <input id="adminPassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
-              </label>
-              <button type="submit">Update Password</button>
-            </form>
-          </div>
-        </div>
+        
 <div data-admin-section="dashboard">
         <section class="panel">
           <div class="section-head">
