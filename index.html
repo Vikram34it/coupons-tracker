@@ -179,23 +179,29 @@
 </div>
         
 <div data-admin-section="dashboard">
-  <div id="adminDevoteeDashboard">
-        <section class="panel">
-          <div class="section-head">
-            <div>
-              <h2>Devotee Dashboard</h2>
-              <p id="adminPeriodSummary" class="hint"></p>
-            </div>
-            <div class="entry-controls compact">
-              <input id="devoteeSearch" type="search" placeholder="Search devotees">
-              <input id="settledFromDate" type="date" title="Settled from date">
-              <input id="settledToDate" type="date" title="Settled to date">
-            </div>
-          </div>
-          <div id="devoteeList" class="devotee-list"></div>
-        </section>
-     </div>
-    </div>
+
+  <div id="adminDevoteeDashboard">  <!-- ✅ IMPORTANT -->
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>Devotee Dashboard</h2>
+          <p id="adminPeriodSummary" class="hint"></p>
+        </div>
+
+        <div class="entry-controls compact">
+          <input id="devoteeSearch" type="search" placeholder="Search devotees">
+          <input id="settledFromDate" type="date">
+          <input id="settledToDate" type="date">
+        </div>
+      </div>
+
+      <div id="devoteeList" class="devotee-list"></div>
+    </section>
+
+  </div>
+
+</div>
       <section id="devoteeView" class="view">
         <section class="panel">
           <div class="section-head">
