@@ -5,11 +5,11 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "assigned";  // ✅ default
+let activeDevoteeTab = "pending";
 const els = {};
 const firebaseSync = {
   enabled: false,
-  ready: false,f
+  ready: false,
   applyingRemote: false,
   ref: null,
   writeTimer: 0
@@ -18,6 +18,7 @@ const firebaseSync = {
 document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
+  render();
   initFirebaseSync();
 });
 
@@ -86,29 +87,22 @@ function initFirebaseSync() {
       .finally(() => {
         firebaseSync.ref = window.firebase.database().ref(firebaseOptions.databasePath || "couponTracker/appState");
         firebaseSync.ref.on("value", (snapshot) => {
-  if (snapshot.exists()) {
-    firebaseSync.applyingRemote = true;
-
-    replaceState(normalizeStateData(snapshot.val()));
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-
-    firebaseSync.applyingRemote = false;
-    firebaseSync.ready = true;
-
-    updateSyncBadge("Realtime");
-
-    // ✅ FORCE FULL RENDER AFTER DATA
-    renderSelectors();   // VERY IMPORTANT
-    render();
-
-  } else {
-    firebaseSync.ready = true;
-    updateSyncBadge("Realtime");
-    queueFirebaseWrite(true);
-  }
-});
-        
+          if (snapshot.exists()) {
+            firebaseSync.applyingRemote = true;
+            replaceState(normalizeStateData(snapshot.val()));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            firebaseSync.applyingRemote = false;
+            firebaseSync.ready = true;
+            updateSyncBadge("Realtime");
+            render();
+          } else {
+            firebaseSync.ready = true;
+            updateSyncBadge("Realtime");
+            queueFirebaseWrite(true);
+          }
+        }, () => {
+          updateSyncBadge("Realtime error");
+        });
       });
   } catch {
     updateSyncBadge("Local");
@@ -208,21 +202,14 @@ function bindEvents() {
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
 
- document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    activeDevoteeTab = tab.dataset.devoteeTab;
-
-    document.querySelectorAll("[data-devotee-tab]").forEach((item) =>
-      item.classList.remove("active")
-    );
-
-    tab.classList.add("active");
-
-    renderEntryList();
+  document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      activeDevoteeTab = tab.dataset.devoteeTab;
+      document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
+      tab.classList.add("active");
+      renderEntryList();
+    });
   });
-});
-});
-
 }
 
 function login(event) {
@@ -627,134 +614,58 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-
-  // ❌ No devotee selected
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-  // ✅ Dashboard Tabs Handling
-  if (activeDevoteeTab === "mydashboard") {
-    renderDevoteeStats(devoteeId);
-    els.entryList.innerHTML = "";
-    return;
-  }
-
-  if (activeDevoteeTab === "totaldashboard") {
-    renderStats();
-    els.entryList.innerHTML = "";
-    return;
-  }
-
-  // Default stats (for assigned/settled)
   renderDevoteeStats(devoteeId);
-
   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
-
   let coupons = couponsForDevotee(devoteeId);
 
-  // ✅ Tab-based filtering
-  if (activeDevoteeTab === "assigned") {
-    coupons = coupons.filter((coupon) => !coupon.settled);
-  }
-
-  if (activeDevoteeTab === "settled") {
-    coupons = coupons.filter((coupon) => coupon.settled);
-  }
-
-  // Existing filters (keep as is)
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
-  if (query) {
-    coupons = coupons.filter((coupon) =>
-      couponSearchText(coupon).includes(query)
-    );
-  }
-
-  // ❌ No data
   if (!coupons.length) {
-    els.entryList.innerHTML =
-      activeDevoteeTab === "settled"
-        ? `<div class="empty">No settled coupons found.</div>`
-        : `<div class="empty">No assigned coupons found.</div>`;
+    els.entryList.innerHTML = activeDevoteeTab === "settled"
+      ? `<div class="empty">No settled coupons found.</div>`
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
-  // ✅ TABLE VIEW (Settled)
-  if (activeDevoteeTab === "settled") {
-    els.entryList.innerHTML = `
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Coupon</th>
-              <th>Buyer</th>
-              <th>Phone</th>
-              <th>Amount</th>
-              <th>Receipt</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${coupons.map((c) => `
-              <tr>
-                <td>#${c.number}</td>
-                <td>${escapeHtml(c.buyerName || "-")}</td>
-                <td>${escapeHtml(c.buyerContact || "-")}</td>
-                <td>${formatMoney(amountValue(c.amount))}</td>
-                <td>${escapeHtml(c.receiptNumber || "-")}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-    return;
-  }
-
-  // ✅ CARD VIEW (Assigned Coupons)
   els.entryList.innerHTML = coupons.map((coupon) => {
-    const locked =
-      session?.role === "devotee" && coupon.settled ? "disabled" : "";
-
+    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">
-            ${isSold(coupon) ? "Sold" : "Pending"}
-          </span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">
-            ${coupon.settled ? "Settled" : "Not Settled"}
-          </span>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
         </div>
-
         <div class="coupon-fields">
           <label>
             Buyer Name
             <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
-
           <label>
             Contact Number
             <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
-
           <label>
             Amount Received
             <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-
           <label class="wide">
             Description / Purpose
             <textarea data-field="description" placeholder="Coupon sold for..." ${locked}>${escapeHtml(coupon.description)}</textarea>
@@ -764,7 +675,6 @@ function renderEntryList() {
     `;
   }).join("");
 
-  // Attach input listeners
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
     field.addEventListener("input", updateCouponField);
   });
