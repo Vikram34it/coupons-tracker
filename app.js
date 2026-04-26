@@ -5,7 +5,6 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "pending";
 let activeDevoteeTab = "assigned";  // ✅ default
 const els = {};
 const firebaseSync = {
@@ -203,23 +202,19 @@ function bindEvents() {
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
 
-  document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
-    tab.addEventListener("click", () => {
-      activeDevoteeTab = tab.dataset.devoteeTab;
-      document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
-      tab.classList.add("active");
-      renderEntryList();
-    });
+ document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    activeDevoteeTab = tab.dataset.devoteeTab;
+
+    document.querySelectorAll("[data-devotee-tab]").forEach((item) =>
+      item.classList.remove("active")
+    );
+
+    tab.classList.add("active");
+
+    renderEntryList();
   });
-  document.querySelectorAll("[data-devotee-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      activeDevoteeTab = tab.dataset.devoteeTab;
-  
-      document.querySelectorAll("[data-devotee-tab]").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-  
-      renderEntryList();
-  });
+});
 });
 
 }
