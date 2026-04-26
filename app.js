@@ -481,6 +481,11 @@ function renderStats() {
 }
 
 function renderDevotees() {
+  // 🔒 Prevent devotees from seeing admin dashboard
+if (session?.role === "devotee") {
+  if (els.devoteeList) els.devoteeList.innerHTML = "";
+  return;
+}
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
   const devotees = state.devotees.filter((devotee) => {
