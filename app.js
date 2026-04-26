@@ -9,7 +9,7 @@ let activeDevoteeTab = "assigned";  // ✅ default
 const els = {};
 const firebaseSync = {
   enabled: false,
-  ready: false,
+  ready: false,f
   applyingRemote: false,
   ref: null,
   writeTimer: 0
@@ -18,7 +18,6 @@ const firebaseSync = {
 document.addEventListener("DOMContentLoaded", () => {
   cacheElements();
   bindEvents();
-  render();
   initFirebaseSync();
 });
 
@@ -87,22 +86,29 @@ function initFirebaseSync() {
       .finally(() => {
         firebaseSync.ref = window.firebase.database().ref(firebaseOptions.databasePath || "couponTracker/appState");
         firebaseSync.ref.on("value", (snapshot) => {
-          if (snapshot.exists()) {
-            firebaseSync.applyingRemote = true;
-            replaceState(normalizeStateData(snapshot.val()));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            firebaseSync.applyingRemote = false;
-            firebaseSync.ready = true;
-            updateSyncBadge("Realtime");
-            render();
-          } else {
-            firebaseSync.ready = true;
-            updateSyncBadge("Realtime");
-            queueFirebaseWrite(true);
-          }
-        }, () => {
-          updateSyncBadge("Realtime error");
-        });
+  if (snapshot.exists()) {
+    firebaseSync.applyingRemote = true;
+
+    replaceState(normalizeStateData(snapshot.val()));
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+    firebaseSync.applyingRemote = false;
+    firebaseSync.ready = true;
+
+    updateSyncBadge("Realtime");
+
+    // ✅ FORCE FULL RENDER AFTER DATA
+    renderSelectors();   // VERY IMPORTANT
+    render();
+
+  } else {
+    firebaseSync.ready = true;
+    updateSyncBadge("Realtime");
+    queueFirebaseWrite(true);
+  }
+});
+        
       });
   } catch {
     updateSyncBadge("Local");
