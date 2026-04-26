@@ -20,6 +20,7 @@ This is a browser app for tracking coupon assignment, sale, and settlement.
 - Shows devotees a dashboard with issued, sold, left, amount settled, amount pending, and settled coupon count.
 - Shows devotees pending coupons and settled coupons in separate tabs.
 - Shows totals for assigned coupons, sold coupons, and money received.
+- Can sync data in realtime through Firebase Realtime Database.
 - Exports a CSV report for Excel.
 - Exports and imports a JSON backup.
 
@@ -48,6 +49,31 @@ Admin can reset a devotee PIN at any time.
 
 ## Important note
 
-This first version stores data and passwords in the browser on the same computer. Use the Export button regularly to keep a backup.
+Without Firebase, this app stores data and passwords in the browser on the same computer. Use the Export button regularly to keep a backup.
 
-If devotees need to enter coupon details from their own phones at the same time, the next version should use a shared online database and login links for each devotee.
+With Firebase configured, the app syncs one shared live database across devices.
+
+## Realtime Firebase Setup
+
+1. Go to `https://console.firebase.google.com/`.
+2. Create a Firebase project.
+3. Add a Web app and copy the Firebase config.
+4. Go to Build -> Realtime Database and create a database.
+5. Go to Build -> Authentication -> Sign-in method and enable Anonymous sign-in.
+6. Edit `firebase-config.js`.
+7. Paste your Firebase config into `config`.
+8. Change `enabled: false` to `enabled: true`.
+9. Upload `index.html`, `styles.css`, `app.js`, `README.md`, and `firebase-config.js` to GitHub.
+
+Suggested temporary Realtime Database rules while testing:
+
+```json
+{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
+```
+
+This gives all app users access to the same shared database after anonymous sign-in. For stronger production security, use Firebase Authentication accounts and role-based rules.
