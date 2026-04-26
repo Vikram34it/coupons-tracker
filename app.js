@@ -460,6 +460,14 @@ function applyRoleAccess() {
     document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
     document.getElementById("devoteeView").classList.add("active");
   }
+
+    // 🔒 Hide Devotee Dashboard for non-admin users
+  const adminDashboard = document.getElementById("adminDevoteeDashboard");
+
+  if (adminDashboard) {
+    adminDashboard.style.display = isAdmin ? "" : "none";
+  }
+  
 }
 
 function renderStats() {
