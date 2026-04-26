@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "dashboard";
+let activeDevoteeTab = "assigned";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
@@ -614,8 +614,49 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
   if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
+  const coupons = couponsForDevotee(devoteeId);
+  const summary = devoteeSummary(devoteeId);
+
+  const sevaSummary = {};
+  coupons.forEach(c => {
+    const key = c.description || "General";
+    sevaSummary[key] = (sevaSummary[key] || 0) + amountValue(c.amount);
+  });
+
+  els.devoteeStats.innerHTML = ""; // ❌ hide top stats
+
+  els.entryList.innerHTML = `
+    <div class="dashboard-grid">
+
+      <div class="card">
+        <h3>My Dashboard</h3>
+        <p>Issued: ${summary.issued}</p>
+        <p>Sold: ${summary.sold}</p>
+        <p>Pending: ${summary.left}</p>
+        <p>Settled: ${formatMoney(summary.settledAmount)}</p>
+      </div>
+
+      <div class="card">
+        <h3>Total Dashboard</h3>
+        <p>Total Coupons: ${couponTotal()}</p>
+        <p>Total Sold: ${state.coupons.filter(isSold).length}</p>
+        <p>Total Amount: ${formatMoney(state.coupons.reduce((s,c)=>s+amountValue(c.amount),0))}</p>
+      </div>
+
+      <div class="card">
+        <h3>Seva Summary</h3>
+        <table>
+          ${Object.entries(sevaSummary).map(([k,v])=>`
+            <tr>
+              <td>${k}</td>
+              <td>${formatMoney(v)}</td>
+            </tr>
+          `).join("")}
+        </table>
+      </div>
+
+    </div>
+  `;
   return;
 }
   if (!devoteeId) {
@@ -624,12 +665,16 @@ function renderEntryList() {
     return;
   }
 
+ if (activeDevoteeTab === "assigned") {
+  els.devoteeStats.innerHTML = "";
+} else {
   renderDevoteeStats(devoteeId);
+}
   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "assigned") coupons = coupons.filter((coupon) => !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
@@ -637,6 +682,38 @@ function renderEntryList() {
   if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
+if (activeDevoteeTab === "settled") {
+  els.devoteeStats.innerHTML = ""; // hide stats
+
+  els.entryList.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Coupon</th>
+            <th>Buyer</th>
+            <th>Phone</th>
+            <th>Amount</th>
+            <th>Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map(c => `
+            <tr>
+              <td>#${c.number}</td>
+              <td>${c.buyerName || "-"}</td>
+              <td>${c.buyerContact || "-"}</td>
+              <td>${formatMoney(amountValue(c.amount))}</td>
+              <td>${c.receiptNumber || "-"}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+  return;
+}
+  
   if (!coupons.length) {
     els.entryList.innerHTML = activeDevoteeTab === "settled"
       ? `<div class="empty">No settled coupons found.</div>`
