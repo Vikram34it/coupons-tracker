@@ -5,23 +5,34 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "pending";
+let activeDevoteeTab = "dashboard";
+let activeAdminTab = "dashboard";
+let isEditing = false;
 const els = {};
-const firebaseSync = {
-  enabled: false,
-  ready: false,
-  applyingRemote: false,
-  ref: null,
-  writeTimer: 0
-};
 
-document.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
-  initFirebaseSync();
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = true;
+  }
 });
 
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = false;
+  }
+});
+  // Wait until Firebase function exists
+  const waitFirebase = setInterval(() => {
+    if (typeof initFirebaseSync === "function") {
+      clearInterval(waitFirebase);
+      initFirebaseSync();
+    }
+  }, 200);
+});
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
@@ -37,7 +48,27 @@ function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return defaultState();
-    return normalizeStateData(JSON.parse(saved));
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed.devotees) || !Array.isArray(parsed.coupons)) {
+      return defaultState();
+    }
+
+    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || parsed.coupons.length || DEFAULT_TOTAL_COUPONS;
+    const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
+
+    return {
+      settings: {
+        adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons
+      },
+      devotees: parsed.devotees.map((devotee) => ({
+        id: devotee.id,
+        name: devotee.name || "",
+        contact: devotee.contact || "",
+        pin: devotee.pin || generatePin()
+      })),
+      coupons
+    };
   } catch {
     return defaultState();
   }
@@ -45,7 +76,6 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  queueFirebaseWrite();
 }
 
 function loadSession() {
@@ -65,95 +95,9 @@ function saveSession(nextSession) {
   }
 }
 
-function initFirebaseSync() {
-  const firebaseOptions = window.COUPON_TRACKER_FIREBASE;
-  if (!firebaseOptions?.enabled) {
-    updateSyncBadge("Local");
-    return;
-  }
-
-  if (!window.firebase || !firebaseOptions.config?.databaseURL) {
-    updateSyncBadge("Firebase config missing");
-    return;
-  }
-
-  try {
-    firebaseSync.enabled = true;
-    window.firebase.initializeApp(firebaseOptions.config);
-    updateSyncBadge("Connecting...");
-
-    window.firebase.auth().signInAnonymously()
-      .catch(() => null)
-      .finally(() => {
-        firebaseSync.ref = window.firebase.database().ref(firebaseOptions.databasePath || "couponTracker/appState");
-        firebaseSync.ref.on("value", (snapshot) => {
-          if (snapshot.exists()) {
-            firebaseSync.applyingRemote = true;
-            replaceState(normalizeStateData(snapshot.val()));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-            firebaseSync.applyingRemote = false;
-            firebaseSync.ready = true;
-            updateSyncBadge("Realtime");
-            render();
-          } else {
-            firebaseSync.ready = true;
-            updateSyncBadge("Realtime");
-            queueFirebaseWrite(true);
-          }
-        }, () => {
-          updateSyncBadge("Realtime error");
-        });
-      });
-  } catch {
-    updateSyncBadge("Local");
-  }
-}
-
-function queueFirebaseWrite(now = false) {
-  if (!firebaseSync.enabled || !firebaseSync.ready || !firebaseSync.ref || firebaseSync.applyingRemote) return;
-  window.clearTimeout(firebaseSync.writeTimer);
-  const write = () => firebaseSync.ref.set(JSON.parse(JSON.stringify(state))).catch(() => updateSyncBadge("Sync failed"));
-  if (now) {
-    write();
-  } else {
-    firebaseSync.writeTimer = window.setTimeout(write, 300);
-  }
-}
-
-function updateSyncBadge(text) {
-  if (els.syncBadge) els.syncBadge.textContent = text;
-}
-
-function replaceState(nextState) {
-  state.settings = nextState.settings;
-  state.devotees = nextState.devotees;
-  state.coupons = nextState.coupons;
-}
-
-function normalizeStateData(raw) {
-  if (!raw || !Array.isArray(raw.devotees) || !Array.isArray(raw.coupons)) {
-    return defaultState();
-  }
-
-  const totalCoupons = positiveInteger(raw.settings?.totalCoupons) || raw.coupons.length || DEFAULT_TOTAL_COUPONS;
-  return {
-    settings: {
-      adminPassword: raw.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
-      totalCoupons
-    },
-    devotees: raw.devotees.map((devotee) => ({
-      id: devotee.id,
-      name: devotee.name || "",
-      contact: devotee.contact || "",
-      pin: devotee.pin || generatePin()
-    })),
-    coupons: normalizeCoupons(raw.coupons, totalCoupons)
-  };
-}
-
 function cacheElements() {
   [
-    "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle", "syncBadge",
+    "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons",
     "devoteeForm", "devoteeName", "devoteeContact", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
@@ -210,6 +154,18 @@ function bindEvents() {
       renderEntryList();
     });
   });
+
+  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
+
+    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    updateAdminView();
+  });
+});
+  
 }
 
 function login(event) {
@@ -436,6 +392,7 @@ function render() {
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
+  updateAdminView();
 }
 
 function renderSelectors() {
@@ -559,6 +516,9 @@ function renderDevotees() {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-reset-pin="${escapeAttr(devotee.id)}">Reset PIN</button>
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
+          Delete
+        </button>
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
@@ -582,7 +542,41 @@ function renderDevotees() {
       showToast(`New PIN for ${devotee.name}: ${devotee.pin}`);
     });
   });
+els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    deleteDevotee(btn.dataset.deleteDevotee);
+  });
+});
+ }
+
+function deleteDevotee(devoteeId) {
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+  if (!devotee) return;
+
+  const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId);
+
+  if (assignedCoupons.length > 0) {
+    const confirmDelete = confirm(
+      `${devotee.name} has ${assignedCoupons.length} assigned coupons.\n\nDelete anyway?`
+    );
+    if (!confirmDelete) return;
+  }
+
+  // Remove devotee
+  state.devotees = state.devotees.filter(d => d.id !== devoteeId);
+
+  // Unassign coupons
+  state.coupons.forEach(c => {
+    if (c.devoteeId === devoteeId) {
+      c.devoteeId = "";
+    }
+  });
+
+  saveState();
+  render();
+  showToast("Devotee deleted successfully");
 }
+
 
 function renderResetCouponList() {
   if (!els.resetCouponList) return;
@@ -614,6 +608,11 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
+  if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
@@ -666,9 +665,25 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
+          <label>
+            Receipt Number
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
+          </label>
           <label class="wide">
             Description / Purpose
-            <textarea data-field="description" placeholder="Coupon sold for..." ${locked}>${escapeHtml(coupon.description)}</textarea>
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
         </div>
       </article>
@@ -676,7 +691,7 @@ function renderEntryList() {
   }).join("");
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
-    field.addEventListener("input", updateCouponField);
+    field.addEventListener("change", updateCouponField);
   });
 }
 
@@ -699,6 +714,7 @@ function renderAllCoupons() {
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
+      <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>
         <button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">
           ${coupon.settled ? "Settled" : "Mark Settled"}
@@ -765,6 +781,7 @@ function emptyCoupon(number) {
     buyerContact: "",
     amount: "",
     description: "",
+    receiptNumber: "",
     settled: false,
     settledAt: ""
   };
@@ -782,6 +799,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       buyerContact: savedCoupon.buyerContact || "",
       amount: savedCoupon.amount || "",
       description: savedCoupon.description || "",
+      receiptNumber: savedCoupon.receiptNumber || "",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || ""
     };
@@ -866,6 +884,7 @@ function couponSearchText(coupon) {
     coupon.buyerName,
     coupon.buyerContact,
     coupon.amount,
+    coupon.receiptNumber,
     coupon.description,
     coupon.settledAt,
     coupon.settled ? "settled" : "not settled"
@@ -966,7 +985,17 @@ function importBackup(event) {
         throw new Error("Invalid backup");
       }
 
-      replaceState(normalizeStateData(imported));
+      state.settings = {
+        adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
+      };
+      state.devotees = imported.devotees.map((devotee) => ({
+        id: devotee.id,
+        name: devotee.name || "",
+        contact: devotee.contact || "",
+        pin: devotee.pin || generatePin()
+      }));
+      state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
 
       saveState();
       render();
@@ -1015,3 +1044,94 @@ function newId() {
   }
   return `${Date.now()}-${Math.random()}`;
 }
+// ================= FIREBASE SYNC (ADD ONLY THIS) =================
+
+let firebaseReady = false;
+let dbRef = null;
+
+function updateSyncBadge(text) {
+  const badge = document.getElementById("syncBadge");
+  if (badge) badge.textContent = text;
+}
+
+function updateAdminView() {
+  console.log("Active tab:", activeAdminTab);
+
+  document.querySelectorAll("[data-admin-section]").forEach(section => {
+    console.log("Section:", section.dataset.adminSection);
+
+    section.style.display =
+      section.dataset.adminSection === activeAdminTab ? "" : "none";
+  });
+}
+
+function initFirebaseSync() {
+  try {
+    // Check Firebase availability
+    if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
+      updateSyncBadge("Local");
+      return;
+    }
+
+    updateSyncBadge("Connecting...");
+
+    // Initialize Firebase (only once)
+    if (!firebase.apps.length) {
+      firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
+    }
+
+    // Anonymous login
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        firebaseReady = true;
+
+        dbRef = firebase.database().ref(
+          window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
+        );
+
+        // 🔥 Listen to realtime updates
+        dbRef.on("value", (snapshot) => {
+          if (!snapshot.exists()) return;
+        
+          // 🚫 Don't re-render while typing
+          if (isEditing && document.hasFocus()) return;
+        
+          const data = snapshot.val();
+        
+          if (data.settings) state.settings = data.settings;
+          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+        
+          render(); // ✅ safe now
+        });
+
+        updateSyncBadge("Realtime");
+
+        // First-time push if DB empty
+        dbRef.once("value").then((snap) => {
+          if (!snap.exists()) {
+            dbRef.set(state);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Firebase Auth Error:", err);
+        updateSyncBadge("Auth error");
+      });
+
+  } catch (err) {
+    console.error("Firebase Init Error:", err);
+    updateSyncBadge("Error");
+  }
+}
+
+// 🔥 Override saveState (no logic change)
+const originalSaveState = saveState;
+
+saveState = function () {
+  originalSaveState();
+
+  if (firebaseReady && dbRef) {
+    dbRef.set(state);
+  }
+};
