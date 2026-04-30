@@ -608,3 +608,28 @@ td {
   color: #fff;
   border-color: #2c3e50;
 }
+
+/* Hide stats grid and tabs for devotees */
+body.logged-in:has([data-view="devoteeView"]:not(.hidden)) .stats-grid,
+body.logged-in:has([data-view="devoteeView"]:not(.hidden)) .tabs {
+  display: none;
+}
+
+/* Simplify devotee view */
+#devoteeView .section-head h2 {
+  display: none;
+}
+
+#devoteeView .section-head .hint {
+  display: none;
+}
+
+/* Make coupon cards full width for devotees */
+.devotee-view-only .coupon-card {
+  grid-template-columns: 1fr;
+}
+
+/* Clean up the subtabs for devotees */
+.subtabs button[data-devotee-tab="dashboard"] {
+  display: none;
+}
