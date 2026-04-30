@@ -536,22 +536,28 @@ if (session?.role === "devotee") {
     });
   });
 
-  els.devoteeList.querySelectorAll("[data-reset-pin]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const devotee = state.devotees.find((item) => item.id === button.dataset.resetPin);
-      if (!devotee) return;
-      devotee.pin = generatePin();
-      saveState();
-      renderDevotees();
-      renderSelectors();
-      showToast(`New PIN for ${devotee.name}: ${devotee.pin}`);
+      els.devoteeList.querySelectorAll("[data-reset-pin]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const devotee = state.devotees.find((item) => item.id === button.dataset.resetPin);
+          if (!devotee) return;
+          devotee.pin = generatePin();
+          saveState();
+          renderDevotees();
+          renderSelectors();
+          showToast(`New PIN for ${devotee.name}: ${devotee.pin}`);
+        });
+      });
+    els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        deleteDevotee(btn.dataset.deleteDevotee);
+      });
     });
-  });
-els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    deleteDevotee(btn.dataset.deleteDevotee);
-  });
-});
+      // 🔒 Hide Devotee Dashboard for devotees
+    const adminDashboard = document.getElementById("adminDevoteeDashboard");
+    
+    if (adminDashboard) {
+      adminDashboard.style.display = (session?.role === "admin") ? "" : "none";
+    }
  }
 
 function deleteDevotee(devoteeId) {
