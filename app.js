@@ -1111,23 +1111,26 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
-        // 🔥 Listen to realtime updates
+        // 🔥 Listen to realtime updates - REMOVED the isEditing check
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
-        
-          // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) return;
-        
+          
           const data = snapshot.val();
-        
+          
+          // Store current scroll positions or important UI state if needed
+          const wasEditing = isEditing;
+          
+          // Update state with Firebase data
           if (data.settings) state.settings = data.settings;
           if (Array.isArray(data.devotees)) state.devotees = data.devotees;
           if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-        
-          render(); // ✅ safe now
+          
+          // Force re-render
+          render();
+          
+          // Update sync badge to show it's connected
+          updateSyncBadge("Realtime");
         });
-
-        updateSyncBadge("Realtime");
 
         // First-time push if DB empty
         dbRef.once("value").then((snap) => {
@@ -1147,13 +1150,20 @@ function initFirebaseSync() {
   }
 }
 
-// 🔥 Override saveState (no logic change)
+// 🔥 Override saveState (ensure Firebase sync works)
 const originalSaveState = saveState;
 
-saveState = function () {
+window.saveState = function () {
   originalSaveState();
 
   if (firebaseReady && dbRef) {
-    dbRef.set(state);
+    // Use set() instead of update() to ensure complete sync
+    dbRef.set(state).catch(err => {
+      console.error("Firebase sync error:", err);
+      updateSyncBadge("Sync error");
+    });
   }
 };
+
+// Make sure the original function is also preserved
+saveState = window.saveState;
