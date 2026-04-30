@@ -386,15 +386,18 @@ function assignCoupons(event) {
 function render() {
   validateSession();
   renderSelectors();
-  applyRoleAccess();
-  renderStats();
+  applyRoleAccess(); // This now handles hiding/showing everything
+  renderStats(); // This will still run but stats are hidden for devotees via CSS/display
   renderDevotees();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
-  updateAdminView();
+  
+  // Only update admin view for admin users
+  if (session?.role === "admin") {
+    updateAdminView();
+  }
 }
-
 function renderSelectors() {
   const options = state.devotees
     .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
@@ -448,26 +451,30 @@ function applyRoleAccess() {
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   
+  // Hide the entire admin view container
+  const adminViewElement = document.getElementById('adminView');
+  
   if (isDevotee) {
-    // Hide the entire stats grid
+    // Hide the entire admin view
+    if (adminViewElement) adminViewElement.style.display = 'none';
+    
+    // Also hide the admin tabs navigation
+    const adminTabs = document.getElementById('adminTabs');
+    if (adminTabs) adminTabs.style.display = 'none';
+    
+    // Hide the stats grid
     const statsGrid = document.querySelector('.stats-grid');
     if (statsGrid) statsGrid.style.display = 'none';
     
-    // Hide the main navigation tabs
-    const tabs = document.querySelector('.tabs');
-    if (tabs) tabs.style.display = 'none';
-    
-    // Hide admin views completely
-    const adminView = document.querySelector('[data-view="adminView"]');
-    const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
-    if (adminView) adminView.style.display = 'none';
-    if (allCouponsView) allCouponsView.style.display = 'none';
+    // Hide the main navigation tabs (Admin, Devotee Entry, All Coupons)
+    const mainTabs = document.querySelector('.tabs');
+    if (mainTabs) mainTabs.style.display = 'none';
     
     // Show devotee view
     const devoteeView = document.getElementById('devoteeView');
     if (devoteeView) devoteeView.style.display = 'block';
     
-    // Hide the devotee selector (they should only see their own)
+    // Hide the devotee selector
     const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
     if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'none';
     
@@ -504,16 +511,19 @@ function applyRoleAccess() {
     
   } else if (isAdmin) {
     // Show everything for admin
+    if (adminViewElement) adminViewElement.style.display = 'block';
+    
+    const adminTabs = document.getElementById('adminTabs');
+    if (adminTabs) adminTabs.style.display = 'flex';
+    
     const statsGrid = document.querySelector('.stats-grid');
     if (statsGrid) statsGrid.style.display = 'grid';
     
-    const tabs = document.querySelector('.tabs');
-    if (tabs) tabs.style.display = 'grid';
+    const mainTabs = document.querySelector('.tabs');
+    if (mainTabs) mainTabs.style.display = 'grid';
     
-    const adminView = document.querySelector('[data-view="adminView"]');
-    const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
-    if (adminView) adminView.style.display = 'block';
-    if (allCouponsView) allCouponsView.style.display = 'block';
+    const devoteeView = document.getElementById('devoteeView');
+    if (devoteeView) devoteeView.style.display = 'block';
     
     const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
     if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'flex';
@@ -1127,13 +1137,15 @@ function updateSyncBadge(text) {
 }
 
 function updateAdminView() {
-  console.log("Active tab:", activeAdminTab);
-
+  // Only run this if user is admin
+  if (session?.role !== "admin") return;
+  
+  const adminView = document.getElementById('adminView');
+  if (!adminView) return;
+  
+  // Show/hide admin sections based on active tab
   document.querySelectorAll("[data-admin-section]").forEach(section => {
-    console.log("Section:", section.dataset.adminSection);
-
-    section.style.display =
-      section.dataset.adminSection === activeAdminTab ? "" : "none";
+    section.style.display = section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
 }
 
