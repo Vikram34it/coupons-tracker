@@ -451,14 +451,31 @@ function applyRoleAccess() {
   els.entryStatus.classList.toggle("hidden", isDevotee);
   if (isDevotee) els.entryStatus.value = "all";
 
-  document.querySelector('[data-view="adminView"]').classList.toggle("hidden", !isAdmin);
-  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
+  // Show/hide entire view sections
+  const adminView = document.querySelector('[data-view="adminView"]');
+  const devoteeView = document.querySelector('[data-view="devoteeView"]');
+  const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
+  
+  if (adminView) adminView.classList.toggle("hidden", !isAdmin);
+  if (allCouponsView) allCouponsView.classList.toggle("hidden", !isAdmin);
+  
+  // Make sure devotee view is visible for devotees
+  if (devoteeView) devoteeView.classList.toggle("hidden", false);
 
+  // Hide admin tabs navigation for devotees
+  const adminTabs = document.getElementById("adminTabs");
+  if (adminTabs) adminTabs.classList.toggle("hidden", !isAdmin);
+
+  // For devotees, ensure they only see devotee view
   if (isDevotee) {
+    // Deactivate all tabs
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelector('[data-view="devoteeView"]').classList.add("active");
     document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-    document.getElementById("devoteeView").classList.add("active");
+    
+    // Activate only devotee view
+    const devoteeTab = document.querySelector('.tab[data-view="devoteeView"]');
+    if (devoteeTab) devoteeTab.classList.add("active");
+    if (devoteeView) devoteeView.classList.add("active");
   }
 }
 
