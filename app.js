@@ -552,6 +552,14 @@ els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
     deleteDevotee(btn.dataset.deleteDevotee);
   });
 });
+
+  // 🔒 Hide Devotee Dashboard completely for devotees
+const adminDashboard = document.getElementById("adminDashboardSection");
+
+if (adminDashboard) {
+  adminDashboard.style.display = session?.role === "admin" ? "" : "none";
+}
+  
  }
 
 function deleteDevotee(devoteeId) {
