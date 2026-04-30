@@ -447,35 +447,61 @@ function applyRoleAccess() {
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
-  els.entryDevotee.disabled = isDevotee;
-  els.entryStatus.classList.toggle("hidden", isDevotee);
-  if (isDevotee) els.entryStatus.value = "all";
-
-  // Show/hide entire view sections
+  
+  // Hide admin-specific views
   const adminView = document.querySelector('[data-view="adminView"]');
-  const devoteeView = document.querySelector('[data-view="devoteeView"]');
   const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
+  const devoteeView = document.querySelector('[data-view="devoteeView"]');
   
   if (adminView) adminView.classList.toggle("hidden", !isAdmin);
   if (allCouponsView) allCouponsView.classList.toggle("hidden", !isAdmin);
   
-  // Make sure devotee view is visible for devotees
-  if (devoteeView) devoteeView.classList.toggle("hidden", false);
+  // Hide the main stats grid for devotees
+  const statsGrid = document.querySelector('.stats-grid');
+  if (statsGrid) statsGrid.classList.toggle("hidden", isDevotee);
+  
+  // Hide the top tabs for devotees (Admin, Devotee Entry, All Coupons)
+  const tabs = document.querySelector('.tabs');
+  if (tabs) tabs.classList.toggle("hidden", isDevotee);
 
-  // Hide admin tabs navigation for devotees
-  const adminTabs = document.getElementById("adminTabs");
-  if (adminTabs) adminTabs.classList.toggle("hidden", !isAdmin);
-
-  // For devotees, ensure they only see devotee view
   if (isDevotee) {
-    // Deactivate all tabs
-    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    // Ensure devotee view is visible and active
+    if (devoteeView) devoteeView.classList.remove("hidden");
     
-    // Activate only devotee view
-    const devoteeTab = document.querySelector('.tab[data-view="devoteeView"]');
-    if (devoteeTab) devoteeTab.classList.add("active");
-    if (devoteeView) devoteeView.classList.add("active");
+    // Hide admin tabs
+    const adminTabs = document.getElementById("adminTabs");
+    if (adminTabs) adminTabs.classList.add("hidden");
+    
+    // Remove the devotee dashboard section if it exists inside devotee view
+    const devoteeDashboardSection = document.querySelector('#devoteeView .section-head');
+    if (devoteeDashboardSection && devoteeDashboardSection.querySelector('p.hint')?.textContent.includes('Select a devotee')) {
+      // Keep it - that's the devotee selector
+    }
+    
+    // Hide the stats inside devotee view (we'll replace with cleaner UI)
+    const devoteeStats = document.getElementById('devoteeStats');
+    if (devoteeStats) devoteeStats.classList.add("hidden");
+    
+    // Hide the entry controls (search and status filter)
+    const entryControls = document.querySelector('#devoteeView .entry-controls');
+    if (entryControls) entryControls.classList.add("hidden");
+    
+    // Make sure the devotee selector is still visible but simplified
+    if (els.entryDevotee) {
+      els.entryDevotee.disabled = true; // Lock the devotee selector since they can only see their own
+    }
+    
+    // Activate devotee view tabs
+    activeDevoteeTab = "pending"; // Default to pending tab
+    document.querySelectorAll('[data-devotee-tab]').forEach((tab) => {
+      if (tab.dataset.devoteeTab === "pending") {
+        tab.classList.add("active");
+      } else if (tab.dataset.devoteeTab === "settled") {
+        tab.classList.remove("active");
+      } else if (tab.dataset.devoteeTab === "dashboard") {
+        tab.classList.add("hidden"); // Hide dashboard tab completely
+      }
+    });
   }
 }
 
@@ -630,82 +656,79 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-  if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
-  return;
-}
+  
+  // For devotees, always use their own ID
+  if (session?.role === "devotee") {
+    els.entryDevotee.value = session.devoteeId;
+  }
+  
   if (!devoteeId) {
-    els.devoteeStats.innerHTML = "";
-    els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
+    els.entryList.innerHTML = `<div class="empty">No coupons assigned yet.</div>`;
     return;
   }
 
-  renderDevoteeStats(devoteeId);
-  const query = els.entrySearch.value.trim().toLowerCase();
-  const status = els.entryStatus.value;
+  // Remove stats rendering for devotees
+  if (session?.role !== "admin") {
+    if (els.devoteeStats) els.devoteeStats.innerHTML = "";
+  } else {
+    renderDevoteeStats(devoteeId);
+  }
+  
   let coupons = couponsForDevotee(devoteeId);
-
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
-  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
-  if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
-  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
-  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
-  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
+  
+  // Filter based on active tab (simplified for devotees)
+  if (activeDevoteeTab === "pending") {
+    coupons = coupons.filter((coupon) => !coupon.settled);
+  } else if (activeDevoteeTab === "settled") {
+    coupons = coupons.filter((coupon) => coupon.settled);
+  }
 
   if (!coupons.length) {
-    els.entryList.innerHTML = activeDevoteeTab === "settled"
-      ? `<div class="empty">No settled coupons found.</div>`
-      : `<div class="empty">No pending coupons found.</div>`;
+    const message = activeDevoteeTab === "settled" 
+      ? "No settled coupons found." 
+      : "No pending coupons found.";
+    els.entryList.innerHTML = `<div class="empty">${message}</div>`;
     return;
   }
 
   els.entryList.innerHTML = coupons.map((coupon) => {
-    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
+    const isLocked = coupon.settled; // Settled coupons are read-only
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
           <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
+          ${coupon.settled ? '<span class="status settled">Settled</span>' : ''}
         </div>
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Enter buyer name" ${isLocked ? "disabled" : ""}>
           </label>
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone number" ${isLocked ? "disabled" : ""}>
           </label>
           <label>
-            Amount Received
-            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
-          </label>
-          <label>
-            Assigned To
-            <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
+            Amount Received (₹)
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${isLocked ? "disabled" : ""}>
           </label>
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${isLocked ? "disabled" : ""}>
           </label>
           <label class="wide">
-            Description / Purpose
-            <label class="wide">
-              Seva Type
-              <select data-field="description" ${locked}>
-                <option value="">Select Seva</option>
-                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-              </select>
-</label>
+            Seva Type / Purpose
+            <select data-field="description" ${isLocked ? "disabled" : ""}>
+              <option value="">Select Seva</option>
+              <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+              <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+              <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+              <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+              <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+              <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+              <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+            </select>
           </label>
         </div>
       </article>
