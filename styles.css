@@ -616,3 +616,17 @@ td {
   color: #fff;
   border-color: #2c3e50;
 }
+
+/* ===== FIX DEVOTEE TAB ALIGNMENT ===== */
+.subtabs {
+  display: flex !important;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: nowrap;   /* keep in one line */
+}
+
+.subtab {
+  flex: 1;
+  max-width: 200px;
+  text-align: center;
+}
