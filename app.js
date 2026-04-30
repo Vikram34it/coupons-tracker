@@ -386,18 +386,15 @@ function assignCoupons(event) {
 function render() {
   validateSession();
   renderSelectors();
-  applyRoleAccess(); // This now handles hiding/showing everything
-  renderStats(); // This will still run but stats are hidden for devotees via CSS/display
+  applyRoleAccess();
+  renderStats();
   renderDevotees();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
-  
-  // Only update admin view for admin users
-  if (session?.role === "admin") {
-    updateAdminView();
-  }
+  updateAdminView();
 }
+
 function renderSelectors() {
   const options = state.devotees
     .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
@@ -450,96 +447,18 @@ function applyRoleAccess() {
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
-  
-  // Hide the entire admin view container
-  const adminViewElement = document.getElementById('adminView');
-  
+  els.entryDevotee.disabled = isDevotee;
+  els.entryStatus.classList.toggle("hidden", isDevotee);
+  if (isDevotee) els.entryStatus.value = "all";
+
+  document.querySelector('[data-view="adminView"]').classList.toggle("hidden", !isAdmin);
+  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
+
   if (isDevotee) {
-    // Hide the entire admin view
-    if (adminViewElement) adminViewElement.style.display = 'none';
-    
-    // Also hide the admin tabs navigation
-    const adminTabs = document.getElementById('adminTabs');
-    if (adminTabs) adminTabs.style.display = 'none';
-    
-    // Hide the stats grid
-    const statsGrid = document.querySelector('.stats-grid');
-    if (statsGrid) statsGrid.style.display = 'none';
-    
-    // Hide the main navigation tabs (Admin, Devotee Entry, All Coupons)
-    const mainTabs = document.querySelector('.tabs');
-    if (mainTabs) mainTabs.style.display = 'none';
-    
-    // Show devotee view
-    const devoteeView = document.getElementById('devoteeView');
-    if (devoteeView) devoteeView.style.display = 'block';
-    
-    // Hide the devotee selector
-    const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
-    if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'none';
-    
-    // Hide the devotee stats section
-    const devoteeStats = document.getElementById('devoteeStats');
-    if (devoteeStats) devoteeStats.style.display = 'none';
-    
-    // Hide the search and filter controls
-    const entryControls = document.querySelector('#devoteeView .entry-controls');
-    if (entryControls) entryControls.style.display = 'none';
-    
-    // Hide the "dashboard" tab in the subtabs
-    const dashboardTab = document.querySelector('[data-devotee-tab="dashboard"]');
-    if (dashboardTab) dashboardTab.style.display = 'none';
-    
-    // Make sure the devotee's ID is set
-    if (els.entryDevotee) {
-      els.entryDevotee.value = session.devoteeId;
-    }
-    
-    // Set active tab to pending
-    activeDevoteeTab = "pending";
-    
-    // Update subtab active states
-    document.querySelectorAll('[data-devotee-tab]').forEach((tab) => {
-      tab.classList.remove("active");
-      if (tab.dataset.devoteeTab === "pending") {
-        tab.classList.add("active");
-      }
-    });
-    
-    // Re-render the entry list
-    renderEntryList();
-    
-  } else if (isAdmin) {
-    // Show everything for admin
-    if (adminViewElement) adminViewElement.style.display = 'block';
-    
-    const adminTabs = document.getElementById('adminTabs');
-    if (adminTabs) adminTabs.style.display = 'flex';
-    
-    const statsGrid = document.querySelector('.stats-grid');
-    if (statsGrid) statsGrid.style.display = 'grid';
-    
-    const mainTabs = document.querySelector('.tabs');
-    if (mainTabs) mainTabs.style.display = 'grid';
-    
-    const devoteeView = document.getElementById('devoteeView');
-    if (devoteeView) devoteeView.style.display = 'block';
-    
-    const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
-    if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'flex';
-    
-    const devoteeStats = document.getElementById('devoteeStats');
-    if (devoteeStats) devoteeStats.style.display = 'grid';
-    
-    const entryControls = document.querySelector('#devoteeView .entry-controls');
-    if (entryControls) entryControls.style.display = 'flex';
-    
-    const dashboardTab = document.querySelector('[data-devotee-tab="dashboard"]');
-    if (dashboardTab) dashboardTab.style.display = 'inline-flex';
-    
-    if (els.entryDevotee) {
-      els.entryDevotee.disabled = false;
-    }
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelector('[data-view="devoteeView"]').classList.add("active");
+    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    document.getElementById("devoteeView").classList.add("active");
   }
 }
 
@@ -694,78 +613,82 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-  
-  // For devotees, always use their own ID and skip stats
-  if (session?.role === "devotee") {
-    if (els.entryDevotee) els.entryDevotee.value = session.devoteeId;
-    // Skip stats rendering entirely for devotees
-  } else {
-    // Only render stats for admin
-    if (devoteeId) renderDevoteeStats(devoteeId);
-  }
-  
-  if (!devoteeId && session?.role !== "devotee") {
-    els.entryList.innerHTML = `<div class="empty">Select a devotee to see their coupons.</div>`;
+  if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
+  if (!devoteeId) {
+    els.devoteeStats.innerHTML = "";
+    els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
-  
-  // Get coupons - for devotee, use session ID
-  const targetDevoteeId = session?.role === "devotee" ? session.devoteeId : devoteeId;
-  let coupons = couponsForDevotee(targetDevoteeId);
-  
-  // Filter based on active tab
-  if (activeDevoteeTab === "pending") {
-    coupons = coupons.filter((coupon) => !coupon.settled);
-  } else if (activeDevoteeTab === "settled") {
-    coupons = coupons.filter((coupon) => coupon.settled);
-  }
+
+  renderDevoteeStats(devoteeId);
+  const query = els.entrySearch.value.trim().toLowerCase();
+  const status = els.entryStatus.value;
+  let coupons = couponsForDevotee(devoteeId);
+
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "sold") coupons = coupons.filter(isSold);
+  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   if (!coupons.length) {
-    const message = activeDevoteeTab === "settled" 
-      ? "No settled coupons found." 
-      : "No pending coupons found.";
-    els.entryList.innerHTML = `<div class="empty">${message}</div>`;
+    els.entryList.innerHTML = activeDevoteeTab === "settled"
+      ? `<div class="empty">No settled coupons found.</div>`
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
   els.entryList.innerHTML = coupons.map((coupon) => {
-    const isLocked = coupon.settled;
+    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
           <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
-          ${coupon.settled ? '<span class="status settled">Settled</span>' : ''}
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
         </div>
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Enter buyer name" ${isLocked ? "disabled" : ""}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone number" ${isLocked ? "disabled" : ""}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
           <label>
-            Amount Received (₹)
-            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${isLocked ? "disabled" : ""}>
+            Amount Received
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
+          </label>
+          <label>
+            Assigned To
+            <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${isLocked ? "disabled" : ""}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
           <label class="wide">
-            Seva Type / Purpose
-            <select data-field="description" ${isLocked ? "disabled" : ""}>
-              <option value="">Select Seva</option>
-              <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-              <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-              <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-              <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-              <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-              <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-              <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-            </select>
+            Description / Purpose
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
         </div>
       </article>
@@ -1137,15 +1060,13 @@ function updateSyncBadge(text) {
 }
 
 function updateAdminView() {
-  // Only run this if user is admin
-  if (session?.role !== "admin") return;
-  
-  const adminView = document.getElementById('adminView');
-  if (!adminView) return;
-  
-  // Show/hide admin sections based on active tab
+  console.log("Active tab:", activeAdminTab);
+
   document.querySelectorAll("[data-admin-section]").forEach(section => {
-    section.style.display = section.dataset.adminSection === activeAdminTab ? "" : "none";
+    console.log("Section:", section.dataset.adminSection);
+
+    section.style.display =
+      section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
 }
 
@@ -1173,26 +1094,23 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
-        // 🔥 Listen to realtime updates - REMOVED the isEditing check
+        // 🔥 Listen to realtime updates
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
-          
+        
+          // 🚫 Don't re-render while typing
+          if (isEditing && document.hasFocus()) return;
+        
           const data = snapshot.val();
-          
-          // Store current scroll positions or important UI state if needed
-          const wasEditing = isEditing;
-          
-          // Update state with Firebase data
+        
           if (data.settings) state.settings = data.settings;
           if (Array.isArray(data.devotees)) state.devotees = data.devotees;
           if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-          
-          // Force re-render
-          render();
-          
-          // Update sync badge to show it's connected
-          updateSyncBadge("Realtime");
+        
+          render(); // ✅ safe now
         });
+
+        updateSyncBadge("Realtime");
 
         // First-time push if DB empty
         dbRef.once("value").then((snap) => {
@@ -1212,20 +1130,13 @@ function initFirebaseSync() {
   }
 }
 
-// 🔥 Override saveState (ensure Firebase sync works)
+// 🔥 Override saveState (no logic change)
 const originalSaveState = saveState;
 
-window.saveState = function () {
+saveState = function () {
   originalSaveState();
 
   if (firebaseReady && dbRef) {
-    // Use set() instead of update() to ensure complete sync
-    dbRef.set(state).catch(err => {
-      console.error("Firebase sync error:", err);
-      updateSyncBadge("Sync error");
-    });
+    dbRef.set(state);
   }
 };
-
-// Make sure the original function is also preserved
-saveState = window.saveState;
