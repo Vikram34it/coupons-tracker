@@ -1195,21 +1195,20 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
-        // 🔥 Listen to realtime updates
-        dbRef.on("value", (snapshot) => {
-          if (!snapshot.exists()) return;
-        
-          // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) return;
-        
-          const data = snapshot.val();
-        
-          if (data.settings) state.settings = data.settings;
-          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
-          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-        
-          render(); // ✅ safe now
-        });
+     dbRef.on("value", (snapshot) => {
+        if (!snapshot.exists()) return;
+      
+        const data = snapshot.val();
+      
+        if (data.settings) state.settings = data.settings;
+        if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+        if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+      
+        // ✅ VERY IMPORTANT (this fixes missing names)
+        renderSelectors();
+      
+        render();
+      });
 
         updateSyncBadge("Realtime");
 
