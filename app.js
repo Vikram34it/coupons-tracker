@@ -3,7 +3,11 @@ const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
-const state = loadState();
+const state = {
+  settings: {},
+  devotees: [],
+  coupons: []
+};
 let session = loadSession();
 let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
@@ -1098,16 +1102,13 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
         
-          // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) return;
-        
           const data = snapshot.val();
         
-          if (data.settings) state.settings = data.settings;
-          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
-          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+          state.settings = data.settings || {};
+          state.devotees = data.devotees || [];
+          state.coupons = data.coupons || [];
         
-          render(); // ✅ safe now
+          render();   // ✅ only render AFTER Firebase
         });
 
         updateSyncBadge("Realtime");
