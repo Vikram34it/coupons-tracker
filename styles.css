@@ -222,11 +222,19 @@ main {
   background: #e9e4da;
   border: 1px solid var(--line);
   border-radius: 8px;
-  display: inline-grid;
-  gap: 4px;
+  display: flex;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(140px, 1fr));
   margin-bottom: 14px;
   padding: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.subtab {
+  flex: 1;
+  min-width: 150px;
+  text-align: center;
 }
 
 .tab,
