@@ -448,60 +448,88 @@ function applyRoleAccess() {
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   
-  // Hide admin-specific views
-  const adminView = document.querySelector('[data-view="adminView"]');
-  const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
-  const devoteeView = document.querySelector('[data-view="devoteeView"]');
-  
-  if (adminView) adminView.classList.toggle("hidden", !isAdmin);
-  if (allCouponsView) allCouponsView.classList.toggle("hidden", !isAdmin);
-  
-  // Hide the main stats grid for devotees
-  const statsGrid = document.querySelector('.stats-grid');
-  if (statsGrid) statsGrid.classList.toggle("hidden", isDevotee);
-  
-  // Hide the top tabs for devotees (Admin, Devotee Entry, All Coupons)
-  const tabs = document.querySelector('.tabs');
-  if (tabs) tabs.classList.toggle("hidden", isDevotee);
-
   if (isDevotee) {
-    // Ensure devotee view is visible and active
-    if (devoteeView) devoteeView.classList.remove("hidden");
+    // Hide the entire stats grid
+    const statsGrid = document.querySelector('.stats-grid');
+    if (statsGrid) statsGrid.style.display = 'none';
     
-    // Hide admin tabs
-    const adminTabs = document.getElementById("adminTabs");
-    if (adminTabs) adminTabs.classList.add("hidden");
+    // Hide the main navigation tabs
+    const tabs = document.querySelector('.tabs');
+    if (tabs) tabs.style.display = 'none';
     
-    // Remove the devotee dashboard section if it exists inside devotee view
-    const devoteeDashboardSection = document.querySelector('#devoteeView .section-head');
-    if (devoteeDashboardSection && devoteeDashboardSection.querySelector('p.hint')?.textContent.includes('Select a devotee')) {
-      // Keep it - that's the devotee selector
-    }
+    // Hide admin views completely
+    const adminView = document.querySelector('[data-view="adminView"]');
+    const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
+    if (adminView) adminView.style.display = 'none';
+    if (allCouponsView) allCouponsView.style.display = 'none';
     
-    // Hide the stats inside devotee view (we'll replace with cleaner UI)
+    // Show devotee view
+    const devoteeView = document.getElementById('devoteeView');
+    if (devoteeView) devoteeView.style.display = 'block';
+    
+    // Hide the devotee selector (they should only see their own)
+    const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
+    if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'none';
+    
+    // Hide the devotee stats section
     const devoteeStats = document.getElementById('devoteeStats');
-    if (devoteeStats) devoteeStats.classList.add("hidden");
+    if (devoteeStats) devoteeStats.style.display = 'none';
     
-    // Hide the entry controls (search and status filter)
+    // Hide the search and filter controls
     const entryControls = document.querySelector('#devoteeView .entry-controls');
-    if (entryControls) entryControls.classList.add("hidden");
+    if (entryControls) entryControls.style.display = 'none';
     
-    // Make sure the devotee selector is still visible but simplified
+    // Hide the "dashboard" tab in the subtabs
+    const dashboardTab = document.querySelector('[data-devotee-tab="dashboard"]');
+    if (dashboardTab) dashboardTab.style.display = 'none';
+    
+    // Make sure the devotee's ID is set
     if (els.entryDevotee) {
-      els.entryDevotee.disabled = true; // Lock the devotee selector since they can only see their own
+      els.entryDevotee.value = session.devoteeId;
     }
     
-    // Activate devotee view tabs
-    activeDevoteeTab = "pending"; // Default to pending tab
+    // Set active tab to pending
+    activeDevoteeTab = "pending";
+    
+    // Update subtab active states
     document.querySelectorAll('[data-devotee-tab]').forEach((tab) => {
+      tab.classList.remove("active");
       if (tab.dataset.devoteeTab === "pending") {
         tab.classList.add("active");
-      } else if (tab.dataset.devoteeTab === "settled") {
-        tab.classList.remove("active");
-      } else if (tab.dataset.devoteeTab === "dashboard") {
-        tab.classList.add("hidden"); // Hide dashboard tab completely
       }
     });
+    
+    // Re-render the entry list
+    renderEntryList();
+    
+  } else if (isAdmin) {
+    // Show everything for admin
+    const statsGrid = document.querySelector('.stats-grid');
+    if (statsGrid) statsGrid.style.display = 'grid';
+    
+    const tabs = document.querySelector('.tabs');
+    if (tabs) tabs.style.display = 'grid';
+    
+    const adminView = document.querySelector('[data-view="adminView"]');
+    const allCouponsView = document.querySelector('[data-view="allCouponsView"]');
+    if (adminView) adminView.style.display = 'block';
+    if (allCouponsView) allCouponsView.style.display = 'block';
+    
+    const entryDevoteeLabel = els.entryDevotee?.closest('.section-head');
+    if (entryDevoteeLabel) entryDevoteeLabel.style.display = 'flex';
+    
+    const devoteeStats = document.getElementById('devoteeStats');
+    if (devoteeStats) devoteeStats.style.display = 'grid';
+    
+    const entryControls = document.querySelector('#devoteeView .entry-controls');
+    if (entryControls) entryControls.style.display = 'flex';
+    
+    const dashboardTab = document.querySelector('[data-devotee-tab="dashboard"]');
+    if (dashboardTab) dashboardTab.style.display = 'inline-flex';
+    
+    if (els.entryDevotee) {
+      els.entryDevotee.disabled = false;
+    }
   }
 }
 
@@ -657,26 +685,25 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
   
-  // For devotees, always use their own ID
+  // For devotees, always use their own ID and skip stats
   if (session?.role === "devotee") {
-    els.entryDevotee.value = session.devoteeId;
+    if (els.entryDevotee) els.entryDevotee.value = session.devoteeId;
+    // Skip stats rendering entirely for devotees
+  } else {
+    // Only render stats for admin
+    if (devoteeId) renderDevoteeStats(devoteeId);
   }
   
-  if (!devoteeId) {
-    els.entryList.innerHTML = `<div class="empty">No coupons assigned yet.</div>`;
+  if (!devoteeId && session?.role !== "devotee") {
+    els.entryList.innerHTML = `<div class="empty">Select a devotee to see their coupons.</div>`;
     return;
   }
-
-  // Remove stats rendering for devotees
-  if (session?.role !== "admin") {
-    if (els.devoteeStats) els.devoteeStats.innerHTML = "";
-  } else {
-    renderDevoteeStats(devoteeId);
-  }
   
-  let coupons = couponsForDevotee(devoteeId);
+  // Get coupons - for devotee, use session ID
+  const targetDevoteeId = session?.role === "devotee" ? session.devoteeId : devoteeId;
+  let coupons = couponsForDevotee(targetDevoteeId);
   
-  // Filter based on active tab (simplified for devotees)
+  // Filter based on active tab
   if (activeDevoteeTab === "pending") {
     coupons = coupons.filter((coupon) => !coupon.settled);
   } else if (activeDevoteeTab === "settled") {
@@ -692,7 +719,7 @@ function renderEntryList() {
   }
 
   els.entryList.innerHTML = coupons.map((coupon) => {
-    const isLocked = coupon.settled; // Settled coupons are read-only
+    const isLocked = coupon.settled;
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
