@@ -179,7 +179,21 @@
 </div>
         
 <div data-admin-section="dashboard">
-        
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Devotee Dashboard</h2>
+              <p id="adminPeriodSummary" class="hint"></p>
+            </div>
+            <div class="entry-controls compact">
+              <input id="devoteeSearch" type="search" placeholder="Search devotees">
+              <input id="settledFromDate" type="date" title="Settled from date">
+              <input id="settledToDate" type="date" title="Settled to date">
+            </div>
+          </div>
+          <div id="devoteeList" class="devotee-list"></div>
+        </section>
+      </section>
     </div>
       <section id="devoteeView" class="view">
         <section class="panel">
@@ -191,8 +205,9 @@
             <select id="entryDevotee"></select>
           </div>
           <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
-          <nav class="subtabs">
-            <button class="subtab active" data-devotee-tab="assigned">Assigned</button>
+           <nav class="subtabs" aria-label="Devotee coupon views">
+            <button class="subtab active" type="button" data-devotee-tab="dashboard">Dashboard</button>
+           <button class="subtab active" data-devotee-tab="assigned">Assigned</button>
             <button class="subtab" data-devotee-tab="settled">Settled</button>
             <button class="subtab" data-devotee-tab="dashboard">Dashboard</button>
           </nav>

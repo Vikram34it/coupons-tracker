@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "assigned";
+let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
@@ -613,184 +613,83 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-
-  // 1️⃣ Check devotee selected
+  if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-  // 2️⃣ DASHBOARD TAB (ALL DASHBOARDS HERE)
-  if (activeDevoteeTab === "dashboard") {
-    const coupons = couponsForDevotee(devoteeId);
-    const summary = devoteeSummary(devoteeId);
-
-    const sevaSummary = {};
-    coupons.forEach(c => {
-      const key = c.description || "General";
-      sevaSummary[key] = (sevaSummary[key] || 0) + amountValue(c.amount);
-    });
-
-    // hide top stats
-    els.devoteeStats.innerHTML = "";
-
-    els.entryList.innerHTML = `
-      <div class="dashboard-grid">
-
-        <div class="card">
-          <h3>My Dashboard</h3>
-          <p>Issued: ${summary.issued}</p>
-          <p>Sold: ${summary.sold}</p>
-          <p>Pending: ${summary.left}</p>
-          <p>Settled: ${formatMoney(summary.settledAmount)}</p>
-        </div>
-
-        <div class="card">
-          <h3>Total Dashboard</h3>
-          <p>Total Coupons: ${couponTotal()}</p>
-          <p>Total Sold: ${state.coupons.filter(isSold).length}</p>
-          <p>Total Amount: ${formatMoney(state.coupons.reduce((s,c)=>s+amountValue(c.amount),0))}</p>
-        </div>
-
-        <div class="card">
-          <h3>Seva Summary</h3>
-          <table>
-            ${Object.entries(sevaSummary).map(([k,v])=>`
-              <tr>
-                <td>${k}</td>
-                <td>${formatMoney(v)}</td>
-              </tr>
-            `).join("")}
-          </table>
-        </div>
-
-      </div>
-    `;
-    return;
-  }
-
-  // 3️⃣ FILTERING
+  renderDevoteeStats(devoteeId);
   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "assigned") {
-    coupons = coupons.filter(c => !c.settled);
-  }
-
-  if (activeDevoteeTab === "settled") {
-    coupons = coupons.filter(c => c.settled);
-  }
-
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "unsold") coupons = coupons.filter(c => !isSold(c));
-  if (status === "settled") coupons = coupons.filter(c => c.settled);
-  if (status === "unsettled") coupons = coupons.filter(c => !c.settled);
-  if (query) coupons = coupons.filter(c => couponSearchText(c).includes(query));
-
-  // 4️⃣ SETTLED TAB (TABLE VIEW)
-  if (activeDevoteeTab === "settled") {
-    els.devoteeStats.innerHTML = "";
-
-    els.entryList.innerHTML = `
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Coupon</th>
-              <th>Buyer</th>
-              <th>Phone</th>
-              <th>Amount</th>
-              <th>Receipt</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${coupons.map(c => `
-              <tr>
-                <td>#${c.number}</td>
-                <td>${c.buyerName || "-"}</td>
-                <td>${c.buyerContact || "-"}</td>
-                <td>${formatMoney(amountValue(c.amount))}</td>
-                <td>${c.receiptNumber || "-"}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-    return;
-  }
-
-  // 5️⃣ ASSIGNED TAB (DEFAULT)
-  if (activeDevoteeTab === "assigned") {
-    els.devoteeStats.innerHTML = ""; // hide dashboard
-  } else {
-    renderDevoteeStats(devoteeId);
-  }
+  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   if (!coupons.length) {
-    els.entryList.innerHTML = `<div class="empty">No coupons found.</div>`;
+    els.entryList.innerHTML = activeDevoteeTab === "settled"
+      ? `<div class="empty">No settled coupons found.</div>`
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
-  // 6️⃣ NORMAL CARD VIEW (EDITABLE)
   els.entryList.innerHTML = coupons.map((coupon) => {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
-
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">
-            ${isSold(coupon) ? "Sold" : "Pending"}
-          </span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">
-            ${coupon.settled ? "Settled" : "Not Settled"}
-          </span>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
         </div>
-
         <div class="coupon-fields">
-
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" ${locked}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
-
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" ${locked}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
-
           <label>
             Amount Received
-            <input data-field="amount" type="number" value="${escapeAttr(coupon.amount)}" ${locked}>
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
-
-          <label>
-            Seva Type
-            <select data-field="description" ${locked}>
-              <option value="">Select Seva</option>
-              <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-              <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-              <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-              <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-              <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-              <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-              <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-            </select>
+          <label class="wide">
+            Description / Purpose
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
-
         </div>
       </article>
     `;
@@ -1195,20 +1094,21 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
-     dbRef.on("value", (snapshot) => {
-        if (!snapshot.exists()) return;
-      
-        const data = snapshot.val();
-      
-        if (data.settings) state.settings = data.settings;
-        if (Array.isArray(data.devotees)) state.devotees = data.devotees;
-        if (Array.isArray(data.coupons)) state.coupons = data.coupons;
-      
-        // ✅ VERY IMPORTANT (this fixes missing names)
-        renderSelectors();
-      
-        render();
-      });
+        // 🔥 Listen to realtime updates
+        dbRef.on("value", (snapshot) => {
+          if (!snapshot.exists()) return;
+        
+          // 🚫 Don't re-render while typing
+          if (isEditing && document.hasFocus()) return;
+        
+          const data = snapshot.val();
+        
+          if (data.settings) state.settings = data.settings;
+          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+        
+          render(); // ✅ safe now
+        });
 
         updateSyncBadge("Realtime");
 
