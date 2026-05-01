@@ -207,20 +207,6 @@ main {
   margin-top: 6px;
 }
 
-body.devotee-session .global-stats,
-body.devotee-session .main-tabs,
-body.devotee-session .devotee-entry-head,
-body.devotee-session [data-admin-section],
-body.devotee-session #adminView,
-body.devotee-session #allCouponsView {
-  display: none !important;
-}
-
-body.devotee-session main {
-  max-width: 980px;
-  padding-top: 14px;
-}
-
 .tabs {
   background: #e9e4da;
   border: 1px solid var(--line);
@@ -238,7 +224,7 @@ body.devotee-session main {
   border-radius: 8px;
   display: inline-grid;
   gap: 4px;
-  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
   margin-bottom: 14px;
   padding: 4px;
 }
@@ -490,18 +476,10 @@ textarea {
   overflow: auto;
 }
 
-.seva-summary .section-head {
-  margin-top: 4px;
-}
-
 table {
   border-collapse: collapse;
   min-width: 1080px;
   width: 100%;
-}
-
-.seva-summary table {
-  min-width: 620px;
 }
 
 th,

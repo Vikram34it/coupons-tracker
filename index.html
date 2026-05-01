@@ -14,8 +14,8 @@
         <label>
           Login Type
           <select id="loginRole">
-            <option value="devotee" selected>Devotee</option>
             <option value="admin">Admin</option>
+            <option value="devotee">Devotee</option>
           </select>
         </label>
         <label id="loginDevoteeLabel" class="hidden">
@@ -50,7 +50,7 @@
     </header>
 
     <main>
-      <section class="stats-grid global-stats" aria-label="Coupon summary">
+      <section class="stats-grid" aria-label="Coupon summary">
         <article>
           <span>Total Coupons</span>
           <strong id="totalCoupons">0</strong>
@@ -73,7 +73,7 @@
         </article>
       </section>
 
-      <nav class="tabs main-tabs" aria-label="Views">
+      <nav class="tabs" aria-label="Views">
         <button class="tab active" type="button" data-view="adminView">Admin</button>
         <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
         <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
@@ -197,7 +197,7 @@
     </div>
       <section id="devoteeView" class="view">
         <section class="panel">
-          <div class="section-head devotee-entry-head">
+          <div class="section-head">
             <div>
               <h2>Devotee Coupon Entry</h2>
               <p class="hint">Select a devotee to see only coupons assigned to them.</p>
@@ -206,9 +206,9 @@
           </div>
           <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
            <nav class="subtabs" aria-label="Devotee coupon views">
-            <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
+            <button class="subtab active" type="button" data-devotee-tab="dashboard">Dashboard</button>
+            <button class="subtab" type="button" data-devotee-tab="pending">Pending Coupons</button>
             <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
-            <button class="subtab" type="button" data-devotee-tab="dashboard">Main Dashboard</button>
           </nav>
           <div class="entry-controls">
             <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
