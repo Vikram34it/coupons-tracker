@@ -127,9 +127,6 @@ button:hover,
   margin-top: 10px;
 }
 
-.stats-grid[style*="display: none"] {
-  margin-bottom: 0;
-}
 
 .topbar {
   align-items: center;
