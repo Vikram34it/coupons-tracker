@@ -407,24 +407,25 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-  // 🔥 CONTROL DASHBOARD VISIBILITY (MAIN LOGIC)
+// 🔥 CONTROL STATS VISIBILITY (FINAL FIX)
+
+const statsSection = document.querySelector(".stats-grid");
+const devoteeStats = document.getElementById("devoteeStats");
+
 if (session?.role === "devotee") {
-
-  // Top stats (Total, Assigned, etc.)
-  const topStats = document.querySelector(".stats-grid");
-
-  // Devotee stats (Coupons Issued, etc.)
-  const devoteeStats = document.getElementById("devoteeStats");
-
   const showDashboard = activeDevoteeTab === "dashboard";
 
-  if (topStats) {
-    topStats.style.display = showDashboard ? "grid" : "none";
+  if (statsSection) {
+    statsSection.style.display = showDashboard ? "grid" : "none";
   }
 
   if (devoteeStats) {
     devoteeStats.style.display = showDashboard ? "grid" : "none";
   }
+} else {
+  // ✅ Admin → always visible
+  if (statsSection) statsSection.style.display = "grid";
+  if (devoteeStats) devoteeStats.style.display = "grid";
 }
 }
 
