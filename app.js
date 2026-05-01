@@ -519,9 +519,12 @@ if (session?.role === "devotee") {
     return `
       <article class="devotee-row">
         <div>
-          <strong>${escapeHtml(devotee.name)}</strong>
-          <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-          <span class="small-stat">Password: <strong>${devotee.pin ? "Set" : "Not set"}</strong></span>
+            <strong>
+              ${escapeHtml(devotee.name)}
+              <span class="small-stat">(PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})</span>
+            </strong>
+            
+            <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
           <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
         </div>
         <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
