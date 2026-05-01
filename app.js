@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "dashboard";
+let activeDevoteeTab = "pending"; // Changed default to "pending"
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
@@ -100,7 +100,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast", "sevaSummaryTable", "devoteeSevaSummaryTable"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -131,7 +131,11 @@ function bindEvents() {
   els.devoteeSearch.addEventListener("input", renderDevotees);
   els.settledFromDate.addEventListener("change", renderDevotees);
   els.settledToDate.addEventListener("change", renderDevotees);
-  els.entryDevotee.addEventListener("change", renderEntryList);
+  els.entryDevotee.addEventListener("change", () => {
+    renderEntryList();
+    renderSevaSummary();
+    renderDevoteeSevaSummary();
+  });
   els.entrySearch.addEventListener("input", renderEntryList);
   els.entryStatus.addEventListener("change", renderEntryList);
   els.allSearch.addEventListener("input", renderAllCoupons);
@@ -146,6 +150,8 @@ function bindEvents() {
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
       renderEntryList();
+      renderSevaSummary();
+      renderDevoteeSevaSummary();
     });
   });
 
@@ -158,6 +164,7 @@ function bindEvents() {
 
     activateView("adminView");
     updateAdminView();
+    renderSevaSummary();
   });
 });
   
@@ -407,6 +414,8 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+  renderSevaSummary();
+  renderDevoteeSevaSummary();
 }
 
 function renderSelectors() {
@@ -635,11 +644,18 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
+  
   if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
-  return;
-}
+    renderDevoteeStats(devoteeId);
+    els.entryList.innerHTML = "";
+    return;
+  }
+  
+  if (activeDevoteeTab === "settled") {
+    renderSettledCouponsTable(devoteeId);
+    return;
+  }
+  
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
@@ -651,8 +667,11 @@ function renderEntryList() {
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
-  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  // For pending tab, only show unsettled and unsold coupons
+  if (activeDevoteeTab === "pending") {
+    coupons = coupons.filter((coupon) => !coupon.settled);
+  }
+  
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
@@ -710,7 +729,7 @@ function renderEntryList() {
                 <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
                 <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
               </select>
-</label>
+            </label>
           </label>
         </div>
       </article>
@@ -720,6 +739,159 @@ function renderEntryList() {
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
     field.addEventListener("change", updateCouponField);
   });
+}
+
+// New function to render settled coupons in table format
+function renderSettledCouponsTable(devoteeId) {
+  if (!devoteeId) {
+    els.entryList.innerHTML = `<div class="empty">Select a devotee to view settled coupons.</div>`;
+    return;
+  }
+
+  let coupons = couponsForDevotee(devoteeId);
+  coupons = coupons.filter((coupon) => coupon.settled === true);
+  
+  const query = els.entrySearch.value.trim().toLowerCase();
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
+
+  if (!coupons.length) {
+    els.entryList.innerHTML = `<div class="empty">No settled coupons found for this devotee.</div>`;
+    return;
+  }
+
+  els.entryList.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Coupon #</th>
+            <th>Buyer Name</th>
+            <th>Contact</th>
+            <th>Amount</th>
+            <th>Receipt No</th>
+            <th>Settled Date</th>
+            <th>Seva Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map((coupon) => `
+            <tr>
+              <td><strong>#${coupon.number}</strong></td>
+              <td>${escapeHtml(coupon.buyerName || "-")}</td>
+              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+              <td>${coupon.amount ? formatMoney(amountValue(coupon.amount)) : "-"}</td>
+              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+              <td>${escapeHtml(coupon.settledAt || "-")}</td>
+              <td>${escapeHtml(coupon.description || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderSevaSummary() {
+  const sevaSummaryContainer = document.getElementById("sevaSummaryTable");
+  if (!sevaSummaryContainer) return;
+  
+  // Only show for admin in dashboard view
+  if (session?.role !== "admin" || activeAdminTab !== "dashboard") {
+    sevaSummaryContainer.innerHTML = "";
+    return;
+  }
+  
+  const sevaTypes = ["Deepa Seva", "Chenetha Seva", "Sumangala Subhadram", "Panchopachara Seva", "General Donation", "Prasadam Donation", "Donation in Kind"];
+  
+  const summary = sevaTypes.map(seva => {
+    const couponsWithSeva = state.coupons.filter(c => c.description === seva && c.settled === true);
+    const totalAmount = couponsWithSeva.reduce((sum, c) => sum + amountValue(c.amount), 0);
+    const count = couponsWithSeva.length;
+    return { seva, totalAmount, count };
+  }).filter(s => s.count > 0 || s.totalAmount > 0);
+  
+  if (summary.length === 0) {
+    sevaSummaryContainer.innerHTML = `<div class="empty">No settled seva data available.</div>`;
+    return;
+  }
+  
+  sevaSummaryContainer.innerHTML = `
+    <div class="panel" style="margin-top: 20px;">
+      <h2>Seva Summary (Settled)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Seva Type</th>
+              <th>Number of Coupons</th>
+              <th>Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.map(s => `
+              <tr>
+                <td>${escapeHtml(s.seva)}</td>
+                <td>${s.count}</td>
+                <td>${formatMoney(s.totalAmount)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderDevoteeSevaSummary() {
+  const sevaSummaryContainer = document.getElementById("devoteeSevaSummaryTable");
+  if (!sevaSummaryContainer) return;
+  
+  // Only show for devotee in dashboard view
+  if (session?.role !== "devotee") {
+    sevaSummaryContainer.innerHTML = "";
+    return;
+  }
+  
+  const devoteeId = session.devoteeId;
+  const sevaTypes = ["Deepa Seva", "Chenetha Seva", "Sumangala Subhadram", "Panchopachara Seva", "General Donation", "Prasadam Donation", "Donation in Kind"];
+  
+  const summary = sevaTypes.map(seva => {
+    const couponsWithSeva = state.coupons.filter(c => c.devoteeId === devoteeId && c.description === seva && c.settled === true);
+    const totalAmount = couponsWithSeva.reduce((sum, c) => sum + amountValue(c.amount), 0);
+    const count = couponsWithSeva.length;
+    return { seva, totalAmount, count };
+  }).filter(s => s.count > 0 || s.totalAmount > 0);
+  
+  if (summary.length === 0) {
+    sevaSummaryContainer.innerHTML = `<div class="empty">No settled seva data available.</div>`;
+    return;
+  }
+  
+  sevaSummaryContainer.innerHTML = `
+    <div class="panel" style="margin-top: 20px;">
+      <h2>Your Seva Summary (Settled)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Seva Type</th>
+              <th>Number of Coupons</th>
+              <th>Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.map(s => `
+              <tr>
+                <td>${escapeHtml(s.seva)}</td>
+                <td>${s.count}</td>
+                <td>${formatMoney(s.totalAmount)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 }
 
 function renderAllCoupons() {
