@@ -208,10 +208,7 @@ main {
 }
 
 .app-nav-row {
-  align-items: stretch;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin: 20px 0;
 }
 
@@ -226,6 +223,10 @@ main {
   padding: 4px;
 }
 
+.tabs.app-nav-row {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .subtabs {
   background: #e9e4da;
   border: 1px solid var(--line);
@@ -235,11 +236,6 @@ main {
   grid-template-columns: repeat(3, minmax(110px, 1fr));
   margin: 0 0 14px;
   padding: 4px;
-}
-
-.app-nav-row .subtabs {
-  display: grid;
-  margin: 0;
 }
 
 .tab,

@@ -465,9 +465,8 @@ function applyRoleAccess() {
   els.entryStatus.classList.toggle("hidden", isDevotee);
   if (isDevotee) els.entryStatus.value = "all";
 
-  document.querySelector('[data-view="adminView"]')?.classList.toggle("hidden", !isAdmin);
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
-  document.getElementById("adminTabs").classList.toggle("hidden", !isAdmin);
+  document.querySelectorAll("[data-admin-tab]").forEach((tab) => tab.classList.toggle("hidden", !isAdmin));
 
   if (isDevotee) {
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
