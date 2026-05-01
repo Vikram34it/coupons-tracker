@@ -496,22 +496,10 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
-
-  // 🔥 Hide top stats for devotee except dashboard tab
-  if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
-    document.querySelector(".stats-grid").style.display = "none";
-    return;
-  }
-
-  // ✅ Show stats normally
-  document.querySelector(".stats-grid").style.display = "grid";
-
   const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-
-  els.couponSubtitle.textContent = `Track assignment, collections, and buyer details for ${couponTotal().toLocaleString("en-IN")} coupons.`;
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
