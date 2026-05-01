@@ -645,8 +645,13 @@ function renderEntryList() {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
-
+// ✅ Show stats ONLY in dashboard tab
+if (activeDevoteeTab === "dashboard") {
   renderDevoteeStats(devoteeId);
+} else {
+  els.devoteeStats.innerHTML = "";
+}
+  
   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
