@@ -490,7 +490,7 @@ function renderStats() {
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
-function renderDevotees() {function renderDevotees() {
+function renderDevotees() {
   // 🔒 Prevent devotees from seeing admin dashboard
   if (session?.role === "devotee") {
     if (els.devoteeList) els.devoteeList.innerHTML = "";
