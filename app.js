@@ -2,14 +2,19 @@ const DEFAULT_TOTAL_COUPONS = 3000;
 const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
+const SEVA_TYPES = [
+  "Deepa Seva",
+  "Chenetha Seva",
+  "Sumangala Subhadram",
+  "Panchopachara Seva",
+  "General Donation",
+  "Prasadam Donation",
+  "Donation in Kind"
+];
 
-const state = {
-  settings: {},
-  devotees: [],
-  coupons: []
-};
+const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "dashboard";
+let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 const els = {};
@@ -617,14 +622,18 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-  if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
-  return;
-}
+  syncDevoteeTabs();
+  els.entrySearch.closest(".entry-controls").classList.toggle("hidden", activeDevoteeTab === "dashboard");
+
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
+    return;
+  }
+
+  if (activeDevoteeTab === "dashboard") {
+    renderDevoteeStats(devoteeId);
+    renderSevaSummary(devoteeId);
     return;
   }
 
@@ -679,20 +688,11 @@ function renderEntryList() {
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
           <label class="wide">
-            Description / Purpose
-            <label class="wide">
-              Seva Type
-              <select data-field="description" ${locked}>
-                <option value="">Select Seva</option>
-                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-              </select>
-</label>
+            Seva Type
+            <select data-field="description" ${locked}>
+              <option value="">Select Seva</option>
+              ${SEVA_TYPES.map((seva) => `<option value="${escapeAttr(seva)}" ${coupon.description === seva ? "selected" : ""}>${escapeHtml(seva)}</option>`).join("")}
+            </select>
           </label>
         </div>
       </article>
@@ -839,6 +839,46 @@ function renderDevoteeStats(devoteeId) {
   `;
 }
 
+function renderSevaSummary(devoteeId) {
+  if (!devoteeId) {
+    els.entryList.innerHTML = `<div class="empty">Select a devotee to see the dashboard.</div>`;
+    return;
+  }
+
+  const rows = sevaSummary(devoteeId);
+  els.entryList.innerHTML = `
+    <section class="seva-summary" aria-label="Seva wise summary">
+      <div class="section-head">
+        <h2>Seva Wise Summary</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Seva</th>
+              <th>Coupons</th>
+              <th>Amount</th>
+              <th>Settled</th>
+              <th>Pending</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.seva)}</td>
+                <td>${row.count}</td>
+                <td>${formatMoney(row.amount)}</td>
+                <td>${formatMoney(row.settledAmount)}</td>
+                <td>${formatMoney(row.pendingAmount)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const assigned = couponsForDevotee(devoteeId);
   const sold = assigned.filter(isSold);
@@ -857,6 +897,47 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
     pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
     periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
   };
+}
+
+function sevaSummary(devoteeId) {
+  const bySeva = new Map(SEVA_TYPES.map((seva) => [seva, {
+    seva,
+    count: 0,
+    amount: 0,
+    settledAmount: 0,
+    pendingAmount: 0
+  }]));
+
+  couponsForDevotee(devoteeId).filter(isSold).forEach((coupon) => {
+    const seva = coupon.description || "No Seva Selected";
+    if (!bySeva.has(seva)) {
+      bySeva.set(seva, {
+        seva,
+        count: 0,
+        amount: 0,
+        settledAmount: 0,
+        pendingAmount: 0
+      });
+    }
+
+    const row = bySeva.get(seva);
+    const amount = amountValue(coupon.amount);
+    row.count += 1;
+    row.amount += amount;
+    if (coupon.settled) {
+      row.settledAmount += amount;
+    } else {
+      row.pendingAmount += amount;
+    }
+  });
+
+  return Array.from(bySeva.values()).filter((row) => row.count > 0 || SEVA_TYPES.includes(row.seva));
+}
+
+function syncDevoteeTabs() {
+  document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.devoteeTab === activeDevoteeTab);
+  });
 }
 
 function devoteeName(devoteeId) {
@@ -1102,13 +1183,16 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
         
+          // 🚫 Don't re-render while typing
+          if (isEditing && document.hasFocus()) return;
+        
           const data = snapshot.val();
         
-          state.settings = data.settings || {};
-          state.devotees = data.devotees || [];
-          state.coupons = data.coupons || [];
+          if (data.settings) state.settings = data.settings;
+          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
+          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
         
-          render();   // ✅ only render AFTER Firebase
+          render(); // ✅ safe now
         });
 
         updateSyncBadge("Realtime");

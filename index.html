@@ -14,8 +14,8 @@
         <label>
           Login Type
           <select id="loginRole">
+            <option value="devotee" selected>Devotee</option>
             <option value="admin">Admin</option>
-            <option value="devotee">Devotee</option>
           </select>
         </label>
         <label id="loginDevoteeLabel" class="hidden">
@@ -206,9 +206,9 @@
           </div>
           <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
            <nav class="subtabs" aria-label="Devotee coupon views">
-            <button class="subtab active" type="button" data-devotee-tab="dashboard">Dashboard</button>
-            <button class="subtab" type="button" data-devotee-tab="pending">Pending Coupons</button>
+            <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
             <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
+            <button class="subtab" type="button" data-devotee-tab="dashboard">Main Dashboard</button>
           </nav>
           <div class="entry-controls">
             <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
