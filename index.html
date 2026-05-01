@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Coupon Seva Tracker</title>
-    <link rel="stylesheet" href="styles.css?v=2026-05-01-3">
+    <link rel="stylesheet" href="styles.css?v=2026-05-01-4">
   </head>
   <body>
     <section id="loginScreen" class="login-screen">
@@ -196,7 +196,6 @@
             </div>
             <div id="devoteeList" class="devotee-list"></div>
           </section>
-          <!-- Admin Seva Summary Table -->
           <div id="sevaSummaryTable"></div>
         </div>
       </section>
@@ -210,13 +209,15 @@
             </div>
             <select id="entryDevotee"></select>
           </div>
-          <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
-           <nav class="subtabs" aria-label="Devotee coupon views">
-            <button class="subtab active" type="button" data-devotee-tab="dashboard">Dashboard</button>
+          <div id="devoteeStatsContainer">
+            <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
+          </div>
+          <nav class="subtabs" aria-label="Devotee coupon views">
+            <button class="subtab" type="button" data-devotee-tab="dashboard">Dashboard</button>
             <button class="subtab" type="button" data-devotee-tab="pending">Pending Coupons</button>
             <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
           </nav>
-          <div class="entry-controls">
+          <div class="entry-controls" id="pendingFilters">
             <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
             <select id="entryStatus">
               <option value="all">All assigned coupons</option>
@@ -226,8 +227,11 @@
               <option value="settled">Settled only</option>
             </select>
           </div>
+          <div class="entry-controls" id="settledFilters" style="display:none;">
+            <input id="settledSearch" type="search" placeholder="Search settled coupons...">
+          </div>
           <div id="entryList" class="coupon-editor"></div>
-          <!-- Devotee Seva Summary Table -->
+          <div id="settledTableContainer" style="display:none;"></div>
           <div id="devoteeSevaSummaryTable"></div>
         </section>
       </section>
@@ -249,7 +253,7 @@
             </div>
           </div>
           <div class="table-wrap">
-            <table>
+            <tr>
               <thead>
                 <tr>
                   <th>Coupon</th>
@@ -275,7 +279,7 @@
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-    <script src="firebase-config.js?v=2026-05-01-3"></script>
-    <script src="app.js?v=2026-05-01-3"></script>
+    <script src="firebase-config.js?v=2026-05-01-4"></script>
+    <script src="app.js?v=2026-05-01-4"></script>
   </body>
 </html>
