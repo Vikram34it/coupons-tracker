@@ -103,7 +103,7 @@ function cacheElements() {
     "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast", "settledSearch", 
     "settledTableContainer", "devoteeDashboardTab", "devoteePendingTab", "devoteeSettledTab",
-    "devoteeSevaSummaryTable", "sevaSummaryTable"
+    "devoteeSevaSummaryTable", "sevaSummaryTable", "adminStatsRow"
   ];
   ids.forEach((id) => {
     els[id] = document.getElementById(id);
@@ -483,6 +483,11 @@ function applyRoleAccess() {
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   els.entryDevotee.disabled = isDevotee;
 
+  // Show/hide admin stats row
+  if (els.adminStatsRow) {
+    els.adminStatsRow.style.display = isAdmin ? "grid" : "none";
+  }
+
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => tab.classList.toggle("hidden", !isAdmin));
 
@@ -492,12 +497,6 @@ function applyRoleAccess() {
     document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
     document.getElementById("devoteeView").classList.add("active");
   }
-  const adminStatsRow = document.getElementById("adminStatsRow");
-    if (adminStatsRow) {
-      adminStatsRow.style.display = isAdmin ? "grid" : "none";
-    }
-
-  
 }
 
 function renderStats() {
@@ -512,11 +511,13 @@ function renderStats() {
   els.assignTo.max = couponTotal();
   if (!els.assignDate.value) els.assignDate.value = todayKey();
   els.resetCouponNumber.max = couponTotal();
-  els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
-  els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
-  els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money);
-  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
+  
+  // Update admin stats elements (these still exist)
+  if (els.totalCoupons) els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
+  if (els.assignedCoupons) els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
+  if (els.soldCoupons) els.soldCoupons.textContent = sold.toLocaleString("en-IN");
+  if (els.moneyReceived) els.moneyReceived.textContent = formatMoney(money);
+  if (els.settledCoupons) els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
@@ -1037,11 +1038,14 @@ function escapeHtml(value) {
 }
 
 function renderDevoteeStatsRow() {
-  const assigned = state.coupons.filter((coupon) => coupon.devoteeId === session?.devoteeId).length;
-  const sold = state.coupons.filter((coupon) => coupon.devoteeId === session?.devoteeId && isSold(coupon)).length;
-  const settled = state.coupons.filter((coupon) => coupon.devoteeId === session?.devoteeId && coupon.settled).length;
+  const devoteeId = session?.devoteeId;
+  if (!devoteeId) return;
+  
+  const assigned = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId).length;
+  const sold = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId && isSold(coupon)).length;
+  const settled = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId && coupon.settled).length;
   const money = state.coupons
-    .filter((coupon) => coupon.devoteeId === session?.devoteeId)
+    .filter((coupon) => coupon.devoteeId === devoteeId)
     .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
   const totalCoupons = couponTotal();
 
