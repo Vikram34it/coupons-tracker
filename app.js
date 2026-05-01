@@ -492,19 +492,29 @@ function renderStats() {
 
 function renderDevotees() {
   // 🔒 Prevent devotees from seeing admin dashboard
-if (session?.role === "devotee") {
-  if (els.devoteeList) els.devoteeList.innerHTML = "";
-  return;
-}
+  if (session?.role === "devotee") {
+    if (els.devoteeList) els.devoteeList.innerHTML = "";
+    return;
+  }
+
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-  const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
-  });
+
+  // 🔥 SORTING ADDED HERE (ONLY CHANGE)
+  const devotees = state.devotees
+    .filter((devotee) => {
+      return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+    })
+    .sort((a, b) => {
+      const aTotal = totalCollectedByDevotee(a.id);
+      const bTotal = totalCollectedByDevotee(b.id);
+      return bTotal - aTotal; // highest first
+    });
 
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
     .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+
   els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
   if (!devotees.length) {
@@ -516,6 +526,7 @@ if (session?.role === "devotee") {
     const summary = devoteeSummary(devotee.id, period);
     const assigned = couponsForDevotee(devotee.id);
     const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
+
     return `
       <article class="devotee-row">
         <div>
@@ -550,12 +561,15 @@ if (session?.role === "devotee") {
     button.addEventListener("click", () => {
       const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
       if (!devotee) return;
+
       const password = window.prompt(`Enter new password for ${devotee.name}`);
       if (password === null) return;
+
       if (password.trim().length < 4) {
         showToast("Use at least 4 characters");
         return;
       }
+
       devotee.pin = password.trim();
       saveState();
       renderDevotees();
@@ -563,12 +577,19 @@ if (session?.role === "devotee") {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
-els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    deleteDevotee(btn.dataset.deleteDevotee);
+
+  els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      deleteDevotee(btn.dataset.deleteDevotee);
+    });
   });
-});
- }
+}
+
+function totalCollectedByDevotee(devoteeId) {
+  return state.coupons
+    .filter(c => c.devoteeId === devoteeId)
+    .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
+}
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
