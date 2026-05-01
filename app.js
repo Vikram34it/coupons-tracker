@@ -407,6 +407,25 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+  // 🔥 CONTROL DASHBOARD VISIBILITY (MAIN LOGIC)
+if (session?.role === "devotee") {
+
+  // Top stats (Total, Assigned, etc.)
+  const topStats = document.querySelector(".stats-grid");
+
+  // Devotee stats (Coupons Issued, etc.)
+  const devoteeStats = document.getElementById("devoteeStats");
+
+  const showDashboard = activeDevoteeTab === "dashboard";
+
+  if (topStats) {
+    topStats.style.display = showDashboard ? "grid" : "none";
+  }
+
+  if (devoteeStats) {
+    devoteeStats.style.display = showDashboard ? "grid" : "none";
+  }
+}
 }
 
 function renderSelectors() {
@@ -635,11 +654,17 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
+
+  // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
-  return;
-}
+    renderDevoteeStats(devoteeId);
+    els.entryList.innerHTML = "";
+    return;
+  }
+
+  // ❌ Clear stats in other tabs
+  els.devoteeStats.innerHTML = "";
+  
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
