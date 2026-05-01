@@ -407,19 +407,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-// 🔥 CONTROL TOP STATS ONLY
-const statsSection = document.querySelector(".stats-grid");
 
-if (session?.role === "devotee") {
-  const showDashboard = activeDevoteeTab === "dashboard";
-
-  if (statsSection) {
-    statsSection.style.display = showDashboard ? "grid" : "none";
-  }
-} else {
-  // Admin always sees stats
-  if (statsSection) statsSection.style.display = "grid";
-}
 }
 
 function renderSelectors() {
