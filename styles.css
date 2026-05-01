@@ -79,6 +79,11 @@ button:hover,
   background: #f2efe7;
 }
 
+.subtabs {
+  width: fit-content;
+  margin-bottom: 14px;
+}
+
 .file-label input {
   display: none;
 }
