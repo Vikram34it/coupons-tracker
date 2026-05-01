@@ -490,7 +490,7 @@ function renderStats() {
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
-function renderDevotees() {
+function renderDevotees() {function renderDevotees() {
   // 🔒 Prevent devotees from seeing admin dashboard
   if (session?.role === "devotee") {
     if (els.devoteeList) els.devoteeList.innerHTML = "";
@@ -500,7 +500,7 @@ function renderDevotees() {
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
 
-  // 🔥 SORTING ADDED HERE (ONLY CHANGE)
+  // 🔥 SORT devotees by total collection (highest first)
   const devotees = state.devotees
     .filter((devotee) => {
       return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
@@ -508,7 +508,7 @@ function renderDevotees() {
     .sort((a, b) => {
       const aTotal = totalCollectedByDevotee(a.id);
       const bTotal = totalCollectedByDevotee(b.id);
-      return bTotal - aTotal; // highest first
+      return bTotal - aTotal;
     });
 
   const periodTotal = state.coupons
@@ -522,6 +522,7 @@ function renderDevotees() {
     return;
   }
 
+  // 🔥 Render devotees list
   els.devoteeList.innerHTML = devotees.map((devotee) => {
     const summary = devoteeSummary(devotee.id, period);
     const assigned = couponsForDevotee(devotee.id);
@@ -530,32 +531,42 @@ function renderDevotees() {
     return `
       <article class="devotee-row">
         <div>
-         <strong>
+          <strong>
             ${escapeHtml(devotee.name)}
             <span class="small-stat">(PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})</span>
           </strong>
-          
+
           <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
+
+          <div>
+            ${
+              ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") ||
+              '<span class="small-stat">No coupons assigned</span>'
+            }
+          </div>
         </div>
+
         <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
         <span><strong>${summary.sold}</strong><span class="small-stat"> sold</span></span>
         <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
+
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+
         <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
           Update Contact
         </button>
-        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
-          Delete
-        </button>
+
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">Delete</button>
+
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
   }).join("");
 
+  // 🔹 Open devotee
   els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
     button.addEventListener("click", () => {
       els.entryDevotee.value = button.dataset.openDevotee;
@@ -563,6 +574,7 @@ function renderDevotees() {
     });
   });
 
+  // 🔹 Set password
   els.devoteeList.querySelectorAll("[data-set-password]").forEach((button) => {
     button.addEventListener("click", () => {
       const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
@@ -577,33 +589,52 @@ function renderDevotees() {
       }
 
       devotee.pin = password.trim();
+
       saveState();
       renderDevotees();
       renderSelectors();
+
       showToast(`Password updated for ${devotee.name}`);
     });
   });
 
+  // 🔹 Update contact
+  els.devoteeList.querySelectorAll("[data-update-contact]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const devotee = state.devotees.find(d => d.id === button.dataset.updateContact);
+      if (!devotee) return;
 
-      els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
-        if (!devotee) return;
-    
-        const newContact = window.prompt(`Enter new contact for ${devotee.name}`, devotee.contact || "");
-    
-        if (newContact === null) return;
-    
-        devotee.contact = newContact.trim();
-    
-        saveState();
-        renderDevotees();
-        renderSelectors();
-    
-        showToast(`Contact updated for ${devotee.name}`);
-      });
+      const newContact = window.prompt(
+        `Enter new contact for ${devotee.name}`,
+        devotee.contact || ""
+      );
+
+      if (newContact === null) return;
+
+      const trimmed = newContact.trim();
+
+      if (!trimmed) {
+        showToast("Contact cannot be empty");
+        return;
+      }
+
+      // Optional validation (10-digit)
+      if (!/^\d{10}$/.test(trimmed)) {
+        showToast("Enter valid 10-digit number");
+        return;
+      }
+
+      devotee.contact = trimmed;
+
+      saveState();
+      renderDevotees();
+      renderSelectors();
+
+      showToast(`Contact updated for ${devotee.name}`);
     });
-  
+  });
+
+  // 🔹 Delete devotee
   els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
     btn.addEventListener("click", () => {
       deleteDevotee(btn.dataset.deleteDevotee);
