@@ -145,7 +145,7 @@ function bindEvents() {
       activeDevoteeTab = tab.dataset.devoteeTab;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
-      renderEntryList();
+      render();
     });
   });
 
@@ -407,10 +407,8 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-// 🔥 CONTROL STATS VISIBILITY (FINAL FIX)
-
+// 🔥 CONTROL TOP STATS ONLY
 const statsSection = document.querySelector(".stats-grid");
-const devoteeStats = document.getElementById("devoteeStats");
 
 if (session?.role === "devotee") {
   const showDashboard = activeDevoteeTab === "dashboard";
@@ -418,14 +416,9 @@ if (session?.role === "devotee") {
   if (statsSection) {
     statsSection.style.display = showDashboard ? "grid" : "none";
   }
-
-  if (devoteeStats) {
-    devoteeStats.style.display = showDashboard ? "grid" : "none";
-  }
 } else {
-  // ✅ Admin → always visible
+  // Admin always sees stats
   if (statsSection) statsSection.style.display = "grid";
-  if (devoteeStats) devoteeStats.style.display = "grid";
 }
 }
 
@@ -870,7 +863,15 @@ function hasCouponData(coupon) {
 }
 
 function renderDevoteeStats(devoteeId) {
+
+  // 🔥 Only show in dashboard tab for devotee
+  if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
+    els.devoteeStats.innerHTML = "";
+    return;
+  }
+
   const summary = devoteeSummary(devoteeId);
+
   els.devoteeStats.innerHTML = `
     <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
     <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
