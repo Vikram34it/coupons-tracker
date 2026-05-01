@@ -121,6 +121,12 @@ button:hover,
   display: none !important;
 }
 
+.subtabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .topbar {
   align-items: center;
   background: #fffaf1;
