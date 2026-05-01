@@ -15,18 +15,18 @@ window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
-  document.addEventListener("focusin", (e) => {
-    if (e.target.matches("input, textarea, select")) {
-      isEditing = true;
-    }
-  });
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = true;
+  }
+});
 
-  document.addEventListener("focusout", (e) => {
-    if (e.target.matches("input, textarea, select")) {
-      isEditing = false;
-      applyPendingFirebaseData();
-    }
-  });
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = false;
+    applyPendingFirebaseData();
+  }
+});
   // Wait until Firebase function exists
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
@@ -35,7 +35,6 @@ window.addEventListener("load", () => {
     }
   }, 200);
 });
-
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
@@ -151,16 +150,17 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      activeAdminTab = tab.dataset.adminTab;
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
 
-      document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
+    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
 
-      activateView("adminView");
-      updateAdminView();
-    });
+    activateView("adminView");
+    updateAdminView();
   });
+});
+  
 }
 
 function activateView(viewId) {
@@ -407,6 +407,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+
 }
 
 function renderSelectors() {
@@ -491,29 +492,19 @@ function renderStats() {
 
 function renderDevotees() {
   // 🔒 Prevent devotees from seeing admin dashboard
-  if (session?.role === "devotee") {
-    if (els.devoteeList) els.devoteeList.innerHTML = "";
-    return;
-  }
-
+if (session?.role === "devotee") {
+  if (els.devoteeList) els.devoteeList.innerHTML = "";
+  return;
+}
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-
-  // 🔥 SORT devotees by total collection (highest first)
-  const devotees = state.devotees
-    .filter((devotee) => {
-      return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
-    })
-    .sort((a, b) => {
-      const aTotal = totalCollectedByDevotee(a.id);
-      const bTotal = totalCollectedByDevotee(b.id);
-      return bTotal - aTotal;
-    });
+  const devotees = state.devotees.filter((devotee) => {
+    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+  });
 
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
     .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-
   els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
   if (!devotees.length) {
@@ -521,51 +512,33 @@ function renderDevotees() {
     return;
   }
 
-  // 🔥 Render devotees list
   els.devoteeList.innerHTML = devotees.map((devotee) => {
     const summary = devoteeSummary(devotee.id, period);
     const assigned = couponsForDevotee(devotee.id);
     const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
-
     return `
       <article class="devotee-row">
         <div>
-          <strong>
-            ${escapeHtml(devotee.name)}
-            <span class="small-stat">(PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})</span>
-          </strong>
-
+          <strong>${escapeHtml(devotee.name)}</strong>
           <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-
-          <div>
-            ${
-              ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") ||
-              '<span class="small-stat">No coupons assigned</span>'
-            }
-          </div>
+          <span class="small-stat">Password: <strong>${devotee.pin ? "Set" : "Not set"}</strong></span>
+          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
         </div>
-
         <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
         <span><strong>${summary.sold}</strong><span class="small-stat"> sold</span></span>
         <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
-
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
-
-        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
-          Update Contact
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
+          Delete
         </button>
-
-        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">Delete</button>
-
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
   }).join("");
 
-  // 🔹 Open devotee
   els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
     button.addEventListener("click", () => {
       els.entryDevotee.value = button.dataset.openDevotee;
@@ -573,79 +546,29 @@ function renderDevotees() {
     });
   });
 
-  // 🔹 Set password
   els.devoteeList.querySelectorAll("[data-set-password]").forEach((button) => {
     button.addEventListener("click", () => {
       const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
       if (!devotee) return;
-
       const password = window.prompt(`Enter new password for ${devotee.name}`);
       if (password === null) return;
-
       if (password.trim().length < 4) {
         showToast("Use at least 4 characters");
         return;
       }
-
       devotee.pin = password.trim();
-
       saveState();
       renderDevotees();
       renderSelectors();
-
       showToast(`Password updated for ${devotee.name}`);
     });
   });
-
-  // 🔹 Update contact
-  els.devoteeList.querySelectorAll("[data-update-contact]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const devotee = state.devotees.find(d => d.id === button.dataset.updateContact);
-      if (!devotee) return;
-
-      const newContact = window.prompt(
-        `Enter new contact for ${devotee.name}`,
-        devotee.contact || ""
-      );
-
-      if (newContact === null) return;
-
-      const trimmed = newContact.trim();
-
-      if (!trimmed) {
-        showToast("Contact cannot be empty");
-        return;
-      }
-
-      // Optional validation (10-digit)
-      if (!/^\d{10}$/.test(trimmed)) {
-        showToast("Enter valid 10-digit number");
-        return;
-      }
-
-      devotee.contact = trimmed;
-
-      saveState();
-      renderDevotees();
-      renderSelectors();
-
-      showToast(`Contact updated for ${devotee.name}`);
-    });
+els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    deleteDevotee(btn.dataset.deleteDevotee);
   });
-
-  // 🔹 Delete devotee
-  els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      deleteDevotee(btn.dataset.deleteDevotee);
-    });
-  });
-}
-
-function totalCollectedByDevotee(devoteeId) {
-  return state.coupons
-    .filter(c => c.devoteeId === devoteeId)
-    .reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
-}
+});
+ }
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
@@ -675,6 +598,7 @@ function deleteDevotee(devoteeId) {
   render();
   showToast("Devotee deleted successfully");
 }
+
 
 function renderResetCouponList() {
   if (!els.resetCouponList) return;
@@ -707,32 +631,33 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // Show stats ONLY in dashboard tab
+  // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
     els.entryList.innerHTML = "";
     return;
   }
 
-  // Hide stats in other tabs
+  // ❌ Clear stats in other tabs
   els.devoteeStats.innerHTML = "";
-
+  
   if (!devoteeId) {
+    els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-  const query = els.entrySearch.value.trim().toLowerCase();
+   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter(c => !c.settled);
-  if (activeDevoteeTab === "settled") coupons = coupons.filter(c => c.settled);
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "unsold") coupons = coupons.filter(c => !isSold(c));
-  if (status === "settled") coupons = coupons.filter(c => c.settled);
-  if (status === "unsettled") coupons = coupons.filter(c => !c.settled);
-  if (query) coupons = coupons.filter(c => couponSearchText(c).includes(query));
+  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   if (!coupons.length) {
     els.entryList.innerHTML = activeDevoteeTab === "settled"
@@ -743,57 +668,49 @@ function renderEntryList() {
 
   els.entryList.innerHTML = coupons.map((coupon) => {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
-
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">
-            ${isSold(coupon) ? "Sold" : "Pending"}
-          </span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">
-            ${coupon.settled ? "Settled" : "Not Settled"}
-          </span>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
         </div>
-
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" ${locked}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
-
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" ${locked}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
-
           <label>
             Amount Received
-            <input data-field="amount" type="number" value="${escapeAttr(coupon.amount)}" ${locked}>
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
-
           <label class="wide">
-            Seva Type
-            <select data-field="description" ${locked}>
-              <option value="">Select Seva</option>
-              <option ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-              <option ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-              <option ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-              <option ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-              <option ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-              <option ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-              <option ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-            </select>
+            Description / Purpose
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
         </div>
       </article>
@@ -934,6 +851,7 @@ function hasCouponData(coupon) {
 }
 
 function renderDevoteeStats(devoteeId) {
+
   // 🔥 Only show in dashboard tab for devotee
   if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
     els.devoteeStats.innerHTML = "";
@@ -1168,8 +1086,7 @@ function normalizeDevotee(devotee) {
     pin: devotee.pin || ""
   };
 }
-
-// ================= FIREBASE SYNC =================
+// ================= FIREBASE SYNC (ADD ONLY THIS) =================
 
 let firebaseReady = false;
 let dbRef = null;
