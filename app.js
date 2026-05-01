@@ -8,6 +8,7 @@ let session = loadSession();
 let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
 let isEditing = false;
+let pendingFirebaseData = null;
 const els = {};
 
 window.addEventListener("load", () => {
@@ -23,6 +24,7 @@ document.addEventListener("focusin", (e) => {
 document.addEventListener("focusout", (e) => {
   if (e.target.matches("input, textarea, select")) {
     isEditing = false;
+    applyPendingFirebaseData();
   }
 });
   // Wait until Firebase function exists
@@ -1087,6 +1089,22 @@ function updateSyncBadge(text) {
   if (badge) badge.textContent = text;
 }
 
+function applyFirebaseData(data) {
+  if (data.settings) state.settings = data.settings;
+  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
+
+  originalSaveState();
+  render();
+}
+
+function applyPendingFirebaseData() {
+  if (!pendingFirebaseData) return;
+  const data = pendingFirebaseData;
+  pendingFirebaseData = null;
+  applyFirebaseData(data);
+}
+
 function updateAdminView() {
   document.querySelectorAll("[data-admin-section]").forEach(section => {
     section.style.display =
@@ -1123,15 +1141,14 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) return;
+          if (isEditing && document.hasFocus()) {
+            pendingFirebaseData = snapshot.val();
+            return;
+          }
         
           const data = snapshot.val();
         
-          if (data.settings) state.settings = data.settings;
-          if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
-          if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
-        
-          render(); // ✅ safe now
+          applyFirebaseData(data);
         });
 
         updateSyncBadge("Realtime");
