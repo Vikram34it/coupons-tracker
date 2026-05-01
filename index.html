@@ -7,31 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Coupon Seva Tracker</title>
-    <link rel="stylesheet" href="styles.css?v=2026-05-01-5">
-    <style>
-      .settled-table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .settled-table th, .settled-table td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-      }
-      .settled-table th {
-        background-color: #f2f2f2;
-      }
-      .tab-content {
-        display: none;
-      }
-      .tab-content.active-tab {
-        display: block;
-      }
-      .devotee-tab-btn.active {
-        background: var(--surface);
-        box-shadow: 0 3px 10px rgba(38, 34, 24, 0.12);
-      }
-    </style>
+    <link rel="stylesheet" href="styles.css?v=2026-05-01-3">
   </head>
   <body>
     <section id="loginScreen" class="login-screen">
@@ -220,7 +196,6 @@
             </div>
             <div id="devoteeList" class="devotee-list"></div>
           </section>
-          <div id="sevaSummaryTable"></div>
         </div>
       </section>
 
@@ -233,41 +208,23 @@
             </div>
             <select id="entryDevotee"></select>
           </div>
-          
-          <!-- Devotee Tabs -->
-          <nav class="subtabs" aria-label="Devotee coupon views">
-            <button class="subtab devotee-tab-btn" data-devotee-tab="dashboard">Dashboard</button>
-            <button class="subtab devotee-tab-btn active" data-devotee-tab="pending">Pending Coupons</button>
-            <button class="subtab devotee-tab-btn" data-devotee-tab="settled">Settled Coupons</button>
+          <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
+           <nav class="subtabs" aria-label="Devotee coupon views">
+            <button class="subtab active" type="button" data-devotee-tab="dashboard">Dashboard</button>
+            <button class="subtab" type="button" data-devotee-tab="pending">Pending Coupons</button>
+            <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
           </nav>
-          
-          <!-- Dashboard Tab Content -->
-          <div id="devoteeDashboardTab" class="tab-content">
-            <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
-            <div id="devoteeSevaSummaryTable"></div>
+          <div class="entry-controls">
+            <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
+            <select id="entryStatus">
+              <option value="all">All assigned coupons</option>
+              <option value="unsold">Pending only</option>
+              <option value="sold">Sold only</option>
+              <option value="unsettled">Settlement pending</option>
+              <option value="settled">Settled only</option>
+            </select>
           </div>
-          
-          <!-- Pending Tab Content -->
-          <div id="devoteePendingTab" class="tab-content active-tab">
-            <div class="entry-controls">
-              <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
-              <select id="entryStatus">
-                <option value="all">All assigned coupons</option>
-                <option value="unsold">Pending only</option>
-                <option value="sold">Sold only</option>
-              </select>
-            </div>
-            <div id="entryList" class="coupon-editor"></div>
-          </div>
-          
-          <!-- Settled Tab Content -->
-          <div id="devoteeSettledTab" class="tab-content">
-            <div class="entry-controls">
-              <input id="settledSearch" type="search" placeholder="Search settled coupons...">
-            </div>
-            <div id="settledTableContainer"></div>
-          </div>
-          
+          <div id="entryList" class="coupon-editor"></div>
         </section>
       </section>
 
@@ -314,7 +271,7 @@
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-    <script src="firebase-config.js?v=2026-05-01-5"></script>
-    <script src="app.js?v=2026-05-01-5"></script>
+    <script src="firebase-config.js?v=2026-05-01-3"></script>
+    <script src="app.js?v=2026-05-01-3"></script>
   </body>
 </html>

@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "pending";
+let activeDevoteeTab = "dashboard";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
@@ -15,19 +15,19 @@ window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
-  document.addEventListener("focusin", (e) => {
-    if (e.target.matches("input, textarea, select")) {
-      isEditing = true;
-    }
-  });
+document.addEventListener("focusin", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = true;
+  }
+});
 
-  document.addEventListener("focusout", (e) => {
-    if (e.target.matches("input, textarea, select")) {
-      isEditing = false;
-      applyPendingFirebaseData();
-    }
-  });
-
+document.addEventListener("focusout", (e) => {
+  if (e.target.matches("input, textarea, select")) {
+    isEditing = false;
+    applyPendingFirebaseData();
+  }
+});
+  // Wait until Firebase function exists
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
       clearInterval(waitFirebase);
@@ -35,7 +35,6 @@ window.addEventListener("load", () => {
     }
   }, 200);
 });
-
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
@@ -55,8 +54,10 @@ function loadState() {
     if (!Array.isArray(parsed.devotees) || !Array.isArray(parsed.coupons)) {
       return defaultState();
     }
+
     const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || parsed.coupons.length || DEFAULT_TOTAL_COUPONS;
     const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
+
     return {
       settings: {
         adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
@@ -92,20 +93,15 @@ function saveSession(nextSession) {
 }
 
 function cacheElements() {
-  const ids = [
+  [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", 
-    "moneyReceived", "settledCoupons", "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", 
-    "assignForm", "assignDevotee", "assignFrom", "assignTo", "assignDate", "assignHint", "couponSettingsForm", 
-    "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
-    "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", 
-    "resetAllCouponsBtn", "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", 
-    "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast", "settledSearch", 
-    "settledTableContainer", "devoteeDashboardTab", "devoteePendingTab", "devoteeSettledTab",
-    "devoteeSevaSummaryTable", "sevaSummaryTable"
-  ];
-  ids.forEach((id) => {
+    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons",
+    "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
+    "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
+    "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
+  ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
 }
@@ -135,22 +131,9 @@ function bindEvents() {
   els.devoteeSearch.addEventListener("input", renderDevotees);
   els.settledFromDate.addEventListener("change", renderDevotees);
   els.settledToDate.addEventListener("change", renderDevotees);
-  els.entryDevotee.addEventListener("change", () => {
-    if (session?.role === "devotee") {
-      refreshDevoteeView();
-    }
-  });
-  els.entrySearch.addEventListener("input", () => {
-    if (activeDevoteeTab === "pending") renderPendingCoupons();
-  });
-  els.entryStatus.addEventListener("change", () => {
-    if (activeDevoteeTab === "pending") renderPendingCoupons();
-  });
-  if (els.settledSearch) {
-    els.settledSearch.addEventListener("input", () => {
-      if (activeDevoteeTab === "settled") renderSettledCouponsTable();
-    });
-  }
+  els.entryDevotee.addEventListener("change", renderEntryList);
+  els.entrySearch.addEventListener("input", renderEntryList);
+  els.entryStatus.addEventListener("change", renderEntryList);
   els.allSearch.addEventListener("input", renderAllCoupons);
   els.allStatus.addEventListener("change", renderAllCoupons);
   els.exportBtn.addEventListener("click", exportBackup);
@@ -158,44 +141,26 @@ function bindEvents() {
   els.importFile.addEventListener("change", importBackup);
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
-    tab.addEventListener("click", (e) => {
-      activeDevoteeTab = e.target.dataset.devoteeTab;
-      document.querySelectorAll("[data-devotee-tab]").forEach((t) => t.classList.remove("active"));
-      e.target.classList.add("active");
-      refreshDevoteeView();
+    tab.addEventListener("click", () => {
+      activeDevoteeTab = tab.dataset.devoteeTab;
+      document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
+      tab.classList.add("active");
+      renderEntryList();
     });
   });
 
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-    tab.addEventListener("click", () => {
-      activeAdminTab = tab.dataset.adminTab;
-      document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      activateView("adminView");
-      updateAdminView();
-      renderSevaSummary();
-    });
-  });
-}
+  tab.addEventListener("click", () => {
+    activeAdminTab = tab.dataset.adminTab;
 
-function refreshDevoteeView() {
-  // Hide all tab contents
-  if (els.devoteeDashboardTab) els.devoteeDashboardTab.classList.remove("active-tab");
-  if (els.devoteePendingTab) els.devoteePendingTab.classList.remove("active-tab");
-  if (els.devoteeSettledTab) els.devoteeSettledTab.classList.remove("active-tab");
+    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+
+    activateView("adminView");
+    updateAdminView();
+  });
+});
   
-  // Show selected tab content
-  if (activeDevoteeTab === "dashboard" && els.devoteeDashboardTab) {
-    els.devoteeDashboardTab.classList.add("active-tab");
-    renderDevoteeStats(els.entryDevotee.value);
-    renderDevoteeSevaSummary();
-  } else if (activeDevoteeTab === "pending" && els.devoteePendingTab) {
-    els.devoteePendingTab.classList.add("active-tab");
-    renderPendingCoupons();
-  } else if (activeDevoteeTab === "settled" && els.devoteeSettledTab) {
-    els.devoteeSettledTab.classList.add("active-tab");
-    renderSettledCouponsTable();
-  }
 }
 
 function activateView(viewId) {
@@ -224,6 +189,7 @@ function login(event) {
     }
     saveSession({ role: "devotee", devoteeId: devotee.id });
   }
+
   els.loginForm.reset();
   render();
 }
@@ -249,12 +215,14 @@ function addDevotee(event) {
     showToast("Use at least 4 characters for devotee password");
     return;
   }
+
   state.devotees.push({
     id: newId(),
     name,
     contact,
     pin: password
   });
+
   els.devoteeForm.reset();
   saveState();
   render();
@@ -268,6 +236,7 @@ function updateAdminPassword(event) {
     showToast("Use at least 4 characters");
     return;
   }
+
   state.settings.adminPassword = password;
   els.adminPasswordForm.reset();
   saveState();
@@ -281,6 +250,7 @@ function updateTotalCoupons(event) {
     showToast("Enter a valid total coupon count");
     return;
   }
+
   const currentTotal = couponTotal();
   if (totalCoupons < currentTotal) {
     const removedCoupons = state.coupons.slice(totalCoupons).filter(hasCouponData).length;
@@ -289,6 +259,7 @@ function updateTotalCoupons(event) {
       : `Reducing to ${totalCoupons} will remove coupon numbers above ${totalCoupons}. Continue?`;
     if (!window.confirm(message)) return;
   }
+
   state.settings.totalCoupons = totalCoupons;
   state.coupons = normalizeCoupons(state.coupons, totalCoupons);
   saveState();
@@ -303,6 +274,7 @@ function resetOneCoupon(event) {
     showToast(`Enter a coupon number from 1 to ${couponTotal()}`);
     return;
   }
+
   if (!window.confirm(`Reset coupon ${number}? This will clear assignment, buyer details, amount, description, and settlement.`)) return;
   state.coupons[number - 1] = emptyCoupon(number);
   els.resetCouponForm.reset();
@@ -317,6 +289,7 @@ function resetSelectedCoupons() {
     showToast("Select coupons to reset");
     return;
   }
+
   resetCouponNumbers(numbers, `Reset ${numbers.length} selected coupon(s)? This will clear their assignment and sale details.`);
 }
 
@@ -326,11 +299,13 @@ function resetDevoteeCoupons() {
     showToast("Select a devotee first");
     return;
   }
+
   const numbers = couponsForDevotee(devoteeId).map((coupon) => coupon.number);
   if (!numbers.length) {
     showToast("This devotee has no assigned coupons");
     return;
   }
+
   resetCouponNumbers(numbers, `Reset all ${numbers.length} coupon(s) assigned to ${devoteeName(devoteeId)}?`);
 }
 
@@ -341,6 +316,7 @@ function resetAllCoupons() {
     showToast("Reset all cancelled");
     return;
   }
+
   state.coupons = makeCoupons(couponTotal());
   saveState();
   render();
@@ -386,28 +362,34 @@ function assignCoupons(event) {
     showToast("Please add and select a devotee first");
     return;
   }
+
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
     showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
     return;
   }
+
   if (!assignedAt) {
     showToast("Select an assign date");
     return;
   }
+
   const blocked = state.coupons.filter((coupon) => {
     return coupon.number >= from && coupon.number <= to && coupon.devoteeId && coupon.devoteeId !== devoteeId;
   });
+
   if (blocked.length) {
     const sample = blocked.slice(0, 8).map((coupon) => coupon.number).join(", ");
     els.assignHint.textContent = `Already assigned to another devotee: ${sample}${blocked.length > 8 ? "..." : ""}`;
     return;
   }
+
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
       coupon.assignedAt = assignedAt;
     }
   });
+
   els.assignForm.reset();
   els.assignHint.textContent = "";
   saveState();
@@ -422,13 +404,9 @@ function render() {
   renderStats();
   renderDevotees();
   renderResetCouponList();
-  if (session?.role === "devotee") {
-    refreshDevoteeView();
-  } else {
-    renderAllCoupons();
-  }
+  renderEntryList();
+  renderAllCoupons();
   updateAdminView();
-  renderSevaSummary();
 }
 
 function renderSelectors() {
@@ -454,6 +432,7 @@ function renderSelectors() {
   } else if (state.devotees.length) {
     els.entryDevotee.value = state.devotees[0].id;
   }
+
   renderLoginRole();
   renderResetCouponList();
 }
@@ -463,11 +442,13 @@ function validateSession() {
     document.body.classList.remove("logged-in");
     return;
   }
+
   if (session.role === "devotee" && !state.devotees.some((devotee) => devotee.id === session.devoteeId)) {
     saveSession(null);
     document.body.classList.remove("logged-in");
     return;
   }
+
   document.body.classList.add("logged-in");
 }
 
@@ -481,6 +462,8 @@ function applyRoleAccess() {
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   els.entryDevotee.disabled = isDevotee;
+  els.entryStatus.classList.toggle("hidden", isDevotee);
+  if (isDevotee) els.entryStatus.value = "all";
 
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => tab.classList.toggle("hidden", !isAdmin));
@@ -513,15 +496,17 @@ function renderStats() {
 }
 
 function renderDevotees() {
-  if (session?.role === "devotee") {
-    if (els.devoteeList) els.devoteeList.innerHTML = "";
-    return;
-  }
+  // 🔒 Prevent devotees from seeing admin dashboard
+if (session?.role === "devotee") {
+  if (els.devoteeList) els.devoteeList.innerHTML = "";
+  return;
+}
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
   const devotees = state.devotees.filter((devotee) => {
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
+
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
     .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
@@ -551,7 +536,9 @@ function renderDevotees() {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
-        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">Delete</button>
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
+          Delete
+        </button>
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
@@ -581,32 +568,42 @@ function renderDevotees() {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
-  els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      deleteDevotee(btn.dataset.deleteDevotee);
-    });
+els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    deleteDevotee(btn.dataset.deleteDevotee);
   });
-}
+});
+ }
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
   if (!devotee) return;
+
   const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId);
+
   if (assignedCoupons.length > 0) {
-    const confirmDelete = confirm(`${devotee.name} has ${assignedCoupons.length} assigned coupons.\n\nDelete anyway?`);
+    const confirmDelete = confirm(
+      `${devotee.name} has ${assignedCoupons.length} assigned coupons.\n\nDelete anyway?`
+    );
     if (!confirmDelete) return;
   }
+
+  // Remove devotee
   state.devotees = state.devotees.filter(d => d.id !== devoteeId);
+
+  // Unassign coupons
   state.coupons.forEach(c => {
     if (c.devoteeId === devoteeId) {
       c.devoteeId = "";
       c.assignedAt = "";
     }
   });
+
   saveState();
   render();
   showToast("Devotee deleted successfully");
 }
+
 
 function renderResetCouponList() {
   if (!els.resetCouponList) return;
@@ -615,11 +612,13 @@ function renderResetCouponList() {
     els.resetCouponList.innerHTML = `<div class="empty">Select a devotee to see assigned coupons.</div>`;
     return;
   }
+
   const coupons = couponsForDevotee(devoteeId);
   if (!coupons.length) {
     els.resetCouponList.innerHTML = `<div class="empty">No coupons are assigned to this devotee.</div>`;
     return;
   }
+
   els.resetCouponList.innerHTML = coupons.map((coupon) => `
     <label class="reset-option">
       <input type="checkbox" data-reset-coupon="${coupon.number}">
@@ -634,176 +633,107 @@ function renderResetCouponList() {
   `).join("");
 }
 
-function renderPendingCoupons() {
+function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
+  if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
   if (!devoteeId) {
-    els.entryList.innerHTML = `<div class="empty">Select a devotee to view pending coupons.</div>`;
+    els.devoteeStats.innerHTML = "";
+    els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
-  const query = els.entrySearch?.value.trim().toLowerCase() || "";
-  const status = els.entryStatus?.value || "all";
+
+  renderDevoteeStats(devoteeId);
+  const query = els.entrySearch.value.trim().toLowerCase();
+  const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
-  coupons = coupons.filter((coupon) => !coupon.settled);
+
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   if (!coupons.length) {
-    els.entryList.innerHTML = `<div class="empty">No pending coupons found.</div>`;
+    els.entryList.innerHTML = activeDevoteeTab === "settled"
+      ? `<div class="empty">No settled coupons found.</div>`
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
-  els.entryList.innerHTML = coupons.map((coupon) => `
-    <article class="coupon-card" data-coupon-number="${coupon.number}">
-      <div class="coupon-number">
-        <strong>#${coupon.number}</strong>
-        <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
-      </div>
-      <div class="coupon-fields">
-        <label>Buyer Name <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name"></label>
-        <label>Contact Number <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone"></label>
-        <label>Amount Received <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0"></label>
-        <label>Receipt Number <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No"></label>
-        <label class="wide">Seva Type
-          <select data-field="description">
-            <option value="">Select Seva</option>
-            <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-            <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-            <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-            <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-            <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-            <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-            <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-          </select>
-        </label>
-      </div>
-    </article>
-  `).join("");
+
+  els.entryList.innerHTML = coupons.map((coupon) => {
+    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
+    return `
+      <article class="coupon-card" data-coupon-number="${coupon.number}">
+        <div class="coupon-number">
+          <strong>#${coupon.number}</strong>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
+        </div>
+        <div class="coupon-fields">
+          <label>
+            Buyer Name
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
+          </label>
+          <label>
+            Contact Number
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
+          </label>
+          <label>
+            Amount Received
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
+          </label>
+          <label>
+            Assigned To
+            <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
+          </label>
+          <label>
+            Receipt Number
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
+          </label>
+          <label class="wide">
+            Description / Purpose
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
+          </label>
+        </div>
+      </article>
+    `;
+  }).join("");
+
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
     field.addEventListener("change", updateCouponField);
   });
-}
-
-function renderSettledCouponsTable() {
-  const devoteeId = els.entryDevotee.value;
-  if (!devoteeId) {
-    if (els.settledTableContainer) els.settledTableContainer.innerHTML = `<div class="empty">Select a devotee to view settled coupons.</div>`;
-    return;
-  }
-  let coupons = couponsForDevotee(devoteeId);
-  coupons = coupons.filter((coupon) => coupon.settled === true);
-  const query = els.settledSearch?.value.trim().toLowerCase() || "";
-  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
-  if (!coupons.length) {
-    if (els.settledTableContainer) els.settledTableContainer.innerHTML = `<div class="empty">No settled coupons found for this devotee.</div>`;
-    return;
-  }
-  if (els.settledTableContainer) {
-    els.settledTableContainer.innerHTML = `
-      <div class="table-wrap">
-        <table class="settled-table" style="width:100%; border-collapse:collapse;">
-          <thead>
-            <tr style="background:#f2f2f2;">
-              <th style="border:1px solid #ddd; padding:8px;">Coupon #</th>
-              <th style="border:1px solid #ddd; padding:8px;">Buyer Name</th>
-              <th style="border:1px solid #ddd; padding:8px;">Contact</th>
-              <th style="border:1px solid #ddd; padding:8px;">Amount</th>
-              <th style="border:1px solid #ddd; padding:8px;">Receipt No</th>
-              <th style="border:1px solid #ddd; padding:8px;">Settled Date</th>
-              <th style="border:1px solid #ddd; padding:8px;">Seva Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${coupons.map((coupon) => `
-              <tr>
-                <td style="border:1px solid #ddd; padding:8px;"><strong>#${coupon.number}</strong></td>
-                <td style="border:1px solid #ddd; padding:8px;">${escapeHtml(coupon.buyerName || "-")}</td>
-                <td style="border:1px solid #ddd; padding:8px;">${escapeHtml(coupon.buyerContact || "-")}</td>
-                <td style="border:1px solid #ddd; padding:8px;">${coupon.amount ? formatMoney(amountValue(coupon.amount)) : "-"}</td>
-                <td style="border:1px solid #ddd; padding:8px;">${escapeHtml(coupon.receiptNumber || "-")}</td>
-                <td style="border:1px solid #ddd; padding:8px;">${escapeHtml(coupon.settledAt || "-")}</td>
-                <td style="border:1px solid #ddd; padding:8px;">${escapeHtml(coupon.description || "-")}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-}
-
-function renderSevaSummary() {
-  const sevaSummaryContainer = document.getElementById("sevaSummaryTable");
-  if (!sevaSummaryContainer) return;
-  if (session?.role !== "admin" || activeAdminTab !== "dashboard") {
-    sevaSummaryContainer.innerHTML = "";
-    return;
-  }
-  const sevaTypes = ["Deepa Seva", "Chenetha Seva", "Sumangala Subhadram", "Panchopachara Seva", "General Donation", "Prasadam Donation", "Donation in Kind"];
-  const summary = sevaTypes.map(seva => {
-    const couponsWithSeva = state.coupons.filter(c => c.description === seva && c.settled === true);
-    const totalAmount = couponsWithSeva.reduce((sum, c) => sum + amountValue(c.amount), 0);
-    const count = couponsWithSeva.length;
-    return { seva, totalAmount, count };
-  }).filter(s => s.count > 0 || s.totalAmount > 0);
-  if (summary.length === 0) {
-    sevaSummaryContainer.innerHTML = `<div class="empty">No settled seva data available.</div>`;
-    return;
-  }
-  sevaSummaryContainer.innerHTML = `
-    <div class="panel" style="margin-top: 20px;">
-      <h2>Seva Summary (Settled)</h2>
-      <div class="table-wrap">
-        <table style="width:100%; border-collapse:collapse;">
-          <thead><tr style="background:#f2f2f2;"><th style="border:1px solid #ddd; padding:8px;">Seva Type</th><th style="border:1px solid #ddd; padding:8px;">Number of Coupons</th><th style="border:1px solid #ddd; padding:8px;">Total Amount</th></tr></thead>
-          <tbody>${summary.map(s => `<tr><td style="border:1px solid #ddd; padding:8px;">${escapeHtml(s.seva)}</td><td style="border:1px solid #ddd; padding:8px;">${s.count}</td><td style="border:1px solid #ddd; padding:8px;">${formatMoney(s.totalAmount)}</td></tr>`).join("")}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
-}
-
-function renderDevoteeSevaSummary() {
-  const sevaSummaryContainer = document.getElementById("devoteeSevaSummaryTable");
-  if (!sevaSummaryContainer) return;
-  if (session?.role !== "devotee" || activeDevoteeTab !== "dashboard") {
-    sevaSummaryContainer.innerHTML = "";
-    return;
-  }
-  const devoteeId = session.devoteeId;
-  const sevaTypes = ["Deepa Seva", "Chenetha Seva", "Sumangala Subhadram", "Panchopachara Seva", "General Donation", "Prasadam Donation", "Donation in Kind"];
-  const summary = sevaTypes.map(seva => {
-    const couponsWithSeva = state.coupons.filter(c => c.devoteeId === devoteeId && c.description === seva && c.settled === true);
-    const totalAmount = couponsWithSeva.reduce((sum, c) => sum + amountValue(c.amount), 0);
-    const count = couponsWithSeva.length;
-    return { seva, totalAmount, count };
-  }).filter(s => s.count > 0 || s.totalAmount > 0);
-  if (summary.length === 0) {
-    sevaSummaryContainer.innerHTML = `<div class="empty">No settled seva data available.</div>`;
-    return;
-  }
-  sevaSummaryContainer.innerHTML = `
-    <div class="panel" style="margin-top: 20px;">
-      <h2>Your Seva Summary (Settled)</h2>
-      <div class="table-wrap">
-        <table style="width:100%; border-collapse:collapse;">
-          <thead><tr style="background:#f2f2f2;"><th style="border:1px solid #ddd; padding:8px;">Seva Type</th><th style="border:1px solid #ddd; padding:8px;">Number of Coupons</th><th style="border:1px solid #ddd; padding:8px;">Total Amount</th></tr></thead>
-          <tbody>${summary.map(s => `<tr><td style="border:1px solid #ddd; padding:8px;">${escapeHtml(s.seva)}</td><td style="border:1px solid #ddd; padding:8px;">${s.count}</td><td style="border:1px solid #ddd; padding:8px;">${formatMoney(s.totalAmount)}</td></tr>`).join("")}</tbody>
-        </table>
-      </div>
-    </div>
-  `;
 }
 
 function renderAllCoupons() {
   const query = els.allSearch.value.trim().toLowerCase();
   const status = els.allStatus.value;
   let coupons = state.coupons;
+
   if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
   if (status === "assigned") coupons = coupons.filter((coupon) => coupon.devoteeId);
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
+
   els.allCouponsBody.innerHTML = coupons.map((coupon) => `
     <tr>
       <td>#${coupon.number}</td>
@@ -813,11 +743,16 @@ function renderAllCoupons() {
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
-      <td><button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">${coupon.settled ? "Settled" : "Mark Settled"}</button></td>
+      <td>
+        <button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">
+          ${coupon.settled ? "Settled" : "Mark Settled"}
+        </button>
+      </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
     </tr>
   `).join("");
+
   els.allCouponsBody.querySelectorAll("[data-settlement]").forEach((button) => {
     button.addEventListener("click", toggleSettlement);
   });
@@ -828,6 +763,7 @@ function toggleSettlement(event) {
     showToast("Only admin can update settlement");
     return;
   }
+
   const coupon = state.coupons[Number(event.currentTarget.dataset.settlement) - 1];
   coupon.settled = !coupon.settled;
   coupon.settledAt = coupon.settled ? todayKey() : "";
@@ -847,7 +783,10 @@ function updateCouponField(event) {
   saveState();
   renderStats();
   renderDevotees();
-  if (activeDevoteeTab === "pending") renderPendingCoupons();
+
+  const status = card.querySelector(".status");
+  status.textContent = isSold(coupon) ? "Sold" : "Pending";
+  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
 }
 
 function couponsForDevotee(devoteeId) {
@@ -863,7 +802,18 @@ function makeCoupons(totalCoupons) {
 }
 
 function emptyCoupon(number) {
-  return { number, devoteeId: "", assignedAt: "", buyerName: "", buyerContact: "", amount: "", description: "", receiptNumber: "", settled: false, settledAt: "" };
+  return {
+    number,
+    devoteeId: "",
+    assignedAt: "",
+    buyerName: "",
+    buyerContact: "",
+    amount: "",
+    description: "",
+    receiptNumber: "",
+    settled: false,
+    settledAt: ""
+  };
 }
 
 function normalizeCoupons(coupons, totalCoupons) {
@@ -871,30 +821,45 @@ function normalizeCoupons(coupons, totalCoupons) {
   return Array.from({ length: totalCoupons }, (_, index) => {
     const number = index + 1;
     const savedCoupon = couponsByNumber.get(number) || {};
-    return { ...emptyCoupon(number), devoteeId: savedCoupon.devoteeId || "", assignedAt: savedCoupon.assignedAt || "", buyerName: savedCoupon.buyerName || "", buyerContact: savedCoupon.buyerContact || "", amount: savedCoupon.amount || "", description: savedCoupon.description || "", receiptNumber: savedCoupon.receiptNumber || "", settled: Boolean(savedCoupon.settled), settledAt: savedCoupon.settledAt || "" };
+    return {
+      ...emptyCoupon(number),
+      devoteeId: savedCoupon.devoteeId || "",
+      assignedAt: savedCoupon.assignedAt || "",
+      buyerName: savedCoupon.buyerName || "",
+      buyerContact: savedCoupon.buyerContact || "",
+      amount: savedCoupon.amount || "",
+      description: savedCoupon.description || "",
+      receiptNumber: savedCoupon.receiptNumber || "",
+      settled: Boolean(savedCoupon.settled),
+      settledAt: savedCoupon.settledAt || ""
+    };
   });
 }
 
 function hasCouponData(coupon) {
-  return Boolean(coupon.devoteeId || coupon.assignedAt || coupon.buyerName || coupon.buyerContact || coupon.amount || coupon.description || coupon.receiptNumber || coupon.settled || coupon.settledAt);
+  return Boolean(
+    coupon.devoteeId ||
+    coupon.assignedAt ||
+    coupon.buyerName ||
+    coupon.buyerContact ||
+    coupon.amount ||
+    coupon.description ||
+    coupon.receiptNumber ||
+    coupon.settled ||
+    coupon.settledAt
+  );
 }
 
 function renderDevoteeStats(devoteeId) {
-  if (!devoteeId) {
-    if (els.devoteeStats) els.devoteeStats.innerHTML = `<div class="empty">Select a devotee to view stats.</div>`;
-    return;
-  }
   const summary = devoteeSummary(devoteeId);
-  if (els.devoteeStats) {
-    els.devoteeStats.innerHTML = `
-      <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
-      <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
-      <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
-      <article><span>Amount Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
-      <article><span>Amount Pending</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
-      <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
-    `;
-  }
+  els.devoteeStats.innerHTML = `
+    <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
+    <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
+    <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
+    <article><span>Amount Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
+    <article><span>Amount Pending</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
+    <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
+  `;
 }
 
 function devoteeSummary(devoteeId, period = settlementPeriod()) {
@@ -903,7 +868,18 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const settled = sold.filter((coupon) => coupon.settled);
   const pending = sold.filter((coupon) => !coupon.settled);
   const periodSettled = settled.filter((coupon) => inSettlementPeriod(coupon, period));
-  return { issued: assigned.length, sold: sold.length, left: assigned.length - sold.length, settledCount: settled.length, pendingCount: pending.length, amountReceived: sold.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0), settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0), pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0), periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0) };
+
+  return {
+    issued: assigned.length,
+    sold: sold.length,
+    left: assigned.length - sold.length,
+    settledCount: settled.length,
+    pendingCount: pending.length,
+    amountReceived: sold.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
+  };
 }
 
 function devoteeName(devoteeId) {
@@ -926,16 +902,32 @@ function positiveInteger(value) {
 }
 
 function formatMoney(value) {
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  }).format(value);
 }
 
 function couponSearchText(coupon) {
-  return [coupon.number, devoteeName(coupon.devoteeId), coupon.assignedAt, coupon.buyerName, coupon.buyerContact, coupon.amount, coupon.receiptNumber, coupon.description, coupon.settledAt, coupon.settled ? "settled" : "not settled"].join(" ").toLowerCase();
+  return [
+    coupon.number,
+    devoteeName(coupon.devoteeId),
+    coupon.assignedAt,
+    coupon.buyerName,
+    coupon.buyerContact,
+    coupon.amount,
+    coupon.receiptNumber,
+    coupon.description,
+    coupon.settledAt,
+    coupon.settled ? "settled" : "not settled"
+  ].join(" ").toLowerCase();
 }
 
 function settlementPeriod() {
   const from = els.settledFromDate?.value || "";
   const to = els.settledToDate?.value || "";
+
   if (from && to) return { from, to, label: `from ${from} to ${to}`, shortLabel: "period settled" };
   if (from) return { from, to: "", label: `from ${from}`, shortLabel: "from date" };
   if (to) return { from: "", to, label: `up to ${to}`, shortLabel: "up to date" };
@@ -963,12 +955,18 @@ function summarizeCouponRanges(numbers) {
   const ranges = [];
   let start = sorted[0];
   let prev = sorted[0];
+
   for (let index = 1; index <= sorted.length; index += 1) {
     const number = sorted[index];
-    if (number === prev + 1) { prev = number; continue; }
+    if (number === prev + 1) {
+      prev = number;
+      continue;
+    }
     ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
-    start = number; prev = number;
+    start = number;
+    prev = number;
   }
+
   return ranges.slice(0, 8);
 }
 
@@ -986,7 +984,18 @@ function exportCsv() {
   const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description"];
   const rows = state.coupons.map((coupon) => {
     const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
-    return [coupon.number, devotee ? devotee.name : "", coupon.assignedAt, devotee ? devotee.contact : "", coupon.buyerName, coupon.buyerContact, coupon.amount, coupon.settled ? "Settled" : "Not Settled", coupon.settledAt, coupon.description];
+    return [
+      coupon.number,
+      devotee ? devotee.name : "",
+      coupon.assignedAt,
+      devotee ? devotee.contact : "",
+      coupon.buyerName,
+      coupon.buyerContact,
+      coupon.amount,
+      coupon.settled ? "Settled" : "Not Settled",
+      coupon.settledAt,
+      coupon.description
+    ];
   });
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -1001,19 +1010,30 @@ function exportCsv() {
 function importBackup(event) {
   const file = event.target.files[0];
   if (!file) return;
+
   const reader = new FileReader();
   reader.addEventListener("load", () => {
     try {
       const imported = JSON.parse(reader.result);
-      if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) throw new Error("Invalid backup");
-      state.settings = { adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD, totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS };
+      if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) {
+        throw new Error("Invalid backup");
+      }
+
+      state.settings = {
+        adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
+      };
       state.devotees = imported.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
+
       saveState();
       render();
       showToast("Backup imported");
-    } catch { showToast("Could not import this backup file"); }
-    finally { event.target.value = ""; }
+    } catch {
+      showToast("Could not import this backup file");
+    } finally {
+      event.target.value = "";
+    }
   });
   reader.readAsText(file);
 }
@@ -1026,37 +1046,137 @@ function showToast(message) {
 }
 
 function escapeHtml(value) {
-  return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
-function escapeAttr(value) { return escapeHtml(value); }
-function csvCell(value) { const text = String(value ?? ""); return `"${text.replaceAll('"', '""')}"`; }
-function newId() { return window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random()}`; }
-function normalizeDevotee(devotee) { return { id: devotee.id, name: devotee.name || "", contact: devotee.contact || "", pin: devotee.pin || "" }; }
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function newId() {
+  if (window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random()}`;
+}
+
+function normalizeDevotee(devotee) {
+  return {
+    id: devotee.id,
+    name: devotee.name || "",
+    contact: devotee.contact || "",
+    pin: devotee.pin || ""
+  };
+}
+// ================= FIREBASE SYNC (ADD ONLY THIS) =================
 
 let firebaseReady = false;
 let dbRef = null;
-function updateSyncBadge(text) { const badge = document.getElementById("syncBadge"); if (badge) badge.textContent = text; }
-function applyFirebaseData(data) { if (data.settings) state.settings = data.settings; if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee); if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal()); originalSaveState(); render(); }
-function applyPendingFirebaseData() { if (!pendingFirebaseData) return; const data = pendingFirebaseData; pendingFirebaseData = null; applyFirebaseData(data); }
-function updateAdminView() { document.querySelectorAll("[data-admin-section]").forEach(section => { section.style.display = section.dataset.adminSection === activeAdminTab ? "" : "none"; }); }
+
+function updateSyncBadge(text) {
+  const badge = document.getElementById("syncBadge");
+  if (badge) badge.textContent = text;
+}
+
+function applyFirebaseData(data) {
+  if (data.settings) state.settings = data.settings;
+  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
+
+  originalSaveState();
+  render();
+}
+
+function applyPendingFirebaseData() {
+  if (!pendingFirebaseData) return;
+  const data = pendingFirebaseData;
+  pendingFirebaseData = null;
+  applyFirebaseData(data);
+}
+
+function updateAdminView() {
+  document.querySelectorAll("[data-admin-section]").forEach(section => {
+    section.style.display =
+      section.dataset.adminSection === activeAdminTab ? "" : "none";
+  });
+}
+
 function initFirebaseSync() {
   try {
-    if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) { updateSyncBadge("Local"); return; }
+    // Check Firebase availability
+    if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
+      updateSyncBadge("Local");
+      return;
+    }
+
     updateSyncBadge("Connecting...");
-    if (!firebase.apps.length) firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
-    firebase.auth().signInAnonymously().then(() => {
-      firebaseReady = true;
-      dbRef = firebase.database().ref(window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState");
-      dbRef.on("value", (snapshot) => {
-        if (!snapshot.exists()) return;
-        if (isEditing && document.hasFocus()) { pendingFirebaseData = snapshot.val(); return; }
-        applyFirebaseData(snapshot.val());
+
+    // Initialize Firebase (only once)
+    if (!firebase.apps.length) {
+      firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
+    }
+
+    // Anonymous login
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        firebaseReady = true;
+
+        dbRef = firebase.database().ref(
+          window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
+        );
+
+        // 🔥 Listen to realtime updates
+        dbRef.on("value", (snapshot) => {
+          if (!snapshot.exists()) return;
+        
+          // 🚫 Don't re-render while typing
+          if (isEditing && document.hasFocus()) {
+            pendingFirebaseData = snapshot.val();
+            return;
+          }
+        
+          const data = snapshot.val();
+        
+          applyFirebaseData(data);
+        });
+
+        updateSyncBadge("Realtime");
+
+        // First-time push if DB empty
+        dbRef.once("value").then((snap) => {
+          if (!snap.exists()) {
+            dbRef.set(state);
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("Firebase Auth Error:", err);
+        updateSyncBadge("Auth error");
       });
-      updateSyncBadge("Realtime");
-      dbRef.once("value").then((snap) => { if (!snap.exists()) dbRef.set(state); });
-    }).catch((err) => { console.error("Firebase Auth Error:", err); updateSyncBadge("Auth error"); });
-  } catch (err) { console.error("Firebase Init Error:", err); updateSyncBadge("Error"); }
+
+  } catch (err) {
+    console.error("Firebase Init Error:", err);
+    updateSyncBadge("Error");
+  }
 }
+
+// 🔥 Override saveState (no logic change)
 const originalSaveState = saveState;
-saveState = function () { originalSaveState(); if (firebaseReady && dbRef) dbRef.set(state); };
+
+saveState = function () {
+  originalSaveState();
+
+  if (firebaseReady && dbRef) {
+    dbRef.set(state);
+  }
+};
