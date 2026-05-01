@@ -23,7 +23,7 @@
           <select id="loginDevotee"></select>
         </label>
         <label>
-          Password / PIN
+          Password
           <input id="loginPassword" type="password" required placeholder="Enter password">
         </label>
         <button type="submit">Login</button>
@@ -73,20 +73,21 @@
         </article>
       </section>
 
-      <nav class="tabs" aria-label="Views">
-        <button class="tab active" type="button" data-view="adminView">Admin</button>
-        <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
-        <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
-      </nav>
-
-      <section id="adminView" class="view active">
-        <nav class="subtabs" id="adminTabs">
+      <div class="app-nav-row">
+        <nav class="tabs" aria-label="Views">
+          <button class="tab active" type="button" data-view="adminView">Admin</button>
+          <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
+          <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
+        </nav>
+        <nav class="subtabs" id="adminTabs" aria-label="Admin sections">
           <button class="subtab active" data-admin-tab="dashboard">Dashboard</button>
           <button class="subtab" data-admin-tab="setup">Setup</button>
           <button class="subtab" data-admin-tab="reset">Reset</button>
         </nav>
-        <div class="two-column">
-          <div data-admin-section="setup">
+      </div>
+
+      <section id="adminView" class="view active">
+        <div data-admin-section="setup" class="setup-grid">
           <form id="devoteeForm" class="panel">
             <h2>Add Devotee</h2>
             <label>
@@ -97,12 +98,14 @@
               Contact Number
               <input id="devoteeContact" type="tel" autocomplete="tel" placeholder="Phone number">
             </label>
+            <label>
+              Devotee Password
+              <input id="devoteePassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
+            </label>
             <button type="submit">Add Devotee</button>
           </form>
 
-         
-          <div class="stack">
-             <form id="assignForm" class="panel">
+          <form id="assignForm" class="panel">
               <h2>Assign Coupons</h2>
               <label>
                 Devotee
@@ -118,10 +121,15 @@
                   <input id="assignTo" type="number" min="1" required placeholder="100">
                 </label>
               </div>
+              <label>
+                Assign Date
+                <input id="assignDate" type="date" required>
+              </label>
               <button type="submit">Assign Range</button>
               <p id="assignHint" class="hint"></p>
-            </form>
-            <form id="couponSettingsForm" class="panel">
+          </form>
+
+          <form id="couponSettingsForm" class="panel">
               <h2>Coupon Settings</h2>
               <label>
                 Total Coupons
@@ -129,72 +137,70 @@
               </label>
               <button type="submit">Update Total</button>
               <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
-            </form>
-          </div>
+          </form>
 
-            <form id="adminPasswordForm" class="panel">
+          <form id="adminPasswordForm" class="panel">
               <h2>Admin Password</h2>
               <label>
                 New Password
                 <input id="adminPassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
               </label>
               <button type="submit">Update Password</button>
-            </form>
-          </div>
+          </form>
+        </div>
+
+        <div data-admin-section="reset">
+          <form id="resetCouponForm" class="panel">
+            <h2>Reset Coupons</h2>
+
+            <label>
+              Coupon Number
+              <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
+            </label>
+
+            <label>
+              Devotee
+              <select id="resetDevotee"></select>
+            </label>
+
+            <div class="inline-fields">
+              <button id="selectAllResetCouponsBtn" type="button" class="ghost">Select All Shown</button>
+              <button id="clearResetSelectionBtn" type="button" class="ghost">Clear</button>
+            </div>
+
+            <div id="resetCouponList" class="reset-list"></div>
+
+            <div class="inline-fields">
+              <button type="submit" class="ghost">Reset One</button>
+              <button id="resetSelectedCouponsBtn" type="button" class="danger">Reset Selected</button>
+              <button id="resetDevoteeCouponsBtn" type="button" class="danger">Reset Devotee Coupons</button>
+              <button id="resetAllCouponsBtn" type="button" class="danger">Reset All Coupons</button>
+            </div>
+
+            <p class="hint">
+              Reset clears assignment, buyer details, amount, description, and settlement status.
+            </p>
+          </form>
+        </div>
+        
+        <div data-admin-section="dashboard">
+          <section class="panel">
+            <div class="section-head">
+              <div>
+                <h2>Devotee Dashboard</h2>
+                <p id="adminPeriodSummary" class="hint"></p>
+              </div>
+              <div class="entry-controls compact">
+                <input id="devoteeSearch" type="search" placeholder="Search devotees">
+                <input id="settledFromDate" type="date" title="Settled from date">
+                <input id="settledToDate" type="date" title="Settled to date">
+              </div>
+            </div>
+            <div id="devoteeList" class="devotee-list"></div>
+          </section>
         </div>
       </section>
 
-  <div data-admin-section="reset">
-  <form id="resetCouponForm" class="panel">
-    <h2>Reset Coupons</h2>
-
-    <label>
-      Coupon Number
-      <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
-    </label>
-
-    <label>
-      Devotee
-      <select id="resetDevotee"></select>
-    </label>
-
-    <div class="inline-fields">
-      <button id="selectAllResetCouponsBtn" type="button" class="ghost">Select All Shown</button>
-      <button id="clearResetSelectionBtn" type="button" class="ghost">Clear</button>
-    </div>
-
-    <div id="resetCouponList" class="reset-list"></div>
-
-    <div class="inline-fields">
-      <button type="submit" class="ghost">Reset One</button>
-      <button id="resetSelectedCouponsBtn" type="button" class="danger">Reset Selected</button>
-      <button id="resetDevoteeCouponsBtn" type="button" class="danger">Reset Devotee Coupons</button>
-      <button id="resetAllCouponsBtn" type="button" class="danger">Reset All Coupons</button>
-    </div>
-
-    <p class="hint">
-      Reset clears assignment, buyer details, amount, description, and settlement status.
-    </p>
-  </form>
-</div>
-        
-<div data-admin-section="dashboard">
-        <section class="panel">
-          <div class="section-head">
-            <div>
-              <h2>Devotee Dashboard</h2>
-              <p id="adminPeriodSummary" class="hint"></p>
-            </div>
-            <div class="entry-controls compact">
-              <input id="devoteeSearch" type="search" placeholder="Search devotees">
-              <input id="settledFromDate" type="date" title="Settled from date">
-              <input id="settledToDate" type="date" title="Settled to date">
-            </div>
-          </div>
-          <div id="devoteeList" class="devotee-list"></div>
-        </section>
-      </section>
-    </div>
       <section id="devoteeView" class="view">
         <section class="panel">
           <div class="section-head">
@@ -246,6 +252,7 @@
                 <tr>
                   <th>Coupon</th>
                   <th>Assigned To</th>
+                  <th>Assigned Date</th>
                   <th>Buyer</th>
                   <th>Contact</th>
                   <th>Amount</th>

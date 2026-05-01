@@ -61,12 +61,7 @@ function loadState() {
         adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
         totalCoupons
       },
-      devotees: parsed.devotees.map((devotee) => ({
-        id: devotee.id,
-        name: devotee.name || "",
-        contact: devotee.contact || "",
-        pin: devotee.pin || generatePin()
-      })),
+      devotees: parsed.devotees.map(normalizeDevotee),
       coupons
     };
   } catch {
@@ -99,8 +94,8 @@ function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons",
-    "devoteeForm", "devoteeName", "devoteeContact", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
+    "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
@@ -112,10 +107,7 @@ function cacheElements() {
 function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
-      tab.classList.add("active");
-      document.getElementById(tab.dataset.view).classList.add("active");
+      activateView(tab.dataset.view);
       render();
     });
   });
@@ -162,10 +154,18 @@ function bindEvents() {
     document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
 
+    activateView("adminView");
     updateAdminView();
   });
 });
   
+}
+
+function activateView(viewId) {
+  document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+  document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
+  document.querySelector(`[data-view="${viewId}"]`)?.classList.add("active");
+  document.getElementById(viewId)?.classList.add("active");
 }
 
 function login(event) {
@@ -182,7 +182,7 @@ function login(event) {
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
-      showToast("Devotee PIN is incorrect");
+      showToast("Devotee password is incorrect");
       return;
     }
     saveSession({ role: "devotee", devoteeId: devotee.id });
@@ -207,13 +207,18 @@ function addDevotee(event) {
   event.preventDefault();
   const name = els.devoteeName.value.trim();
   const contact = els.devoteeContact.value.trim();
+  const password = els.devoteePassword.value.trim();
   if (!name) return;
+  if (password.length < 4) {
+    showToast("Use at least 4 characters for devotee password");
+    return;
+  }
 
   state.devotees.push({
     id: newId(),
     name,
     contact,
-    pin: generatePin()
+    pin: password
   });
 
   els.devoteeForm.reset();
@@ -349,6 +354,7 @@ function assignCoupons(event) {
   const devoteeId = els.assignDevotee.value;
   const from = Number(els.assignFrom.value);
   const to = Number(els.assignTo.value);
+  const assignedAt = els.assignDate.value || todayKey();
 
   if (!devoteeId) {
     showToast("Please add and select a devotee first");
@@ -357,6 +363,11 @@ function assignCoupons(event) {
 
   if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
     showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  if (!assignedAt) {
+    showToast("Select an assign date");
     return;
   }
 
@@ -373,6 +384,7 @@ function assignCoupons(event) {
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
+      coupon.assignedAt = assignedAt;
     }
   });
 
@@ -453,6 +465,7 @@ function applyRoleAccess() {
 
   document.querySelector('[data-view="adminView"]').classList.toggle("hidden", !isAdmin);
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
+  document.getElementById("adminTabs").classList.toggle("hidden", !isAdmin);
 
   if (isDevotee) {
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
@@ -472,6 +485,7 @@ function renderStats() {
   els.totalCouponInput.value = couponTotal();
   els.assignFrom.max = couponTotal();
   els.assignTo.max = couponTotal();
+  if (!els.assignDate.value) els.assignDate.value = todayKey();
   els.resetCouponNumber.max = couponTotal();
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
@@ -511,7 +525,7 @@ if (session?.role === "devotee") {
         <div>
           <strong>${escapeHtml(devotee.name)}</strong>
           <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-          <span class="small-stat">PIN: <strong>${escapeHtml(devotee.pin)}</strong></span>
+          <span class="small-stat">Password: <strong>${devotee.pin ? "Set" : "Not set"}</strong></span>
           <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
         </div>
         <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
@@ -520,7 +534,7 @@ if (session?.role === "devotee") {
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
-        <button class="ghost" type="button" data-reset-pin="${escapeAttr(devotee.id)}">Reset PIN</button>
+        <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
@@ -536,15 +550,21 @@ if (session?.role === "devotee") {
     });
   });
 
-  els.devoteeList.querySelectorAll("[data-reset-pin]").forEach((button) => {
+  els.devoteeList.querySelectorAll("[data-set-password]").forEach((button) => {
     button.addEventListener("click", () => {
-      const devotee = state.devotees.find((item) => item.id === button.dataset.resetPin);
+      const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
       if (!devotee) return;
-      devotee.pin = generatePin();
+      const password = window.prompt(`Enter new password for ${devotee.name}`);
+      if (password === null) return;
+      if (password.trim().length < 4) {
+        showToast("Use at least 4 characters");
+        return;
+      }
+      devotee.pin = password.trim();
       saveState();
       renderDevotees();
       renderSelectors();
-      showToast(`New PIN for ${devotee.name}: ${devotee.pin}`);
+      showToast(`Password updated for ${devotee.name}`);
     });
   });
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
@@ -574,6 +594,7 @@ function deleteDevotee(devoteeId) {
   state.coupons.forEach(c => {
     if (c.devoteeId === devoteeId) {
       c.devoteeId = "";
+      c.assignedAt = "";
     }
   });
 
@@ -716,6 +737,7 @@ function renderAllCoupons() {
     <tr>
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
+      <td>${escapeHtml(coupon.assignedAt || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
@@ -782,6 +804,7 @@ function emptyCoupon(number) {
   return {
     number,
     devoteeId: "",
+    assignedAt: "",
     buyerName: "",
     buyerContact: "",
     amount: "",
@@ -800,6 +823,7 @@ function normalizeCoupons(coupons, totalCoupons) {
     return {
       ...emptyCoupon(number),
       devoteeId: savedCoupon.devoteeId || "",
+      assignedAt: savedCoupon.assignedAt || "",
       buyerName: savedCoupon.buyerName || "",
       buyerContact: savedCoupon.buyerContact || "",
       amount: savedCoupon.amount || "",
@@ -814,10 +838,12 @@ function normalizeCoupons(coupons, totalCoupons) {
 function hasCouponData(coupon) {
   return Boolean(
     coupon.devoteeId ||
+    coupon.assignedAt ||
     coupon.buyerName ||
     coupon.buyerContact ||
     coupon.amount ||
     coupon.description ||
+    coupon.receiptNumber ||
     coupon.settled ||
     coupon.settledAt
   );
@@ -886,6 +912,7 @@ function couponSearchText(coupon) {
   return [
     coupon.number,
     devoteeName(coupon.devoteeId),
+    coupon.assignedAt,
     coupon.buyerName,
     coupon.buyerContact,
     coupon.amount,
@@ -953,12 +980,13 @@ function exportBackup() {
 }
 
 function exportCsv() {
-  const headers = ["Coupon", "Assigned To", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description"];
+  const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description"];
   const rows = state.coupons.map((coupon) => {
     const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
     return [
       coupon.number,
       devotee ? devotee.name : "",
+      coupon.assignedAt,
       devotee ? devotee.contact : "",
       coupon.buyerName,
       coupon.buyerContact,
@@ -994,12 +1022,7 @@ function importBackup(event) {
         adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
         totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
       };
-      state.devotees = imported.devotees.map((devotee) => ({
-        id: devotee.id,
-        name: devotee.name || "",
-        contact: devotee.contact || "",
-        pin: devotee.pin || generatePin()
-      }));
+      state.devotees = imported.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
 
       saveState();
@@ -1039,15 +1062,20 @@ function csvCell(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function generatePin() {
-  return String(Math.floor(1000 + Math.random() * 9000));
-}
-
 function newId() {
   if (window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
   }
   return `${Date.now()}-${Math.random()}`;
+}
+
+function normalizeDevotee(devotee) {
+  return {
+    id: devotee.id,
+    name: devotee.name || "",
+    contact: devotee.contact || "",
+    pin: devotee.pin || ""
+  };
 }
 // ================= FIREBASE SYNC (ADD ONLY THIS) =================
 
@@ -1060,11 +1088,7 @@ function updateSyncBadge(text) {
 }
 
 function updateAdminView() {
-  console.log("Active tab:", activeAdminTab);
-
   document.querySelectorAll("[data-admin-section]").forEach(section => {
-    console.log("Section:", section.dataset.adminSection);
-
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
@@ -1104,8 +1128,8 @@ function initFirebaseSync() {
           const data = snapshot.val();
         
           if (data.settings) state.settings = data.settings;
-          if (Array.isArray(data.devotees)) state.devotees = data.devotees;
-          if (Array.isArray(data.coupons)) state.coupons = data.coupons;
+          if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+          if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
         
           render(); // ✅ safe now
         });
