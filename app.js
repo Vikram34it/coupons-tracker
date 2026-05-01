@@ -5,7 +5,7 @@ const DEFAULT_ADMIN_PASSWORD = "admin123";
 
 const state = loadState();
 let session = loadSession();
-let activeDevoteeTab = "dashboard";
+let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
