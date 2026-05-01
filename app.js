@@ -434,17 +434,19 @@ function renderSelectors() {
 
 function validateSession() {
   if (!session) {
-    document.body.classList.remove("logged-in");
+    document.body.classList.remove("logged-in", "admin-session", "devotee-session");
     return;
   }
 
   if (session.role === "devotee" && !state.devotees.some((devotee) => devotee.id === session.devoteeId)) {
     saveSession(null);
-    document.body.classList.remove("logged-in");
+    document.body.classList.remove("logged-in", "admin-session", "devotee-session");
     return;
   }
 
   document.body.classList.add("logged-in");
+  document.body.classList.toggle("admin-session", session.role === "admin");
+  document.body.classList.toggle("devotee-session", session.role === "devotee");
 }
 
 function applyRoleAccess() {
@@ -462,6 +464,9 @@ function applyRoleAccess() {
 
   document.querySelector('[data-view="adminView"]').classList.toggle("hidden", !isAdmin);
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
+  document.querySelectorAll("[data-admin-section]").forEach((section) => {
+    section.classList.toggle("hidden", !isAdmin);
+  });
 
   if (isDevotee) {
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
@@ -477,7 +482,9 @@ function renderStats() {
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
 
-  els.couponSubtitle.textContent = `Track assignment, collections, and buyer details for ${couponTotal().toLocaleString("en-IN")} coupons.`;
+  els.couponSubtitle.textContent = session?.role === "devotee"
+    ? "Enter pending coupon details and review settled seva records."
+    : `Track assignment, collections, and buyer details for ${couponTotal().toLocaleString("en-IN")} coupons.`;
   els.totalCouponInput.value = couponTotal();
   els.assignFrom.max = couponTotal();
   els.assignTo.max = couponTotal();
@@ -637,7 +644,7 @@ function renderEntryList() {
     return;
   }
 
-  renderDevoteeStats(devoteeId);
+  els.devoteeStats.innerHTML = "";
   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);

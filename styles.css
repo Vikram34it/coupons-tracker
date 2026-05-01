@@ -207,6 +207,20 @@ main {
   margin-top: 6px;
 }
 
+body.devotee-session .global-stats,
+body.devotee-session .main-tabs,
+body.devotee-session .devotee-entry-head,
+body.devotee-session [data-admin-section],
+body.devotee-session #adminView,
+body.devotee-session #allCouponsView {
+  display: none !important;
+}
+
+body.devotee-session main {
+  max-width: 980px;
+  padding-top: 14px;
+}
+
 .tabs {
   background: #e9e4da;
   border: 1px solid var(--line);
