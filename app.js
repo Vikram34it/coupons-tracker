@@ -103,7 +103,7 @@ function cacheElements() {
     "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast", "settledSearch", 
     "settledTableContainer", "devoteeDashboardTab", "devoteePendingTab", "devoteeSettledTab",
-    "devoteeSevaSummaryTable", "sevaSummaryTable", "adminStatsRow"
+    "devoteeSevaSummaryTable", "sevaSummaryTable"
   ];
   ids.forEach((id) => {
     els[id] = document.getElementById(id);
@@ -187,7 +187,6 @@ function refreshDevoteeView() {
   // Show selected tab content
   if (activeDevoteeTab === "dashboard" && els.devoteeDashboardTab) {
     els.devoteeDashboardTab.classList.add("active-tab");
-    renderDevoteeStatsRow();
     renderDevoteeStats(els.entryDevotee.value);
     renderDevoteeSevaSummary();
   } else if (activeDevoteeTab === "pending" && els.devoteePendingTab) {
@@ -483,11 +482,6 @@ function applyRoleAccess() {
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   els.entryDevotee.disabled = isDevotee;
 
-  // Show/hide admin stats row
-  if (els.adminStatsRow) {
-    els.adminStatsRow.style.display = isAdmin ? "grid" : "none";
-  }
-
   document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => tab.classList.toggle("hidden", !isAdmin));
 
@@ -511,13 +505,11 @@ function renderStats() {
   els.assignTo.max = couponTotal();
   if (!els.assignDate.value) els.assignDate.value = todayKey();
   els.resetCouponNumber.max = couponTotal();
-  
-  // Update admin stats elements (these still exist)
-  if (els.totalCoupons) els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
-  if (els.assignedCoupons) els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
-  if (els.soldCoupons) els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  if (els.moneyReceived) els.moneyReceived.textContent = formatMoney(money);
-  if (els.settledCoupons) els.settledCoupons.textContent = settled.toLocaleString("en-IN");
+  els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
+  els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
+  els.soldCoupons.textContent = sold.toLocaleString("en-IN");
+  els.moneyReceived.textContent = formatMoney(money);
+  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
@@ -1035,31 +1027,6 @@ function showToast(message) {
 
 function escapeHtml(value) {
   return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-}
-
-function renderDevoteeStatsRow() {
-  const devoteeId = session?.devoteeId;
-  if (!devoteeId) return;
-  
-  const assigned = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId).length;
-  const sold = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId && isSold(coupon)).length;
-  const settled = state.coupons.filter((coupon) => coupon.devoteeId === devoteeId && coupon.settled).length;
-  const money = state.coupons
-    .filter((coupon) => coupon.devoteeId === devoteeId)
-    .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-  const totalCoupons = couponTotal();
-
-  const devTotalCouponsEl = document.getElementById("devTotalCoupons");
-  const devAssignedCouponsEl = document.getElementById("devAssignedCoupons");
-  const devSoldCouponsEl = document.getElementById("devSoldCoupons");
-  const devMoneyReceivedEl = document.getElementById("devMoneyReceived");
-  const devSettledCouponsEl = document.getElementById("devSettledCoupons");
-
-  if (devTotalCouponsEl) devTotalCouponsEl.textContent = totalCoupons.toLocaleString("en-IN");
-  if (devAssignedCouponsEl) devAssignedCouponsEl.textContent = assigned.toLocaleString("en-IN");
-  if (devSoldCouponsEl) devSoldCouponsEl.textContent = sold.toLocaleString("en-IN");
-  if (devMoneyReceivedEl) devMoneyReceivedEl.textContent = formatMoney(money);
-  if (devSettledCouponsEl) devSettledCouponsEl.textContent = settled.toLocaleString("en-IN");
 }
 
 function escapeAttr(value) { return escapeHtml(value); }
