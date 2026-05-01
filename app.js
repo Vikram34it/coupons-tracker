@@ -15,18 +15,18 @@ window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
   render();
-document.addEventListener("focusin", (e) => {
-  if (e.target.matches("input, textarea, select")) {
-    isEditing = true;
-  }
-});
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches("input, textarea, select")) {
+      isEditing = true;
+    }
+  });
 
-document.addEventListener("focusout", (e) => {
-  if (e.target.matches("input, textarea, select")) {
-    isEditing = false;
-    applyPendingFirebaseData();
-  }
-});
+  document.addEventListener("focusout", (e) => {
+    if (e.target.matches("input, textarea, select")) {
+      isEditing = false;
+      applyPendingFirebaseData();
+    }
+  });
   // Wait until Firebase function exists
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
@@ -35,6 +35,7 @@ document.addEventListener("focusout", (e) => {
     }
   }, 200);
 });
+
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
@@ -150,17 +151,16 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-  tab.addEventListener("click", () => {
-    activeAdminTab = tab.dataset.adminTab;
+    tab.addEventListener("click", () => {
+      activeAdminTab = tab.dataset.adminTab;
 
-    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
+      document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
 
-    activateView("adminView");
-    updateAdminView();
+      activateView("adminView");
+      updateAdminView();
+    });
   });
-});
-  
 }
 
 function activateView(viewId) {
@@ -407,7 +407,6 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-
 }
 
 function renderSelectors() {
@@ -677,7 +676,6 @@ function deleteDevotee(devoteeId) {
   showToast("Devotee deleted successfully");
 }
 
-
 function renderResetCouponList() {
   if (!els.resetCouponList) return;
   const devoteeId = els.resetDevotee.value;
@@ -936,7 +934,6 @@ function hasCouponData(coupon) {
 }
 
 function renderDevoteeStats(devoteeId) {
-
   // 🔥 Only show in dashboard tab for devotee
   if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
     els.devoteeStats.innerHTML = "";
@@ -1171,7 +1168,8 @@ function normalizeDevotee(devotee) {
     pin: devotee.pin || ""
   };
 }
-// ================= FIREBASE SYNC (ADD ONLY THIS) =================
+
+// ================= FIREBASE SYNC =================
 
 let firebaseReady = false;
 let dbRef = null;
@@ -1273,4 +1271,3 @@ saveState = function () {
     dbRef.set(state);
   }
 };
-}
