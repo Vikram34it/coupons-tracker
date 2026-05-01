@@ -407,6 +407,15 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+  // ✅ Show top stats ONLY in dashboard tab (for devotee)
+if (session?.role === "devotee") {
+  const statsSection = document.querySelector(".stats-grid");
+
+  if (statsSection) {
+    statsSection.style.display =
+      activeDevoteeTab === "dashboard" ? "grid" : "none";
+  }
+}
 }
 
 function renderSelectors() {
