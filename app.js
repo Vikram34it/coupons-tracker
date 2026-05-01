@@ -545,6 +545,9 @@ function renderDevotees() {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
+          Update Contact
+        </button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
@@ -581,6 +584,26 @@ function renderDevotees() {
     });
   });
 
+
+      els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
+        if (!devotee) return;
+    
+        const newContact = window.prompt(`Enter new contact for ${devotee.name}`, devotee.contact || "");
+    
+        if (newContact === null) return;
+    
+        devotee.contact = newContact.trim();
+    
+        saveState();
+        renderDevotees();
+        renderSelectors();
+    
+        showToast(`Contact updated for ${devotee.name}`);
+      });
+    });
+  
   els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
     btn.addEventListener("click", () => {
       deleteDevotee(btn.dataset.deleteDevotee);
