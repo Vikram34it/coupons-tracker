@@ -709,33 +709,32 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // 🔥 Only render stats in Dashboard tab
+  // Show stats ONLY in dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
     els.entryList.innerHTML = "";
     return;
   }
 
-  // ❌ Clear stats in other tabs
+  // Hide stats in other tabs
   els.devoteeStats.innerHTML = "";
-  
+
   if (!devoteeId) {
-    els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-   const query = els.entrySearch.value.trim().toLowerCase();
+  const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
-  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (activeDevoteeTab === "pending") coupons = coupons.filter(c => !c.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter(c => c.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
-  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
-  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
-  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
+  if (status === "unsold") coupons = coupons.filter(c => !isSold(c));
+  if (status === "settled") coupons = coupons.filter(c => c.settled);
+  if (status === "unsettled") coupons = coupons.filter(c => !c.settled);
+  if (query) coupons = coupons.filter(c => couponSearchText(c).includes(query));
 
   if (!coupons.length) {
     els.entryList.innerHTML = activeDevoteeTab === "settled"
@@ -746,49 +745,57 @@ function renderEntryList() {
 
   els.entryList.innerHTML = coupons.map((coupon) => {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
+
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">
+            ${isSold(coupon) ? "Sold" : "Pending"}
+          </span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">
+            ${coupon.settled ? "Settled" : "Not Settled"}
+          </span>
         </div>
+
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" ${locked}>
           </label>
+
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" ${locked}>
           </label>
+
           <label>
             Amount Received
-            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
+            <input data-field="amount" type="number" value="${escapeAttr(coupon.amount)}" ${locked}>
           </label>
+
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
+
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
           </label>
+
           <label class="wide">
-            Description / Purpose
-            <label class="wide">
-              Seva Type
-              <select data-field="description" ${locked}>
-                <option value="">Select Seva</option>
-                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-              </select>
-</label>
+            Seva Type
+            <select data-field="description" ${locked}>
+              <option value="">Select Seva</option>
+              <option ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+              <option ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+              <option ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+              <option ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+              <option ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+              <option ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+              <option ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+            </select>
           </label>
         </div>
       </article>
@@ -1266,3 +1273,4 @@ saveState = function () {
     dbRef.set(state);
   }
 };
+}
