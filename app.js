@@ -412,8 +412,10 @@ function render() {
 
 function renderSelectors() {
   const options = state.devotees
-    .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
-    .join("");
+  .slice() // don't mutate original array
+  .sort((a, b) => a.name.localeCompare(b.name)) // 🔥 alphabetical sort
+  .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
+  .join("");
   const empty = '<option value="">Select devotee</option>';
 
   els.loginDevotee.innerHTML = empty + options;
