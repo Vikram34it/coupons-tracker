@@ -557,10 +557,14 @@ if (sortType === "name") {
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
-       <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+      <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
 
         <button class="ghost" type="button" data-wa-summary="${escapeAttr(devotee.id)}">
           WhatsApp Summary
+        </button>
+        
+        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
+          Update Contact
         </button>
         
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
@@ -572,6 +576,35 @@ if (sortType === "name") {
     `;
   }).join("");
 
+  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
+    if (!devotee) return;
+
+    const newContact = prompt(
+      `Enter new contact number for ${devotee.name}`,
+      devotee.contact || ""
+    );
+
+    if (newContact === null) return;
+
+    // Optional validation (only digits)
+    if (!/^\d{10}$/.test(newContact.trim())) {
+      showToast("Enter valid 10-digit mobile number");
+      return;
+    }
+
+    devotee.contact = newContact.trim();
+
+    saveState();
+    renderDevotees();
+    renderSelectors();
+
+    showToast(`Contact updated for ${devotee.name}`);
+  });
+});
+  
   els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
     button.addEventListener("click", () => {
       els.entryDevotee.value = button.dataset.openDevotee;
