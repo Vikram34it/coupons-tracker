@@ -774,11 +774,6 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // ✅ For devotee mode, clear stats when NOT on dashboard tab
-  if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
-    els.devoteeStats.innerHTML = "";
-  }
-
   // ✅ Dashboard tab → only stats
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
@@ -786,10 +781,8 @@ function renderEntryList() {
     return;
   }
 
-  // For admin, always show stats
-  if (session?.role === "admin") {
-    renderDevoteeStats(devoteeId);
-  }
+  // ❌ Hide stats in other tabs
+  els.devoteeStats.innerHTML = "";
 
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
@@ -835,7 +828,7 @@ function renderEntryList() {
           <tbody>
             ${coupons.map(c => `
               <tr>
-                <td>#${c.number}</tr>
+                <td>#${c.number}</td>
                 <td>${escapeHtml(c.buyerName || "-")}</td>
                 <td>${escapeHtml(c.buyerContact || "-")}</td>
                 <td>${formatMoney(amountValue(c.amount))}</td>
@@ -1104,10 +1097,11 @@ function hasCouponData(coupon) {
 }
 
 function renderDevoteeStats(devoteeId) {
-  // For admin, always show stats
-  // For devotee, only show stats if on dashboard tab
+
+  // 🔥 Only show in dashboard tab for devotee
   if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
-    return; // Don't render anything
+    els.devoteeStats.innerHTML = "";
+    return;
   }
 
   const summary = devoteeSummary(devoteeId);
