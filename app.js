@@ -781,8 +781,6 @@ function renderEntryList() {
     return;
   }
 
-  // ❌ Hide stats in other tabs
-  els.devoteeStats.innerHTML = "";
 
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
