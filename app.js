@@ -774,12 +774,15 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // ✅ Dashboard tab → only stats
-  if (activeDevoteeTab === "dashboard") {
-    renderDevoteeStats(devoteeId);
-    els.entryList.innerHTML = "";
-    return;
-  }
+// ✅ Dashboard tab → only stats
+if (activeDevoteeTab === "dashboard") {
+  renderDevoteeStats(devoteeId);
+  els.entryList.innerHTML = "";
+  return;
+}
+
+// ❌ IMPORTANT → CLEAR stats in other tabs
+els.devoteeStats.innerHTML = "";
 
 
   if (!devoteeId) {
