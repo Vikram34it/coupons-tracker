@@ -577,6 +577,34 @@ if (sortType === "name") {
   }).join("");
 
   els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
+      btn.addEventListener("click", () => {
+    
+        const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
+        if (!devotee) return;
+    
+        const newContact = prompt(
+          `Enter new contact number for ${devotee.name}`,
+          devotee.contact || ""
+        );
+    
+        if (newContact === null) return;
+    
+        // Optional validation (only digits)
+        if (!/^\d{10}$/.test(newContact.trim())) {
+          showToast("Enter valid 10-digit mobile number");
+          return;
+        }
+    
+        devotee.contact = newContact.trim();
+    
+        saveState();
+        renderDevotees();
+        renderSelectors();
+    
+        showToast(`Contact updated for ${devotee.name}`);
+      });
+    });
+  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
   btn.addEventListener("click", () => {
 
     const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
