@@ -897,11 +897,11 @@ function renderEntryList() {
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
 
-     //     <label>
-     //       Receipt Number
-     //       <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
-     //     </label>
-
+    <!--     <label>
+            Receipt Number
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
+          </label>
+    -->
           <!-- ✅ FIXED LABEL (IMPORTANT) -->
           <label class="wide">
             Seva Type
