@@ -548,10 +548,16 @@ if (sortType === "name") {
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
-        <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+       <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+
+        <button class="ghost" type="button" data-wa-summary="${escapeAttr(devotee.id)}">
+          WhatsApp Summary
+        </button>
+        
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
+        
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
@@ -581,6 +587,42 @@ if (sortType === "name") {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
+        els.devoteeList.querySelectorAll("[data-wa-summary]").forEach(btn => {
+        btn.addEventListener("click", () => {
+      
+          const devotee = state.devotees.find(d => d.id === btn.dataset.waSummary);
+          if (!devotee) return;
+      
+          const summary = devoteeSummary(devotee.id);
+      
+          if (!devotee.contact) {
+            showToast("No contact number");
+            return;
+          }
+      
+          // Optional confirmation
+          if (!confirm(`Send WhatsApp to ${devotee.name}?`)) return;
+      
+          const msg = `Hare Krishna 🙏
+      
+      Devotee Summary
+      
+      Name: ${devotee.name}
+      PIN: ${devotee.pin || "Not set"}
+      
+      Coupons Issued: ${summary.issued}
+      Coupons Sold: ${summary.sold}
+      Coupons Pending: ${summary.left}
+      
+      Settled Amount: ₹${summary.settledAmount}
+      Pending Amount: ₹${summary.pendingAmount}
+      
+      Thank you for your service 🙏
+      ISKCON Mangalagiri`;
+      
+          window.open(`https://wa.me/91${devotee.contact}?text=${encodeURIComponent(msg)}`);
+        });
+      });
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
   btn.addEventListener("click", () => {
     deleteDevotee(btn.dataset.deleteDevotee);
