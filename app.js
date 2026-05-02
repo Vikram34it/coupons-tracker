@@ -772,17 +772,20 @@ function renderResetCouponList() {
 }
 
 function renderEntryList() {
-  const devoteeId = els.entryDevotee.value;
+ const devoteeId = els.entryDevotee.value;
 
-// ✅ Dashboard tab → only stats
-if (activeDevoteeTab === "dashboard") {
-  renderDevoteeStats(devoteeId);
-  els.entryList.innerHTML = "";
-  return;
+// 🔥 CONTROL STATS VISIBILITY (DEVOTEE VIEW ONLY)
+if (session?.role === "devotee") {
+  if (activeDevoteeTab === "dashboard") {
+    els.devoteeStats.style.display = "grid";   // show
+    renderDevoteeStats(devoteeId);
+    els.entryList.innerHTML = "";
+    return;
+  } else {
+    els.devoteeStats.style.display = "none";   // hide
+  }
 }
 
-// ❌ IMPORTANT → CLEAR stats in other tabs
-els.devoteeStats.innerHTML = "";
 
 
   if (!devoteeId) {
