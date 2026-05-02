@@ -3,7 +3,7 @@ const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
 
-let state = defaultState();
+const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
@@ -46,10 +46,33 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   };
 }
 
-function saveState() {
-  if (firebaseReady && dbRef) {
-    dbRef.set(state);
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return defaultState();
+    const parsed = JSON.parse(saved);
+    if (!Array.isArray(parsed.devotees) || !Array.isArray(parsed.coupons)) {
+      return defaultState();
+    }
+
+    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || parsed.coupons.length || DEFAULT_TOTAL_COUPONS;
+    const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
+
+    return {
+      settings: {
+        adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons
+      },
+      devotees: parsed.devotees.map(normalizeDevotee),
+      coupons
+    };
+  } catch {
+    return defaultState();
   }
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function loadSession() {
