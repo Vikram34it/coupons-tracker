@@ -774,19 +774,23 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // ✅ Clear stats container for both admin and devotee before tab logic
-  els.devoteeStats.innerHTML = "";
+  // ✅ For devotee mode, clear stats when NOT on dashboard tab
+  if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
+    els.devoteeStats.innerHTML = "";
+  }
 
-  // ✅ Dashboard tab → only stats (for both admin AND devotee)
+  // ✅ Dashboard tab → only stats
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
     els.entryList.innerHTML = "";
     return;
   }
 
-  // For admin, stats are handled elsewhere (devotee dashboard)
-  // For devotee, stats will be hidden by renderDevoteeStats function
-  
+  // For admin, always show stats
+  if (session?.role === "admin") {
+    renderDevoteeStats(devoteeId);
+  }
+
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
@@ -831,7 +835,7 @@ function renderEntryList() {
           <tbody>
             ${coupons.map(c => `
               <tr>
-                <td>#${c.number}</td>
+                <td>#${c.number}</tr>
                 <td>${escapeHtml(c.buyerName || "-")}</td>
                 <td>${escapeHtml(c.buyerContact || "-")}</td>
                 <td>${formatMoney(amountValue(c.amount))}</td>
@@ -1100,15 +1104,12 @@ function hasCouponData(coupon) {
 }
 
 function renderDevoteeStats(devoteeId) {
-
-  // 🔥 Only hide stats in devotee mode when NOT on dashboard tab
+  // For admin, always show stats
+  // For devotee, only show stats if on dashboard tab
   if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
-    els.devoteeStats.innerHTML = "";
-    return;
+    return; // Don't render anything
   }
 
-  // ✅ For admin, always show stats regardless of tab
-  // ✅ For devotee, show stats only on dashboard tab (already handled above)
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
