@@ -586,6 +586,14 @@ els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
     deleteDevotee(btn.dataset.deleteDevotee);
   });
 });
+  // 🔥 Bind sort dropdown (mobile-safe)
+const sortEl = document.getElementById("devoteeSort");
+if (sortEl && !sortEl.dataset.bound) {
+  sortEl.addEventListener("change", () => {
+    renderDevotees();
+  });
+  sortEl.dataset.bound = "true"; // prevent duplicate binding
+}
  }
 
 document.getElementById("devoteeSort")?.addEventListener("change", () => {
