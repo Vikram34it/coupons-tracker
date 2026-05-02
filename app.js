@@ -176,12 +176,20 @@ function login(event) {
   const password = els.loginPassword.value.trim();
 
   if (role === "admin") {
-    if (password !== state.settings.adminPassword) {
-      showToast("Admin password is incorrect");
-      return;
-    }
-    saveSession({ role: "admin", devoteeId: "" });
-  } else {
+  if (password !== state.settings.adminPassword) {
+    showToast("Admin password is incorrect");
+    return;
+  }
+
+  saveSession({ role: "admin", devoteeId: "" });
+
+  // ✅ FORCE Dashboard as default
+  activeAdminTab = "dashboard";
+
+  setTimeout(() => {
+    document.querySelector('[data-admin-tab="dashboard"]')?.click();
+  }, 0);
+} else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
       showToast("Devotee password is incorrect");
@@ -500,7 +508,7 @@ if (session?.role === "devotee") {
 }
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-  const sortType = document.getElementById("devoteeSort")?.value || "amount";
+  const sortType = document.getElementById("devoteeSort")?.value || "name";
 
 let devotees = state.devotees.filter((devotee) => {
   return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
