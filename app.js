@@ -500,9 +500,22 @@ if (session?.role === "devotee") {
 }
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-  const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+  const sortType = document.getElementById("devoteeSort")?.value || "amount";
+
+let devotees = state.devotees.filter((devotee) => {
+  return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+});
+
+// 🔥 Sorting logic
+if (sortType === "name") {
+  devotees.sort((a, b) => a.name.localeCompare(b.name));
+} else {
+  devotees.sort((a, b) => {
+    const aTotal = totalCollectedByDevotee(a.id);
+    const bTotal = totalCollectedByDevotee(b.id);
+    return bTotal - aTotal; // highest first
   });
+}
 
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
@@ -574,6 +587,10 @@ els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
   });
 });
  }
+
+document.getElementById("devoteeSort")?.addEventListener("change", () => {
+  renderDevotees();
+});
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
