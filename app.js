@@ -791,41 +791,34 @@ function renderEntryList() {
 function bindWhatsappEvents(coupons) {
 
   // Individual
-  document.querySelectorAll("[data-wa]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const c = coupons.find(x => x.number == btn.dataset.wa);
+ const custom = prompt(
+`Enter invitation / message:
 
-      const msg = `Hare Krishna 🙏
-Thank you for your donation.
+Example:
+Hare Krishna 🙏
+You are invited to our temple program.
 
-Name: ${c.buyerName}
-Amount: ₹${c.amount}
-Seva: ${c.description}
+Date: ___
+Venue: ISKCON Mangalagiri`
+);
+
+const msg = custom || `Hare Krishna 🙏
+You are warmly invited to our temple program.
 
 ISKCON Mangalagiri`;
 
-      if (!c.buyerContact) {
-        alert("No phone number");
-        return;
-      }
-
-      window.open(`https://wa.me/91${c.buyerContact}?text=${encodeURIComponent(msg)}`);
-    });
-  });
-
   // Bulk
-  document.getElementById("sendAllWhatsapp")?.addEventListener("click", () => {
+ document.getElementById("sendAllWhatsapp")?.addEventListener("click", () => {
 
-    let msg = "Hare Krishna 🙏\n\nDonation Summary:\n\n";
+  const custom = prompt("Enter invitation message");
 
-    coupons.forEach(c => {
-      msg += `#${c.number} - ${c.buyerName} - ₹${c.amount}\n`;
-    });
+  const msg = custom || `Hare Krishna 🙏
+You are invited to our upcoming program.
 
-    msg += "\nThank you 🙏";
+ISKCON Mangalagiri`;
 
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
-  });
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+});
 }
 
 
