@@ -415,6 +415,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+  document.getElementById("devoteeSort").value = "name";
 
 }
 
