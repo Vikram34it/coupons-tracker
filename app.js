@@ -1324,9 +1324,10 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) {
+         if (isEditing) {
             pendingFirebaseData = snapshot.val();
-            return;
+          } else {
+            applyFirebaseData(snapshot.val());
           }
         
           const data = snapshot.val();
