@@ -772,22 +772,21 @@ function renderResetCouponList() {
 }
 
 function renderEntryList() {
- const devoteeId = els.entryDevotee.value;
+  const devoteeId = els.entryDevotee.value;
 
-// 🔥 CONTROL STATS VISIBILITY (DEVOTEE VIEW ONLY)
-if (session?.role === "devotee") {
+  // ✅ Clear stats container for both admin and devotee before tab logic
+  els.devoteeStats.innerHTML = "";
+
+  // ✅ Dashboard tab → only stats (for both admin AND devotee)
   if (activeDevoteeTab === "dashboard") {
-    els.devoteeStats.style.display = "grid";   // show
     renderDevoteeStats(devoteeId);
     els.entryList.innerHTML = "";
     return;
-  } else {
-    els.devoteeStats.style.display = "none";   // hide
   }
-}
 
-
-
+  // For admin, stats are handled elsewhere (devotee dashboard)
+  // For devotee, stats will be hidden by renderDevoteeStats function
+  
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
@@ -1102,12 +1101,14 @@ function hasCouponData(coupon) {
 
 function renderDevoteeStats(devoteeId) {
 
-  // 🔥 Only show in dashboard tab for devotee
+  // 🔥 Only hide stats in devotee mode when NOT on dashboard tab
   if (session?.role === "devotee" && activeDevoteeTab !== "dashboard") {
     els.devoteeStats.innerHTML = "";
     return;
   }
 
+  // ✅ For admin, always show stats regardless of tab
+  // ✅ For devotee, show stats only on dashboard tab (already handled above)
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
