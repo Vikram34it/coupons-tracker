@@ -604,6 +604,7 @@ if (sortType === "name") {
           if (!confirm(`Send WhatsApp to ${devotee.name}?`)) return;
       
           const msg = `Hare Krishna 🙏
+          Use the following link to update your coupons details: https://vikram34it.github.io/coupons-tracker/
       
       Devotee Summary
       
