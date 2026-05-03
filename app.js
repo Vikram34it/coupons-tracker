@@ -569,11 +569,12 @@ function renderStats() {
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  const directMoney = state.directDonations.reduce((sum, d) => sum + d.amount, 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money);
+  els.moneyReceived.textContent = formatMoney(money + directMoney);
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
