@@ -563,6 +563,9 @@ if (session?.role === "devotee") {
         <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
           WhatsApp
         </button>
+        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
+          Update Contact
+        </button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
@@ -638,6 +641,33 @@ https://vikram34it.github.io/coupons-tracker/
     const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
 
     window.open(url, "_blank");
+  });
+});
+  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
+    if (!devotee) return;
+
+    const newContact = window.prompt(
+      `Enter new contact for ${devotee.name}`,
+      devotee.contact || ""
+    );
+
+    if (newContact === null) return;
+
+    const cleaned = newContact.replace(/\D/g, "");
+
+    if (cleaned.length !== 10) {
+      showToast("Enter valid 10-digit mobile number");
+      return;
+    }
+
+    devotee.contact = cleaned;
+
+    saveState();
+    render();
+    showToast(`Contact updated for ${devotee.name}`);
   });
 });
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
