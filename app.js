@@ -408,7 +408,15 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+const statsContainer = document.getElementById("devoteeStats");
 
+if (statsContainer) {
+  if (session?.role === "devotee") {
+    statsContainer.style.display =
+      activeDevoteeTab === "dashboard" ? "grid" : "none";
+  }
+  // ❗ DO NOTHING for admin (don't force display)
+}
 }
 
 function renderSelectors() {
@@ -648,16 +656,7 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-  const statsContainer = document.getElementById("devoteeStats");
-
-// ✅ ONLY control for devotee view
-if (session?.role === "devotee") {
-  if (activeDevoteeTab === "dashboard") {
-    statsContainer.style.display = "grid";   // show
-  } else {
-    statsContainer.style.display = "none";   // hide
-  }
-}
+ 
   // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
