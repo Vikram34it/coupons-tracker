@@ -359,60 +359,6 @@ function clearResetSelection() {
   });
 }
 
-function renderSevaStats(devoteeId) {
-  const container = document.getElementById("sevaStatsContent");
-  if (!container) return;
-
-  let coupons = state.coupons;
-
-  // 👉 Devotee view → only their coupons
-  if (session?.role === "devotee") {
-    coupons = coupons.filter(c => c.devoteeId === devoteeId);
-  }
-
-  // 👉 Only consider coupons with amount
-  coupons = coupons.filter(c => Number(c.amount) > 0);
-
-  const sevaMap = {};
-
-  coupons.forEach(c => {
-    const seva = c.description || "Others";
-
-    if (!sevaMap[seva]) {
-      sevaMap[seva] = { count: 0, amount: 0 };
-    }
-
-    sevaMap[seva].count++;
-    sevaMap[seva].amount += Number(c.amount || 0);
-  });
-
-  if (Object.keys(sevaMap).length === 0) {
-    container.innerHTML = `<div class="empty">No seva data available</div>`;
-    return;
-  }
-
-  container.innerHTML = `
-    <table style="width:100%; border-collapse: collapse;">
-      <thead>
-        <tr>
-          <th style="text-align:left;">Seva Type</th>
-          <th>Count</th>
-          <th>Amount</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${Object.entries(sevaMap).map(([seva, data]) => `
-          <tr>
-            <td>${escapeHtml(seva)}</td>
-            <td>${data.count}</td>
-            <td>${formatMoney(data.amount)}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
 function assignCoupons(event) {
   event.preventDefault();
   const devoteeId = els.assignDevotee.value;
@@ -470,20 +416,6 @@ function render() {
   renderAllCoupons();
   updateAdminView();
   document.getElementById("devoteeSort").value = "name";
-  const statsContainer = document.querySelector(".stats-grid");
-    
-    if (statsContainer) {
-      if (session?.role === "devotee") {
-        if (activeDevoteeTab === "dashboard") {
-          statsContainer.style.display = "grid";   // show only in dashboard
-        } else {
-          statsContainer.style.display = "none";   // hide in pending & settled
-        }
-      } else {
-        // admin → always visible
-        statsContainer.style.display = "grid";
-      }
-    }
 
 }
 
@@ -845,17 +777,12 @@ function renderEntryList() {
   // ✅ Dashboard tab → only stats
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
-    
-  renderSevaStats(devoteeId); // ✅ NEW
-
-  document.getElementById("sevaStats").style.display = "block";
     els.entryList.innerHTML = "";
     return;
   }
 
   // ❌ Hide stats in other tabs
   els.devoteeStats.innerHTML = "";
-  document.getElementById("sevaStats").style.display = "none";
 
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
@@ -938,7 +865,7 @@ function renderEntryList() {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
 
     return `
-      <article class="coupon-card" data-coupon-number="${coupon.number}">
+      <article class="coupon-card">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
           <span class="status ${isSold(coupon) ? "sold" : "pending"}">
@@ -970,11 +897,11 @@ function renderEntryList() {
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
 
-       <label>
+    <!--    <label>
             Receipt Number
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
           </label>
-   
+   -->
           <!-- ✅ FIXED LABEL (IMPORTANT) -->
           <label class="wide">
             Seva Type
@@ -1093,36 +1020,19 @@ function toggleSettlement(event) {
 
 function updateCouponField(event) {
   const card = event.target.closest("[data-coupon-number]");
-  if (!card) return;
-
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
-  if (!coupon) return;
-
-  // 🔒 Security
   if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
-
-  const field = event.target.dataset.field;
-  let value = event.target.value;
-
-  // ✅ Trim only for text
-  if (typeof value === "string") value = value.trimStart();
-
-  // ✅ Fix amount type
-  if (field === "amount") {
-    coupon.amount = Number(value) || 0;
-  } else {
-    coupon[field] = value;
-  }
-
-  // ✅ SAVE
+  coupon[event.target.dataset.field] = event.target.value.trimStart();
   saveState();
+  renderStats();
+  renderDevotees();
 
-  // ✅ Re-render properly
-  render();
-
+  const status = card.querySelector(".status");
+  status.textContent = isSold(coupon) ? "Sold" : "Pending";
+  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
 }
 
 function couponsForDevotee(devoteeId) {
