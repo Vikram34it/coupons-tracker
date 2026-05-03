@@ -416,6 +416,20 @@ function render() {
   renderAllCoupons();
   updateAdminView();
   document.getElementById("devoteeSort").value = "name";
+  const statsContainer = document.querySelector(".stats-grid");
+    
+    if (statsContainer) {
+      if (session?.role === "devotee") {
+        if (activeDevoteeTab === "dashboard") {
+          statsContainer.style.display = "grid";   // show only in dashboard
+        } else {
+          statsContainer.style.display = "none";   // hide in pending & settled
+        }
+      } else {
+        // admin → always visible
+        statsContainer.style.display = "grid";
+      }
+    }
 
 }
 
