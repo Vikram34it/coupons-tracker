@@ -181,6 +181,7 @@ function login(event) {
       return;
     }
     saveSession({ role: "admin", devoteeId: "" });
+    activeAdminTab = "dashboard";
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
@@ -192,6 +193,7 @@ function login(event) {
 
   els.loginForm.reset();
   render();
+  updateAdminView();
 }
 
 function logout() {
