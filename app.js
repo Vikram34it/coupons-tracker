@@ -176,20 +176,12 @@ function login(event) {
   const password = els.loginPassword.value.trim();
 
   if (role === "admin") {
-  if (password !== state.settings.adminPassword) {
-    showToast("Admin password is incorrect");
-    return;
-  }
-
-  saveSession({ role: "admin", devoteeId: "" });
-
-  // ✅ FORCE Dashboard as default
-  activeAdminTab = "dashboard";
-
-  setTimeout(() => {
-    document.querySelector('[data-admin-tab="dashboard"]')?.click();
-  }, 0);
-} else {
+    if (password !== state.settings.adminPassword) {
+      showToast("Admin password is incorrect");
+      return;
+    }
+    saveSession({ role: "admin", devoteeId: "" });
+  } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
       showToast("Devotee password is incorrect");
@@ -415,7 +407,6 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-  document.getElementById("devoteeSort").value = "name";
 
 }
 
@@ -509,22 +500,9 @@ if (session?.role === "devotee") {
 }
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-  const sortType = document.getElementById("devoteeSort")?.value || "name";
-
-let devotees = state.devotees.filter((devotee) => {
-  return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
-});
-
-// 🔥 Sorting logic
-if (sortType === "name") {
-  devotees.sort((a, b) => a.name.localeCompare(b.name));
-} else {
-  devotees.sort((a, b) => {
-    const aTotal = totalCollectedByDevotee(a.id);
-    const bTotal = totalCollectedByDevotee(b.id);
-    return bTotal - aTotal; // highest first
+  const devotees = state.devotees.filter((devotee) => {
+    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
-}
 
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
@@ -557,82 +535,15 @@ if (sortType === "name") {
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
-      <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
-
-        <button class="ghost" type="button" data-wa-summary="${escapeAttr(devotee.id)}">
-          WhatsApp Summary
-        </button>
-        
-        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
-          Update Contact
-        </button>
-        
+        <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
-        
         <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
   }).join("");
 
-  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
-      btn.addEventListener("click", () => {
-    
-        const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
-        if (!devotee) return;
-    
-        const newContact = prompt(
-          `Enter new contact number for ${devotee.name}`,
-          devotee.contact || ""
-        );
-    
-        if (newContact === null) return;
-    
-        // Optional validation (only digits)
-        if (!/^\d{10}$/.test(newContact.trim())) {
-          showToast("Enter valid 10-digit mobile number");
-          return;
-        }
-    
-        devotee.contact = newContact.trim();
-    
-        saveState();
-        renderDevotees();
-        renderSelectors();
-    
-        showToast(`Contact updated for ${devotee.name}`);
-      });
-    });
-  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
-  btn.addEventListener("click", () => {
-
-    const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
-    if (!devotee) return;
-
-    const newContact = prompt(
-      `Enter new contact number for ${devotee.name}`,
-      devotee.contact || ""
-    );
-
-    if (newContact === null) return;
-
-    // Optional validation (only digits)
-    if (!/^\d{10}$/.test(newContact.trim())) {
-      showToast("Enter valid 10-digit mobile number");
-      return;
-    }
-
-    devotee.contact = newContact.trim();
-
-    saveState();
-    renderDevotees();
-    renderSelectors();
-
-    showToast(`Contact updated for ${devotee.name}`);
-  });
-});
-  
   els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
     button.addEventListener("click", () => {
       els.entryDevotee.value = button.dataset.openDevotee;
@@ -657,61 +568,12 @@ if (sortType === "name") {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
-        els.devoteeList.querySelectorAll("[data-wa-summary]").forEach(btn => {
-        btn.addEventListener("click", () => {
-      
-          const devotee = state.devotees.find(d => d.id === btn.dataset.waSummary);
-          if (!devotee) return;
-      
-          const summary = devoteeSummary(devotee.id);
-      
-          if (!devotee.contact) {
-            showToast("No contact number");
-            return;
-          }
-      
-          // Optional confirmation
-          if (!confirm(`Send WhatsApp to ${devotee.name}?`)) return;
-      
-          const msg = `Hare Krishna 🙏
-          Use the following link to update your coupons details: https://vikram34it.github.io/coupons-tracker/
-      
-      Devotee Summary
-      
-      Name: ${devotee.name}
-      PIN: ${devotee.pin || "Not set"}
-      
-      Coupons Issued: ${summary.issued}
-      Coupons Sold: ${summary.sold}
-      Coupons Pending: ${summary.left}
-      
-      Settled Amount: ₹${summary.settledAmount}
-      Pending Amount: ₹${summary.pendingAmount}
-      
-      Thank you for your service 🙏
-      ISKCON Mangalagiri`;
-      
-          window.open(`https://wa.me/91${devotee.contact}?text=${encodeURIComponent(msg)}`);
-        });
-      });
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
   btn.addEventListener("click", () => {
     deleteDevotee(btn.dataset.deleteDevotee);
   });
 });
-  // 🔥 Bind sort dropdown (mobile-safe)
-const sortEl = document.getElementById("devoteeSort");
-if (sortEl && !sortEl.dataset.bound) {
-  sortEl.addEventListener("change", () => {
-    renderDevotees();
-  });
-  sortEl.dataset.bound = "true"; // prevent duplicate binding
-}
  }
-
-document.getElementById("devoteeSort")?.addEventListener("change", () => {
-  renderDevotees();
-});
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
@@ -774,147 +636,86 @@ function renderResetCouponList() {
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
 
-  // ✅ Dashboard tab → only stats
+  // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
     els.entryList.innerHTML = "";
     return;
   }
 
-  // ❌ Hide stats in other tabs
+  // ❌ Clear stats in other tabs
   els.devoteeStats.innerHTML = "";
-
+  
   if (!devoteeId) {
+    els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-  const query = els.entrySearch.value.trim().toLowerCase();
+   const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter(c => !c.settled);
-  if (activeDevoteeTab === "settled") coupons = coupons.filter(c => c.settled);
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "unsold") coupons = coupons.filter(c => !isSold(c));
-  if (status === "settled") coupons = coupons.filter(c => c.settled);
-  if (status === "unsettled") coupons = coupons.filter(c => !c.settled);
-  if (query) coupons = coupons.filter(c => couponSearchText(c).includes(query));
-
-  // ==============================
-  // ✅ SETTLED TAB → TABLE VIEW
-  // ==============================
-  if (activeDevoteeTab === "settled") {
-
-    if (!coupons.length) {
-      els.entryList.innerHTML = `<div class="empty">No settled coupons found.</div>`;
-      return;
-    }
-
-    els.entryList.innerHTML = `
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Name</th>
-              <th>Phone</th>
-              <th>Amount</th>
-              <th>Receipt</th>
-              <th>Seva</th>
-              <th>WA</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${coupons.map(c => `
-              <tr>
-                <td>#${c.number}</td>
-                <td>${escapeHtml(c.buyerName || "-")}</td>
-                <td>${escapeHtml(c.buyerContact || "-")}</td>
-                <td>${formatMoney(amountValue(c.amount))}</td>
-                <td>${escapeHtml(c.receiptNumber || "-")}</td>
-                <td>${escapeHtml(c.description || "-")}</td>
-                <td>
-                  <button class="ghost" data-wa="${c.number}">Send</button>
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:10px;">
-        <button id="sendAllWhatsapp" class="ghost">Send All</button>
-      </div>
-    `;
-
-    bindWhatsappEvents(coupons);
-    return;
-  }
-
-  // ==============================
-  // ✅ NORMAL CARD VIEW (Pending)
-  // ==============================
+  if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   if (!coupons.length) {
-    els.entryList.innerHTML = `<div class="empty">No pending coupons found.</div>`;
+    els.entryList.innerHTML = activeDevoteeTab === "settled"
+      ? `<div class="empty">No settled coupons found.</div>`
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
   els.entryList.innerHTML = coupons.map((coupon) => {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
-
     return `
-      <article class="coupon-card">
+      <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">
-            ${isSold(coupon) ? "Sold" : "Pending"}
-          </span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">
-            ${coupon.settled ? "Settled" : "Not Settled"}
-          </span>
+          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
+          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
         </div>
-
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" ${locked}>
+            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
-
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" ${locked}>
+            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
-
           <label>
             Amount Received
-            <input data-field="amount" type="number" value="${escapeAttr(coupon.amount)}" ${locked}>
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-
           <label>
             Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" ${locked}>
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
-
-          <!-- ✅ FIXED LABEL (IMPORTANT) -->
           <label class="wide">
-            Seva Type
-            <select data-field="description" ${locked}>
-              <option value="">Select Seva</option>
-              <option ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-              <option ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-              <option ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-              <option ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-              <option ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-              <option ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-              <option ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-            </select>
+            Description / Purpose
+            <label class="wide">
+              Seva Type
+              <select data-field="description" ${locked}>
+                <option value="">Select Seva</option>
+                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              </select>
+</label>
           </label>
         </div>
       </article>
@@ -925,48 +726,6 @@ function renderEntryList() {
     field.addEventListener("change", updateCouponField);
   });
 }
-
-function bindWhatsappEvents(coupons) {
-
-  // Individual
-  document.querySelectorAll("[data-wa]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const c = coupons.find(x => x.number == btn.dataset.wa);
-
-      const msg = `Hare Krishna 🙏
-Thank you for your donation.
-
-Name: ${c.buyerName}
-Amount: ₹${c.amount}
-Seva: ${c.description}
-
-ISKCON Mangalagiri`;
-
-      if (!c.buyerContact) {
-        alert("No phone number");
-        return;
-      }
-
-      window.open(`https://wa.me/91${c.buyerContact}?text=${encodeURIComponent(msg)}`);
-    });
-  });
-
-  // Bulk
-  document.getElementById("sendAllWhatsapp")?.addEventListener("click", () => {
-
-    let msg = "Hare Krishna 🙏\n\nDonation Summary:\n\n";
-
-    coupons.forEach(c => {
-      msg += `#${c.number} - ${c.buyerName} - ₹${c.amount}\n`;
-    });
-
-    msg += "\nThank you 🙏";
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`);
-  });
-}
-
-
 
 function renderAllCoupons() {
   const query = els.allSearch.value.trim().toLowerCase();
@@ -1394,10 +1153,9 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-         if (isEditing) {
+          if (isEditing && document.hasFocus()) {
             pendingFirebaseData = snapshot.val();
-          } else {
-            applyFirebaseData(snapshot.val());
+            return;
           }
         
           const data = snapshot.val();
