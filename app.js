@@ -968,8 +968,6 @@ function updateCouponField(event) {
   }
   coupon[event.target.dataset.field] = event.target.value.trimStart();
   saveState();
-  renderStats();
-  renderDevotees();
 
   const status = card.querySelector(".status");
   status.textContent = isSold(coupon) ? "Sold" : "Pending";
