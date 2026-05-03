@@ -960,18 +960,36 @@ function toggleSettlement(event) {
 }
 
 function updateCouponField(event) {
-  const card = event.target.closest("[data-coupon-number]");
+  const field = event.target;
+
+  const card = field.closest("[data-coupon-number]");
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
+
   if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
-  coupon[event.target.dataset.field] = event.target.value.trimStart();
-  saveState();
 
-  const status = card.querySelector(".status");
-  status.textContent = isSold(coupon) ? "Sold" : "Pending";
-  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
+  // ✅ SAVE FIELD NAME + POSITION
+  const fieldName = field.dataset.field;
+  const cursorPos = field.selectionStart;
+
+  coupon[fieldName] = field.value.trimStart();
+
+  saveState(); // still needed
+
+  // ❌ NO render()
+
+  // ✅ RESTORE FOCUS AFTER SMALL DELAY
+  setTimeout(() => {
+    const updatedCard = document.querySelector(`[data-coupon-number="${coupon.number}"]`);
+    const newField = updatedCard?.querySelector(`[data-field="${fieldName}"]`);
+
+    if (newField) {
+      newField.focus();
+      newField.setSelectionRange(cursorPos, cursorPos);
+    }
+  }, 0);
 }
 
 function couponsForDevotee(devoteeId) {
