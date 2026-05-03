@@ -791,14 +791,13 @@ function renderEntryList() {
   // ✅ Dashboard tab → only stats
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
-    renderSevaStats(devoteeId); // ✅ ADD THIS
+    
     els.entryList.innerHTML = "";
     return;
   }
 
   // ❌ Hide stats in other tabs
   els.devoteeStats.innerHTML = "";
-  document.getElementById("sevaStats").style.display = "none";
 
   if (!devoteeId) {
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
