@@ -58,6 +58,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons)
+    directDonations: []
   };
 }
 
@@ -80,6 +81,7 @@ function loadState() {
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons
+        directDonations: Array.isArray(parsed.directDonations) ? parsed.directDonations : []
     };
   } catch {
     return defaultState();
@@ -569,7 +571,7 @@ function renderStats() {
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-  const directMoney = state.directDonations.reduce((sum, d) => sum + d.amount, 0);
+  const directMoney = (state.directDonations || []).reduce((sum, d) => sum + d.amount, 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
