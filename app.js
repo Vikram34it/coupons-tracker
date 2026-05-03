@@ -14,6 +14,7 @@ const els = {};
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
+    renderSelectors(); // ✅ ADD THIS
   render();
 document.addEventListener("focusin", (e) => {
   if (e.target.matches("input, textarea, select")) {
@@ -1119,6 +1120,8 @@ function applyFirebaseData(data) {
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
 
   originalSaveState();
+   // ✅ IMPORTANT FIX
+  renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
 
