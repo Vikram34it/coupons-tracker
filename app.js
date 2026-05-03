@@ -420,7 +420,7 @@ function renderSelectors() {
   const sortedDevotees = [...state.devotees].sort((a, b) =>
   a.name.localeCompare(b.name)  
   );
-  const options = sortedDevotees.devotees
+  const options = sortedDevotees
     .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
     .join("");
   const empty = '<option value="">Select devotee</option>';
