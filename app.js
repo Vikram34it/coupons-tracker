@@ -409,14 +409,15 @@ function render() {
   renderAllCoupons();
   updateAdminView();
 
- // 🔥 HIDE TOP STATS FOR DEVOTEE
 const topStats = document.querySelector(".stats-grid");
 
 if (topStats) {
   if (session?.role === "devotee") {
-    topStats.style.display = "none";   // ❌ hide completely
+    // 🔥 ALWAYS HIDE (all tabs including dashboard)
+    topStats.style.display = "none";
   } else {
-    topStats.style.display = "grid";   // ✅ admin only
+    // ✅ Admin always sees it
+    topStats.style.display = "grid";
   }
 }
 }
