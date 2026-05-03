@@ -9,6 +9,7 @@ let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
+let saveTimer = null;
 const els = {};
 
 window.addEventListener("load", () => {
@@ -970,14 +971,15 @@ function updateCouponField(event) {
     return;
   }
 
-  // ✅ SAVE FIELD NAME + POSITION
-  const fieldName = field.dataset.field;
-  const cursorPos = field.selectionStart;
+  coupon[field.dataset.field] = field.value.trimStart();
 
-  coupon[fieldName] = field.value.trimStart();
+  // 🔥 DELAY SAVE (KEY FIX)
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveState();   // only after user pauses
+  }, 500);
 
-  saveState(); // still needed
-
+  // ❌ NO render()
 }
 
 function couponsForDevotee(devoteeId) {
