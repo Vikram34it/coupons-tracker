@@ -100,7 +100,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody","devoteeSort", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -139,6 +139,7 @@ function bindEvents() {
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
+  els.devoteeSort.addEventListener("change", renderDevotees);
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -400,6 +401,9 @@ function assignCoupons(event) {
 }
 
 function render() {
+  if (els.devoteeSort && !els.devoteeSort.value) {
+  els.devoteeSort.value = "name";
+  }
   validateSession();
   renderSelectors();
   applyRoleAccess();
@@ -500,10 +504,21 @@ if (session?.role === "devotee") {
 }
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-  const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+  let devotees = state.devotees.filter((devotee) => {
+  return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);  
   });
-
+  // ✅ SORTING LOGIC
+  const sortType = els.devoteeSort?.value || "name";
+  
+  if (sortType === "name") {
+    devotees.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sortType === "amount") {
+    devotees.sort((a, b) => {
+      const aAmount = devoteeSummary(a.id).settledAmount;
+      const bAmount = devoteeSummary(b.id).settledAmount;
+      return bAmount - aAmount; // high to low
+    });
+  }
   const periodTotal = state.coupons
     .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
     .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
