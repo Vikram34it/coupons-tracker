@@ -93,6 +93,52 @@ function saveSession(nextSession) {
   }
 }
 
+function renderSevaSummary() {
+  const period = settlementPeriod();
+  const sevaMap = {};
+
+  state.coupons
+    .filter(c => c.settled && inSettlementPeriod(c, period))
+    .forEach(coupon => {
+      const seva = coupon.description || "Others";
+
+      if (!sevaMap[seva]) {
+        sevaMap[seva] = { count: 0, amount: 0 };
+      }
+
+      sevaMap[seva].count += 1;
+      sevaMap[seva].amount += amountValue(coupon.amount);
+    });
+
+  const rows = Object.entries(sevaMap)
+    .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
+    .map(([seva, data]) => `
+      <tr>
+        <td>${escapeHtml(seva)}</td>
+        <td>${data.count}</td>
+        <td>${formatMoney(data.amount)}</td>
+      </tr>
+    `)
+    .join("");
+
+  els.sevaSummary.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Seva</th>
+            <th>Count</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || `<tr><td colspan="3">No data</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
@@ -101,7 +147,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -404,6 +450,7 @@ function render() {
   applyRoleAccess();
   renderStats();
   renderDevotees();
+  renderSevaSummary();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
