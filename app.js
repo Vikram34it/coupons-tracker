@@ -408,14 +408,18 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-const statsContainer = document.getElementById("devoteeStats");
 
-if (statsContainer) {
+  // 🔥 CONTROL TOP STATS (IMPORTANT FIX)
+const topStats = document.querySelector(".stats-grid");
+
+if (topStats) {
   if (session?.role === "devotee") {
-    statsContainer.style.display =
+    topStats.style.display =
       activeDevoteeTab === "dashboard" ? "grid" : "none";
+  } else {
+    // admin should always see it
+    topStats.style.display = "grid";
   }
-  // ❗ DO NOTHING for admin (don't force display)
 }
 }
 
