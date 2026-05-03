@@ -560,6 +560,9 @@ if (session?.role === "devotee") {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+        <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
+          WhatsApp
+        </button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
@@ -592,6 +595,51 @@ if (session?.role === "devotee") {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
+  els.devoteeList.querySelectorAll("[data-send-whatsapp]").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    const devotee = state.devotees.find(d => d.id === btn.dataset.sendWhatsapp);
+    if (!devotee) return;
+
+    const period = settlementPeriod();
+    const summary = devoteeSummary(devotee.id, period);
+    const assigned = couponsForDevotee(devotee.id).length;
+
+    // ✅ YOUR MESSAGE (customized)
+    const message =
+`Hare Krishna 🙏
+
+${devotee.name},
+
+Here is your seva summary:
+
+🔐 PIN: ${devotee.pin || "Not set"}
+
+🎟 Coupons Assigned: ${assigned}
+🟢 Sold Coupons: ${summary.sold}
+🟡 Pending Coupons: ${summary.left}
+
+💰 Amount Settled: ${formatMoney(summary.settledAmount)}
+⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}
+
+Please continue your seva enthusiastically 🙏
+
+Use the following link to update your coupons:
+https://vikram34it.github.io/coupons-tracker/
+`;
+
+    const phone = (devotee.contact || "").replace(/\D/g, "");
+
+    if (!phone) {
+      showToast("No contact number for this devotee");
+      return;
+    }
+
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+
+    window.open(url, "_blank");
+  });
+});
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
   btn.addEventListener("click", () => {
     deleteDevotee(btn.dataset.deleteDevotee);
