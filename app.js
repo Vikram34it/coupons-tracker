@@ -2,6 +2,7 @@ const DEFAULT_TOTAL_COUPONS = 3000;
 const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "admin123";
+const DEFAULT_VIEWER_PASSWORD = "viewer123";
 
 const state = loadState();
 let session = loadSession();
@@ -40,6 +41,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
+  viewerPassword: DEFAULT_VIEWER_PASSWORD,
       totalCoupons
     },
     devotees: [],
@@ -222,20 +224,28 @@ function login(event) {
   const role = els.loginRole.value;
   const password = els.loginPassword.value.trim();
 
-  if (role === "admin") {
-    if (password !== state.settings.adminPassword) {
-      showToast("Admin password is incorrect");
-      return;
-    }
-    saveSession({ role: "admin", devoteeId: "" });
-  } else {
-    const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
-    if (!devotee || password !== devotee.pin) {
-      showToast("Devotee password is incorrect");
-      return;
-    }
-    saveSession({ role: "devotee", devoteeId: devotee.id });
+ if (role === "admin") {
+  if (password !== state.settings.adminPassword) {
+    showToast("Admin password is incorrect");
+    return;
   }
+  saveSession({ role: "admin", devoteeId: "" });
+}
+else if (role === "viewer") {
+  if (password !== state.settings.viewerPassword) {
+    showToast("Viewer password is incorrect");
+    return;
+  }
+  saveSession({ role: "viewer", devoteeId: "" });
+}
+else {
+  const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
+  if (!devotee || password !== devotee.pin) {
+    showToast("Devotee password is incorrect");
+    return;
+  }
+  saveSession({ role: "devotee", devoteeId: devotee.id });
+}
 
   els.loginForm.reset();
   render();
