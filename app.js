@@ -938,7 +938,7 @@ function renderEntryList() {
     const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
 
     return `
-      <article class="coupon-card">
+      <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
           <span class="status ${isSold(coupon) ? "sold" : "pending"}">
@@ -1093,19 +1093,36 @@ function toggleSettlement(event) {
 
 function updateCouponField(event) {
   const card = event.target.closest("[data-coupon-number]");
+  if (!card) return;
+
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
+  if (!coupon) return;
+
+  // 🔒 Security
   if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
-  coupon[event.target.dataset.field] = event.target.value.trimStart();
-  saveState();
-  renderStats();
-  renderDevotees();
 
-  const status = card.querySelector(".status");
-  status.textContent = isSold(coupon) ? "Sold" : "Pending";
-  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
+  const field = event.target.dataset.field;
+  let value = event.target.value;
+
+  // ✅ Trim only for text
+  if (typeof value === "string") value = value.trimStart();
+
+  // ✅ Fix amount type
+  if (field === "amount") {
+    coupon.amount = Number(value) || 0;
+  } else {
+    coupon[field] = value;
+  }
+
+  // ✅ SAVE
+  saveState();
+
+  // ✅ Re-render properly
+  render();
+
 }
 
 function couponsForDevotee(devoteeId) {
