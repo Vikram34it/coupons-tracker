@@ -978,18 +978,6 @@ function updateCouponField(event) {
 
   saveState(); // still needed
 
-  // ❌ NO render()
-
-  // ✅ RESTORE FOCUS AFTER SMALL DELAY
-  setTimeout(() => {
-    const updatedCard = document.querySelector(`[data-coupon-number="${coupon.number}"]`);
-    const newField = updatedCard?.querySelector(`[data-field="${fieldName}"]`);
-
-    if (newField) {
-      newField.focus();
-      newField.setSelectionRange(cursorPos, cursorPos);
-    }
-  }, 0);
 }
 
 function couponsForDevotee(devoteeId) {
