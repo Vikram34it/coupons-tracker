@@ -25,8 +25,21 @@ document.addEventListener("focusin", (e) => {
 
 document.addEventListener("focusout", (e) => {
   if (e.target.matches("input, textarea, select")) {
-    isEditing = false;
-    applyPendingFirebaseData();
+    
+    // ⏳ Delay to allow next field focus (TAB FIX)
+    setTimeout(() => {
+      const active = document.activeElement;
+
+      // ✅ If still inside input → DO NOTHING
+      if (active && active.matches("input, textarea, select")) {
+        return;
+      }
+
+      // ✅ Only now apply Firebase update
+      isEditing = false;
+      applyPendingFirebaseData();
+
+    }, 100); // small delay is KEY
   }
 });
   // Wait until Firebase function exists
