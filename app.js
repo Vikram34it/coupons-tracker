@@ -671,6 +671,39 @@ function renderEntryList() {
 
   if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (activeDevoteeTab === "settled") {
+
+  els.entryList.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Coupon</th>
+            <th>Buyer</th>
+            <th>Contact</th>
+            <th>Amount</th>
+            <th>Seva</th>
+            <th>Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map(coupon => `
+            <tr>
+              <td>#${coupon.number}</td>
+              <td>${escapeHtml(coupon.buyerName || "-")}</td>
+              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+              <td>${formatMoney(coupon.amount)}</td>
+              <td>${escapeHtml(coupon.description || "-")}</td>
+              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return; // 🔥 VERY IMPORTANT (stops card rendering)
+}
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
