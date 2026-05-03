@@ -754,10 +754,10 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-          <label>
+     <!--     <label>
             Receipt Number
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
-          </label>
+      -->    </label>
           <label class="wide">
             Description / Purpose
             <label class="wide">
