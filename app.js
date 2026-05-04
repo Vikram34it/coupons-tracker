@@ -58,6 +58,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons)
+    hundi: []
   };
 }
 
@@ -80,6 +81,7 @@ function loadState() {
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons
+       hundi: Array.isArray(parsed.hundi) ? parsed.hundi : []
     };
   } catch {
     return defaultState();
