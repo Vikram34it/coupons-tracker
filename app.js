@@ -592,9 +592,14 @@ if (session?.role === "devotee") {
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
-  const periodTotal = state.coupons
-    .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
-    .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  const hundiPeriod = (state.hundi || [])
+  .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
+  .reduce((sum, h) => sum + h.amount, 0);
+
+const periodTotal = state.coupons
+  .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
+  .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
+  + hundiPeriod;
   els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
   if (!devotees.length) {
