@@ -57,8 +57,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       totalCoupons
     },
     devotees: [],
-    coupons: makeCoupons(totalCoupons),
-    hundi: []
+    coupons: makeCoupons(totalCoupons)
   };
 }
 
@@ -80,8 +79,7 @@ function loadState() {
         totalCoupons
       },
       devotees: parsed.devotees.map(normalizeDevotee),
-      coupons,
-       hundi: Array.isArray(parsed.hundi) ? parsed.hundi : []
+      coupons
     };
   } catch {
     return defaultState();
@@ -126,17 +124,6 @@ function renderSevaSummary() {
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
-   // ✅ ADD HUNDI
-(state.hundi || []).forEach(h => {
-  const seva = "Hundi Donation";
-
-  if (!sevaMap[seva]) {
-    sevaMap[seva] = { count: 0, amount: 0 };
-  }
-
-  sevaMap[seva].count += 1;
-  sevaMap[seva].amount += h.amount;
-});
   const rows = Object.entries(sevaMap)
     .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
     .map(([seva, data]) => `
@@ -164,7 +151,6 @@ function renderSevaSummary() {
       </table>
     </div>
   `;
- 
 }
 
 function cacheElements() {
@@ -583,12 +569,11 @@ function renderStats() {
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
+  els.moneyReceived.textContent = formatMoney(money);
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
@@ -813,73 +798,7 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-
-
-if (activeDevoteeTab === "hundi") {
-
-  const devoteeId = els.entryDevotee.value;
-
-  const entries = (state.hundi || [])
-    .filter(h => h.devoteeId === devoteeId)
-    .sort((a, b) => b.date.localeCompare(a.date));
-
-  els.entryList.innerHTML = `
-    <div class="panel">
-      <h3>Add Hundi Entry</h3>
-      <div class="inline-fields">
-        <input type="date" id="hundiDate">
-        <input type="number" id="hundiAmount" placeholder="Amount">
-        <button id="addHundiBtn">Add</button>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            entries.map(e => `
-              <tr>
-                <td>${e.date}</td>
-                <td>${formatMoney(e.amount)}</td>
-              </tr>
-            `).join("")
-            || `<tr><td colspan="2">No entries</td></tr>`
-          }
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  document.getElementById("addHundiBtn").onclick = () => {
-    const amount = Number(document.getElementById("hundiAmount").value);
-    const date = document.getElementById("hundiDate").value || todayKey();
-
-    if (!amount) {
-      showToast("Enter amount");
-      return;
-    }
-
-    state.hundi.push({
-      id: newId(),
-      devoteeId,
-      amount,
-      date
-    });
-
-    saveState();
-    renderEntryList();
-    showToast("Hundi added");
-  };
-
-  return;
-}
-  
+ 
   // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
