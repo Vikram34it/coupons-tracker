@@ -237,10 +237,10 @@ main {
   border: 1px solid var(--line);
   border-radius: 8px;
   display: inline-grid;
-  gap: 4px;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  justify-content: center;  
+  gap: 12px;                   /* ✅ equal spacing */
+  padding: 8px;
   margin: 0 0 14px;
-  padding: 4px;
 }
 
 .tab,
