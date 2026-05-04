@@ -236,7 +236,6 @@ main {
   background: #e9e4da;
   border: 1px solid var(--line);
   border-radius: 8px;
-  display: inline-grid;
   justify-content: center;  
   gap: 12px;                   /* ✅ equal spacing */
   padding: 8px;
