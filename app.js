@@ -571,11 +571,12 @@ function renderStats() {
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money);
+  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
@@ -799,6 +800,69 @@ function renderResetCouponList() {
 }
 
 function renderEntryList() {
+  if (activeDevoteeTab === "hundi") {
+
+  const devoteeId = els.entryDevotee.value;
+
+  const entries = (state.hundi || [])
+    .filter(h => h.devoteeId === devoteeId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  els.entryList.innerHTML = `
+    <div class="panel">
+      <h3>Add Hundi Entry</h3>
+      <div class="inline-fields">
+        <input type="date" id="hundiDate">
+        <input type="number" id="hundiAmount" placeholder="Amount">
+        <button id="addHundiBtn">Add</button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${
+            entries.map(e => `
+              <tr>
+                <td>${e.date}</td>
+                <td>${formatMoney(e.amount)}</td>
+              </tr>
+            `).join("") || `<tr><td colspan="2">No entries</td></tr>`
+          }
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById("addHundiBtn").onclick = () => {
+    const amount = Number(document.getElementById("hundiAmount").value);
+    const date = document.getElementById("hundiDate").value || todayKey();
+
+    if (!amount) {
+      showToast("Enter amount");
+      return;
+    }
+
+    state.hundi.push({
+      id: newId(),
+      devoteeId,
+      amount,
+      date
+    });
+
+    saveState();
+    renderEntryList();
+    showToast("Hundi added");
+  };
+
+  return;
+}
   const devoteeId = els.entryDevotee.value;
  
   // 🔥 Only render stats in Dashboard tab
