@@ -57,7 +57,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       totalCoupons
     },
     devotees: [],
-    coupons: makeCoupons(totalCoupons)
+    coupons: makeCoupons(totalCoupons),
     hundi: []
   };
 }
