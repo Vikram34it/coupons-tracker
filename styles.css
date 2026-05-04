@@ -67,6 +67,8 @@ button:hover, .file-label:hover { background: var(--primary-dark); }
   overflow-x: auto;
   margin: 0 0 14px;
   padding: 6px;
+  
+  justify-content: center;
 }
 
 .subtab {
@@ -217,6 +219,8 @@ th {
     display: flex;
     flex-wrap: nowrap;
     overflow-x: auto;
+    
+  justify-content: center;
   }
 
   .stats-grid {
