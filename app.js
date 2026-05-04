@@ -1148,13 +1148,16 @@ function renderDevoteeStats(devoteeId) {
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
-    <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
-    <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
-    <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
-    <article><span>Amount Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
-    <article><span>Amount Pending</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
-    <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
-  `;
+  <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
+  <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
+  <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
+
+  <article><span>Coupons Amount</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
+  <article><span>Hundi Amount</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
+  <article><span>Total Amount</span><strong>${formatMoney(summary.totalAmount || summary.settledAmount)}</strong></article>
+
+  <article><span>Amount Pending</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
+`;
 }
 
 function devoteeSummary(devoteeId, period = settlementPeriod()) {
@@ -1163,7 +1166,11 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const settled = sold.filter((coupon) => coupon.settled);
   const pending = sold.filter((coupon) => !coupon.settled);
   const periodSettled = settled.filter((coupon) => inSettlementPeriod(coupon, period));
-
+  // ✅ HUNDI CALCULATION
+  const hundiEntries = (state.hundi || [])
+    .filter(h => h.devoteeId === devoteeId);
+  
+  const hundiAmount = hundiEntries.reduce((sum, h) => sum + h.amount, 0);
   return {
     issued: assigned.length,
     sold: sold.length,
@@ -1173,7 +1180,10 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
     amountReceived: sold.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
     settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
     pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
-    periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
+    periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+     // ✅ NEW
+  hundiAmount,
+  totalAmount: (settled.reduce((sum, c) => sum + amountValue(c.amount), 0)) + hundiAmount
   };
 }
 
