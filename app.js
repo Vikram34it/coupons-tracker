@@ -80,7 +80,7 @@ function loadState() {
         totalCoupons
       },
       devotees: parsed.devotees.map(normalizeDevotee),
-      coupons
+      coupons,
        hundi: Array.isArray(parsed.hundi) ? parsed.hundi : []
     };
   } catch {
@@ -126,6 +126,17 @@ function renderSevaSummary() {
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
+   // ✅ ADD HUNDI
+(state.hundi || []).forEach(h => {
+  const seva = "Hundi Donation";
+
+  if (!sevaMap[seva]) {
+    sevaMap[seva] = { count: 0, amount: 0 };
+  }
+
+  sevaMap[seva].count += 1;
+  sevaMap[seva].amount += h.amount;
+});
   const rows = Object.entries(sevaMap)
     .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
     .map(([seva, data]) => `
@@ -153,17 +164,7 @@ function renderSevaSummary() {
       </table>
     </div>
   `;
-  // ✅ ADD HUNDI
-(state.hundi || []).forEach(h => {
-  const seva = "Hundi Donation";
-
-  if (!sevaMap[seva]) {
-    sevaMap[seva] = { count: 0, amount: 0 };
-  }
-
-  sevaMap[seva].count += 1;
-  sevaMap[seva].amount += h.amount;
-});
+ 
 }
 
 function cacheElements() {
