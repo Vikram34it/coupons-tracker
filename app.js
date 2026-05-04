@@ -126,6 +126,16 @@ function renderSevaSummary() {
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
+  (state.hundi || []).forEach(h => {
+  const seva = "Hundi Donation";
+
+  if (!sevaMap[seva]) {
+    sevaMap[seva] = { count: 0, amount: 0 };
+  }
+
+  sevaMap[seva].count += 1;
+  sevaMap[seva].amount += h.amount;
+});
   const rows = Object.entries(sevaMap)
     .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
     .map(([seva, data]) => `
