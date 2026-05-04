@@ -80,8 +80,10 @@ button:hover,
 }
 
 .subtabs {
-  width: fit-content;
-  margin-bottom: 14px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: nowrap;   /* ❗ prevents breaking to next line */
+  overflow-x: auto;    /* allows scroll if needed */
 }
 
 .file-label input {
@@ -236,11 +238,14 @@ main {
   background: #e9e4da;
   border: 1px solid var(--line);
   border-radius: 8px;
-  display: inline-grid;
-  gap: 4px;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
+
+  display: flex;            /* ✅ FIX */
+  gap: 8px;
+  flex-wrap: nowrap;        /* ✅ keep in one line */
+  overflow-x: auto;         /* ✅ scroll if needed */
+
   margin: 0 0 14px;
-  padding: 4px;
+  padding: 6px;
 }
 
 .tab,
@@ -250,9 +255,9 @@ main {
 }
 
 .tab.active,
-.subtab.active {
-  background: var(--surface);
-  box-shadow: 0 3px 10px rgba(38, 34, 24, 0.12);
+.subtab {
+  white-space: nowrap;   /* prevent text breaking */
+  flex-shrink: 0;        /* keep size fixed */
 }
 
 .view {
