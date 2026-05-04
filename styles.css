@@ -592,7 +592,8 @@ td {
   .entry-controls.compact {
     max-width: none;
   }
-
+ 
+}
   /* ✅ FINAL PERFECT TAB LAYOUT */
 .subtabs {
   display: flex !important;
@@ -613,6 +614,3 @@ td {
   text-align: center;
   white-space: nowrap;
 }
-  
-}
-
