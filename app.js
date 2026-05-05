@@ -109,46 +109,6 @@ function saveSession(nextSession) {
   }
 }
 
-function renderHundiTable() {
-  if (!els.hundiTableBody) return;
-
-  const rows = (state.hundi || []).map(h => `
-    <tr>
-      <td>${h.date}</td>
-      <td>${getDevoteeName(h.devoteeId)}</td>
-      <td>${formatMoney(h.amount)}</td>
-      <td>
-        ${
-          h.settled
-          ? "Settled"
-          : `<button data-settle-hundi="${h.id}">Mark Settled</button>`
-        }
-      </td>
-      <td>${h.settledDate || "-"}</td>
-    </tr>
-  `).join("");
-
-  els.hundiTableBody.innerHTML = rows || `
-    <tr><td colspan="5">No hundi records found</td></tr>
-  `;
-
-  document.querySelectorAll("[data-settle-hundi]").forEach(btn => {
-    btn.onclick = () => {
-      const entry = state.hundi.find(h => h.id === btn.dataset.settleHundi);
-      if (!entry) return;
-
-      entry.settled = true;
-      entry.settledDate = todayKey();
-
-      saveState();
-      renderHundiTable();
-      renderStats();
-
-      showToast("Hundi marked as settled");
-    };
-  });
-}
-
 function renderSevaSummary() {
   const period = settlementPeriod();
   const sevaMap = {};
@@ -208,53 +168,14 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "pendingAmount", "settledCoupons", "hundiAmount",
+    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "hundiTableBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
-  });
-}
-function renderHundiTable() {
-  if (!els.hundiTableBody) return;
-
-  const rows = (state.hundi || []).map(h => `
-    <tr>
-      <td>${h.date}</td>
-      <td>${getDevoteeName(h.devoteeId)}</td>
-      <td>${formatMoney(h.amount)}</td>
-      <td>
-        ${
-          h.settled
-          ? "Settled"
-          : `<button data-settle-hundi="${h.id}">Mark Settled</button>`
-        }
-      </td>
-      <td>${h.settledDate || "-"}</td>
-    </tr>
-  `).join("");
-
-  els.hundiTableBody.innerHTML = rows || `
-    <tr><td colspan="5">No hundi records found</td></tr>
-  `;
-
-  document.querySelectorAll("[data-settle-hundi]").forEach(btn => {
-    btn.onclick = () => {
-      const entry = state.hundi.find(h => h.id === btn.dataset.settleHundi);
-      if (!entry) return;
-
-      entry.settled = true;
-      entry.settledDate = todayKey();
-
-      saveState();
-      renderHundiTable();
-      renderStats();
-
-      showToast("Hundi marked as settled");
-    };
   });
 }
 
@@ -656,41 +577,17 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
-
-  const assigned = state.coupons.filter(c => c.devoteeId).length;
+  const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
   const sold = state.coupons.filter(isSold).length;
+  const settled = state.coupons.filter((coupon) => coupon.settled).length;
+  const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
-  // ✅ COUPON SPLIT
-  const settledCoupons = state.coupons.filter(c => c.settled);
-  const pendingCoupons = state.coupons.filter(c => isSold(c) && !c.settled);
-
-  const settledAmount = settledCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const pendingAmount = pendingCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  // ✅ HUNDI SPLIT (THIS IS WHAT YOU WERE MISSING)
-  const settledHundi = (state.hundi || []).filter(h => h.settled);
-  const pendingHundi = (state.hundi || []).filter(h => !h.settled);
-
-  const hundiAmount = settledHundi.reduce((sum, h) => sum + h.amount, 0);
-  const pendingHundiAmount = pendingHundi.reduce((sum, h) => sum + h.amount, 0);
-
-  // 🖥 DISPLAY
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-
-  // ✅ FINAL VALUES (CORRECT LOGIC)
-  if (els.pendingAmount) {
-    els.pendingAmount.textContent = formatMoney(pendingAmount + pendingHundiAmount);
-  }
-
-  if (els.settledCoupons) {
-    els.settledCoupons.textContent = formatMoney(settledAmount + hundiAmount);
-  }
-
-  if (els.hundiAmount) {
-    els.hundiAmount.textContent = formatMoney(hundiAmount);
-  }
+  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
+  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
@@ -740,6 +637,7 @@ const periodTotal = state.coupons
         <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
+        <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
         <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
           WhatsApp
@@ -970,9 +868,7 @@ function renderEntryList() {
       id: newId(),
       devoteeId,
       amount,
-      date,      
-      settled: false,        // ✅ NEW
-      settledDate: null      // ✅ NEW
+      date
     });
 
     saveState();
@@ -1529,11 +1425,6 @@ function updateAdminView() {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
-
-  // ✅ THIS WAS MISSING
-  if (activeAdminTab === "hundi") {
-    renderHundiTable();
-  }
 }
 
 function initFirebaseSync() {
