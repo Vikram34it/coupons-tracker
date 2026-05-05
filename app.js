@@ -577,39 +577,17 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
+  const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
+  const sold = state.coupons.filter(isSold).length;
+  const settled = state.coupons.filter((coupon) => coupon.settled).length;
+  const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
-  // 📊 COUNTS
-  const assigned = state.coupons.filter(c => c.devoteeId).length;
-  const soldCoupons = state.coupons.filter(isSold);
-
-  // 📊 SPLIT COUPONS
-  const settledCoupons = state.coupons.filter(c => c.settled);
-  const pendingCoupons = state.coupons.filter(c => isSold(c) && !c.settled);
-
-  // 💰 AMOUNTS
-  const settledAmount = settledCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const pendingAmount = pendingCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  // 💰 HUNDI (always treated separately)
-  const hundiAmount = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
-
-  // 🖥️ DISPLAY
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
-  els.soldCoupons.textContent = soldCoupons.length.toLocaleString("en-IN");
-
-  // 💰 FINAL VALUES
-  if (els.pendingAmount) {
-    els.pendingAmount.textContent = formatMoney(pendingAmount);
-  }
-
-  if (els.settledCoupons) {
-    els.settledCoupons.textContent = formatMoney(settledAmount);
-  }
-
-  if (els.hundiAmount) {
-    els.hundiAmount.textContent = formatMoney(hundiAmount);
-  }
+  els.soldCoupons.textContent = sold.toLocaleString("en-IN");
+  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
+  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
