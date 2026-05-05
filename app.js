@@ -109,6 +109,46 @@ function saveSession(nextSession) {
   }
 }
 
+function renderHundiTable() {
+  if (!els.hundiTableBody) return;
+
+  const rows = (state.hundi || []).map(h => `
+    <tr>
+      <td>${h.date}</td>
+      <td>${getDevoteeName(h.devoteeId)}</td>
+      <td>${formatMoney(h.amount)}</td>
+      <td>
+        ${
+          h.settled
+          ? "Settled"
+          : `<button data-settle-hundi="${h.id}">Mark Settled</button>`
+        }
+      </td>
+      <td>${h.settledDate || "-"}</td>
+    </tr>
+  `).join("");
+
+  els.hundiTableBody.innerHTML = rows || `
+    <tr><td colspan="5">No hundi records found</td></tr>
+  `;
+
+  document.querySelectorAll("[data-settle-hundi]").forEach(btn => {
+    btn.onclick = () => {
+      const entry = state.hundi.find(h => h.id === btn.dataset.settleHundi);
+      if (!entry) return;
+
+      entry.settled = true;
+      entry.settledDate = todayKey();
+
+      saveState();
+      renderHundiTable();
+      renderStats();
+
+      showToast("Hundi marked as settled");
+    };
+  });
+}
+
 function renderSevaSummary() {
   const period = settlementPeriod();
   const sevaMap = {};
@@ -179,6 +219,8 @@ function cacheElements() {
   });
 }
 function renderHundiTable() {
+  if (!els.hundiTableBody) return;
+
   const rows = (state.hundi || []).map(h => `
     <tr>
       <td>${h.date}</td>
@@ -195,22 +237,8 @@ function renderHundiTable() {
     </tr>
   `).join("");
 
-  els.main.innerHTML = `
-    <div class="panel">
-      <h3>All Hundi Records</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Devotee</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th>Settled Date</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
+  els.hundiTableBody.innerHTML = rows || `
+    <tr><td colspan="5">No hundi records found</td></tr>
   `;
 
   document.querySelectorAll("[data-settle-hundi]").forEach(btn => {
@@ -1501,6 +1529,11 @@ function updateAdminView() {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
+
+  // ✅ THIS WAS MISSING
+  if (activeAdminTab === "hundi") {
+    renderHundiTable();
+  }
 }
 
 function initFirebaseSync() {
