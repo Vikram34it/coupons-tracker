@@ -182,11 +182,13 @@ function cacheElements() {
 function renderAllDevoteeFilter() {
   if (!els.allDevoteeFilter) return;
 
+  const sorted = [...state.devotees].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
   const options = [
     `<option value="all">All Devotees</option>`,
-    ...state.devotees
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
+    ...sorted.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
   ];
 
   els.allDevoteeFilter.innerHTML = options.join("");
@@ -486,7 +488,8 @@ function assignCoupons(event) {
 
 function render() {
   validateSession();
-  renderSelectors();
+  renderSelectors();  
+  renderAllDevoteeFilter();
   applyRoleAccess();
   renderStats();
   renderDevotees();
@@ -495,7 +498,6 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-  renderAllDevoteeFilter();
 
 const topStats = document.querySelector(".stats-grid");
 
