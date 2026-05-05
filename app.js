@@ -168,7 +168,7 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons",
+    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "pendingAmount", "settledCoupons", "hundiAmount",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
@@ -176,6 +176,57 @@ function cacheElements() {
     "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
+  });
+}
+function renderHundiTable() {
+  const rows = (state.hundi || []).map(h => `
+    <tr>
+      <td>${h.date}</td>
+      <td>${getDevoteeName(h.devoteeId)}</td>
+      <td>${formatMoney(h.amount)}</td>
+      <td>
+        ${
+          h.settled
+          ? "Settled"
+          : `<button data-settle-hundi="${h.id}">Mark Settled</button>`
+        }
+      </td>
+      <td>${h.settledDate || "-"}</td>
+    </tr>
+  `).join("");
+
+  els.main.innerHTML = `
+    <div class="panel">
+      <h3>All Hundi Records</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Devotee</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Settled Date</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+
+  document.querySelectorAll("[data-settle-hundi]").forEach(btn => {
+    btn.onclick = () => {
+      const entry = state.hundi.find(h => h.id === btn.dataset.settleHundi);
+      if (!entry) return;
+
+      entry.settled = true;
+      entry.settledDate = todayKey();
+
+      saveState();
+      renderHundiTable();
+      renderStats();
+
+      showToast("Hundi marked as settled");
+    };
   });
 }
 
@@ -577,17 +628,41 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
-  const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
-  const sold = state.coupons.filter(isSold).length;
-  const settled = state.coupons.filter((coupon) => coupon.settled).length;
-  const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
+  const assigned = state.coupons.filter(c => c.devoteeId).length;
+  const sold = state.coupons.filter(isSold).length;
+
+  // ✅ COUPON SPLIT
+  const settledCoupons = state.coupons.filter(c => c.settled);
+  const pendingCoupons = state.coupons.filter(c => isSold(c) && !c.settled);
+
+  const settledAmount = settledCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
+  const pendingAmount = pendingCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
+
+  // ✅ HUNDI SPLIT (THIS IS WHAT YOU WERE MISSING)
+  const settledHundi = (state.hundi || []).filter(h => h.settled);
+  const pendingHundi = (state.hundi || []).filter(h => !h.settled);
+
+  const hundiAmount = settledHundi.reduce((sum, h) => sum + h.amount, 0);
+  const pendingHundiAmount = pendingHundi.reduce((sum, h) => sum + h.amount, 0);
+
+  // 🖥 DISPLAY
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
-  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
+
+  // ✅ FINAL VALUES (CORRECT LOGIC)
+  if (els.pendingAmount) {
+    els.pendingAmount.textContent = formatMoney(pendingAmount + pendingHundiAmount);
+  }
+
+  if (els.settledCoupons) {
+    els.settledCoupons.textContent = formatMoney(settledAmount + hundiAmount);
+  }
+
+  if (els.hundiAmount) {
+    els.hundiAmount.textContent = formatMoney(hundiAmount);
+  }
 }
 
 function renderDevotees() {
