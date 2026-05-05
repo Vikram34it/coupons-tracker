@@ -1014,7 +1014,12 @@ function renderAllCoupons() {
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
   if (status === "sold_unsettled") {
-  coupons = coupons.filter(c => isSold(c) && !c.settled);
+ coupons = coupons.filter(c =>
+    c.devoteeId &&              // must be assigned
+    isSold(c) &&               // must be sold
+    !c.settled &&              // must NOT be settled
+    amountValue(c.amount) > 0  // must have real amount
+  );
 }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
