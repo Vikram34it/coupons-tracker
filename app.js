@@ -867,7 +867,9 @@ function renderEntryList() {
       id: newId(),
       devoteeId,
       amount,
-      date
+      date,      
+      settled: false,        // ✅ NEW
+      settledDate: null      // ✅ NEW
     });
 
     saveState();
