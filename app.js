@@ -594,6 +594,9 @@ function renderStats() {
 
   // ⏳ PENDING ONLY
   const pendingAmount = pendingCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
+  if (els.pendingAmount) {
+  els.pendingAmount.textContent = formatMoney(pendingAmount);
+}
 
   // ➕ HUNDI (always settled)
   const hundiAmount = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
@@ -603,8 +606,8 @@ function renderStats() {
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
 
-  // 💰 TOTAL (Coupons + Hundi)
-  els.moneyReceived.textContent = formatMoney(totalReceived + hundiAmount);
+ // 💰 MONEY RECEIVED = ONLY SETTLED + HUNDI
+els.moneyReceived.textContent = formatMoney(settledAmount + hundiAmount);
 
   // ✅ SETTLED (Coupons + Hundi)
   els.settledCoupons.textContent = formatMoney(settledAmount + hundiAmount);
