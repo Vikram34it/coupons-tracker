@@ -173,7 +173,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "hundiTableBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
