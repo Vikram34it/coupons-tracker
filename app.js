@@ -173,10 +173,35 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
+}
+
+
+function updateDevoteePendingDisplay() {
+  if (!els.devoteePendingDisplay || !els.allDevoteeFilter) return;
+
+  const devoteeId = els.allDevoteeFilter.value;
+
+  // 👉 If "All"
+  if (!devoteeId || devoteeId === "all") {
+    els.devoteePendingDisplay.textContent = "";
+    return;
+  }
+
+  const pendingAmount = state.coupons
+    .filter(c =>
+      c.devoteeId === devoteeId &&
+      isSold(c) &&
+      !c.settled &&
+      amountValue(c.amount) > 0
+    )
+    .reduce((sum, c) => sum + amountValue(c.amount), 0);
+
+  els.devoteePendingDisplay.textContent =
+    `Pending: ${formatMoney(pendingAmount)}`;
 }
 
 function renderAllDevoteeFilter() {
@@ -227,7 +252,10 @@ function bindEvents() {
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
-  els.allDevoteeFilter.addEventListener("change", renderAllCoupons);
+  els.allDevoteeFilter.addEventListener("change", () => {
+  renderAllCoupons();
+  updateDevoteePendingDisplay();
+});
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -490,6 +518,7 @@ function render() {
   validateSession();
   renderSelectors();  
   renderAllDevoteeFilter();
+  updateDevoteePendingDisplay();
   applyRoleAccess();
   renderStats();
   renderDevotees();
@@ -1081,6 +1110,7 @@ function toggleSettlement(event) {
   saveState();
   render();
   showToast(coupon.settled ? `Coupon ${coupon.number} settled` : `Coupon ${coupon.number} marked pending`);
+  updateDevoteePendingDisplay();
 }
 
 function updateCouponField(event) {
