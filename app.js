@@ -637,7 +637,6 @@ const periodTotal = state.coupons
         <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
         <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
-        <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
         <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
           WhatsApp
