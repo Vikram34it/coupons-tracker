@@ -185,7 +185,6 @@ function updateDevoteePendingDisplay() {
 
   const devoteeId = els.allDevoteeFilter.value;
 
-  // 👉 If "All"
   if (!devoteeId || devoteeId === "all") {
     els.devoteePendingDisplay.textContent = "";
     return;
@@ -194,14 +193,17 @@ function updateDevoteePendingDisplay() {
   const pendingAmount = state.coupons
     .filter(c =>
       c.devoteeId === devoteeId &&
-      isSold(c) &&
       !c.settled &&
-      amountValue(c.amount) > 0
+      amountValue(c.amount) > 0   // ✅ THIS IS KEY
     )
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
   els.devoteePendingDisplay.textContent =
     `Pending: ${formatMoney(pendingAmount)}`;
+
+  // 🎨 optional color
+  els.devoteePendingDisplay.style.color =
+    pendingAmount > 0 ? "red" : "green";
 }
 
 function renderAllDevoteeFilter() {
