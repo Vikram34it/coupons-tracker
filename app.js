@@ -1013,6 +1013,9 @@ function renderAllCoupons() {
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
+  if (status === "sold_unsettled") {
+  coupons = coupons.filter(c => isSold(c) && !c.settled);
+}
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   els.allCouponsBody.innerHTML = coupons.map((coupon) => `
