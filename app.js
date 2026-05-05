@@ -173,10 +173,23 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
+}
+
+function renderAllDevoteeFilter() {
+  if (!els.allDevoteeFilter) return;
+
+  const options = [
+    `<option value="all">All Devotees</option>`,
+    ...state.devotees
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
+  ];
+
+  els.allDevoteeFilter.innerHTML = options.join("");
 }
 
 function bindEvents() {
@@ -212,6 +225,7 @@ function bindEvents() {
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
+  els.allDevoteeFilter.addEventListener("change", renderAllCoupons);
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -481,6 +495,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
+  renderAllDevoteeFilter();
 
 const topStats = document.querySelector(".stats-grid");
 
@@ -1020,6 +1035,11 @@ function renderAllCoupons() {
     !c.settled &&              // must NOT be settled
     amountValue(c.amount) > 0  // must have real amount
   );
+}
+  const devoteeFilter = els.allDevoteeFilter?.value;
+
+if (devoteeFilter && devoteeFilter !== "all") {
+  coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
 }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
