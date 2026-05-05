@@ -578,41 +578,37 @@ function applyRoleAccess() {
 
 function renderStats() {
 
+  // 📊 COUNTS
   const assigned = state.coupons.filter(c => c.devoteeId).length;
+  const soldCoupons = state.coupons.filter(isSold);
 
-  const sold = state.coupons.filter(isSold).length;
-
-  // ✅ SPLIT COUPONS
+  // 📊 SPLIT COUPONS
   const settledCoupons = state.coupons.filter(c => c.settled);
   const pendingCoupons = state.coupons.filter(c => isSold(c) && !c.settled);
 
-  // 💰 TOTAL RECEIVED (ALL)
-  const totalReceived = state.coupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  // ✅ SETTLED ONLY
+  // 💰 AMOUNTS
   const settledAmount = settledCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  // ⏳ PENDING ONLY
   const pendingAmount = pendingCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
 
-
-  // ➕ HUNDI (always settled)
+  // 💰 HUNDI (always treated separately)
   const hundiAmount = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
-  // 🔹 DISPLAY
+  // 🖥️ DISPLAY
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
-  els.soldCoupons.textContent = sold.toLocaleString("en-IN");
+  els.soldCoupons.textContent = soldCoupons.length.toLocaleString("en-IN");
 
- // 💰 MONEY RECEIVED = ONLY SETTLED + HUNDI
-els.moneyReceived.textContent = formatMoney(settledAmount + hundiAmount);
-
-  // ✅ SETTLED (Coupons + Hundi)
-  els.settledCoupons.textContent = formatMoney(settledAmount + hundiAmount);
-
-  // ⏳ PENDING (Coupons only)
+  // 💰 FINAL VALUES
   if (els.pendingAmount) {
     els.pendingAmount.textContent = formatMoney(pendingAmount);
+  }
+
+  if (els.settledCoupons) {
+    els.settledCoupons.textContent = formatMoney(settledAmount);
+  }
+
+  if (els.hundiAmount) {
+    els.hundiAmount.textContent = formatMoney(hundiAmount);
   }
 }
 
