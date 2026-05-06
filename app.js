@@ -649,7 +649,10 @@ if (session?.role === "devotee") {
   const devotees = state.devotees.filter((devotee) => {
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
-
+// ✅ SORT NAMES ASCENDING
+devotees.sort((a, b) =>
+  a.name.localeCompare(b.name)
+);
   const hundiPeriod = (state.hundi || [])
   .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
   .reduce((sum, h) => sum + h.amount, 0);
