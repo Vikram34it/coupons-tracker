@@ -1106,13 +1106,26 @@ function toggleSettlement(event) {
     return;
   }
 
-  const coupon = state.coupons[Number(event.currentTarget.dataset.settlement) - 1];
+  const coupon =
+    state.coupons[Number(event.currentTarget.dataset.settlement) - 1];
+
   coupon.settled = !coupon.settled;
   coupon.settledAt = coupon.settled ? todayKey() : "";
+
   saveState();
-  render();
-  showToast(coupon.settled ? `Coupon ${coupon.number} settled` : `Coupon ${coupon.number} marked pending`);
+
+  // ✅ ONLY UPDATE REQUIRED SECTIONS
+  renderAllCoupons();
+  renderStats();
+  renderDevotees();
+  renderSevaSummary();
   updateDevoteePendingDisplay();
+
+  showToast(
+    coupon.settled
+      ? `Coupon ${coupon.number} settled`
+      : `Coupon ${coupon.number} marked pending`
+  );
 }
 
 function updateCouponField(event) {
