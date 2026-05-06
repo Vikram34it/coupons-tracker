@@ -639,106 +639,220 @@ function renderStats() {
 }
 
 function renderDevotees() {
+
   // 🔒 Prevent devotees from seeing admin dashboard
-if (session?.role === "devotee") {
-  if (els.devoteeList) els.devoteeList.innerHTML = "";
-  return;
-}
-  const query = els.devoteeSearch.value.trim().toLowerCase();
-  const period = settlementPeriod();
-  const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
-  });
-// ✅ SORT NAMES ASCENDING
-devotees.sort((a, b) =>
-  a.name.localeCompare(b.name)
-);
-  const hundiPeriod = (state.hundi || [])
-  .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
-  .reduce((sum, h) => sum + h.amount, 0);
-
-const periodTotal = state.coupons
-  .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
-  .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
-  + hundiPeriod;
-  els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
-
-  if (!devotees.length) {
-    els.devoteeList.innerHTML = `<div class="empty">No devotees found.</div>`;
+  if (session?.role === "devotee") {
+    if (els.devoteeList) els.devoteeList.innerHTML = "";
     return;
   }
 
+  const query = els.devoteeSearch.value.trim().toLowerCase();
+  const period = settlementPeriod();
+
+  // ✅ FILTER DEVOTEES
+  const devotees = state.devotees.filter((devotee) => {
+    return `${devotee.name} ${devotee.contact}`
+      .toLowerCase()
+      .includes(query);
+  });
+
+  // ✅ SORT DEVOTEES BY NAME (ASCENDING)
+  devotees.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  // ✅ HUNDI PERIOD TOTAL
+  const hundiPeriod = (state.hundi || [])
+    .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
+    .reduce((sum, h) => sum + h.amount, 0);
+
+  // ✅ COUPON PERIOD TOTAL
+  const periodTotal = state.coupons
+    .filter((coupon) =>
+      coupon.settled &&
+      inSettlementPeriod(coupon, period)
+    )
+    .reduce((sum, coupon) =>
+      sum + amountValue(coupon.amount), 0
+    ) + hundiPeriod;
+
+  els.adminPeriodSummary.textContent =
+    `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
+
+  // ✅ EMPTY STATE
+  if (!devotees.length) {
+    els.devoteeList.innerHTML =
+      `<div class="empty">No devotees found.</div>`;
+    return;
+  }
+
+  // ✅ RENDER DEVOTEES
   els.devoteeList.innerHTML = devotees.map((devotee) => {
+
     const summary = devoteeSummary(devotee.id, period);
+
     const assigned = couponsForDevotee(devotee.id);
-    const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
+
+    const ranges = summarizeCouponRanges(
+      assigned.map((coupon) => coupon.number)
+    );
+
     return `
       <article class="devotee-row">
+
         <div>
-            <strong>
-              ${escapeHtml(devotee.name)}
-              <span class="small-stat">(PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})</span>
-            </strong>
-            
-            <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
+          <strong>
+            ${escapeHtml(devotee.name)}
+            <span class="small-stat">
+              (PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})
+            </span>
+          </strong>
+
+          <span class="small-stat">
+            ${escapeHtml(devotee.contact || "No contact number")}
+          </span>
+
+          <div>
+            ${
+              ranges.map((range) =>
+                `<span class="coupon-pill">${range}</span>`
+              ).join("")
+              ||
+              '<span class="small-stat">No coupons assigned</span>'
+            }
+          </div>
         </div>
-        <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
-        <span><strong>${summary.sold}</strong><span class="small-stat"> sold</span></span>
-        <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
-        <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
-        <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
-        <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
-        <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
+
+        <span>
+          <strong>${summary.issued}</strong>
+          <span class="small-stat"> issued</span>
+        </span>
+
+        <span>
+          <strong>${summary.sold}</strong>
+          <span class="small-stat"> sold</span>
+        </span>
+
+        <span>
+          <strong>${summary.left}</strong>
+          <span class="small-stat"> left</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.settledAmount)}</strong>
+          <span class="small-stat"> settled</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.pendingAmount)}</strong>
+          <span class="small-stat"> pending</span>
+        </span>
+
+        <button
+          class="ghost"
+          type="button"
+          data-set-password="${escapeAttr(devotee.id)}">
+          Set Password
+        </button>
+
+        <button
+          class="ghost"
+          type="button"
+          data-send-whatsapp="${escapeAttr(devotee.id)}">
           WhatsApp
         </button>
-        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
+
+        <button
+          class="ghost"
+          type="button"
+          data-update-contact="${escapeAttr(devotee.id)}">
           Update Contact
         </button>
-        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
+
+        <button
+          class="danger"
+          data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
-        <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
+
+        <button
+          class="ghost"
+          type="button"
+          data-open-devotee="${escapeAttr(devotee.id)}">
+          Open
+        </button>
+
       </article>
     `;
+
   }).join("");
 
-  els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
-    button.addEventListener("click", () => {
-      els.entryDevotee.value = button.dataset.openDevotee;
-      document.querySelector('[data-view="devoteeView"]').click();
+  // ✅ OPEN DEVOTEE
+  els.devoteeList.querySelectorAll("[data-open-devotee]")
+    .forEach((button) => {
+
+      button.addEventListener("click", () => {
+
+        els.entryDevotee.value = button.dataset.openDevotee;
+
+        document
+          .querySelector('[data-view="devoteeView"]')
+          .click();
+      });
     });
-  });
 
-  els.devoteeList.querySelectorAll("[data-set-password]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
-      if (!devotee) return;
-      const password = window.prompt(`Enter new password for ${devotee.name}`);
-      if (password === null) return;
-      if (password.trim().length < 4) {
-        showToast("Use at least 4 characters");
-        return;
-      }
-      devotee.pin = password.trim();
-      saveState();
-      renderDevotees();
-      renderSelectors();
-      showToast(`Password updated for ${devotee.name}`);
+  // ✅ SET PASSWORD
+  els.devoteeList.querySelectorAll("[data-set-password]")
+    .forEach((button) => {
+
+      button.addEventListener("click", () => {
+
+        const devotee = state.devotees.find(
+          (item) => item.id === button.dataset.setPassword
+        );
+
+        if (!devotee) return;
+
+        const password = window.prompt(
+          `Enter new password for ${devotee.name}`
+        );
+
+        if (password === null) return;
+
+        if (password.trim().length < 4) {
+          showToast("Use at least 4 characters");
+          return;
+        }
+
+        devotee.pin = password.trim();
+
+        saveState();
+        renderDevotees();
+        renderSelectors();
+
+        showToast(`Password updated for ${devotee.name}`);
+      });
     });
-  });
-  els.devoteeList.querySelectorAll("[data-send-whatsapp]").forEach(btn => {
-  btn.addEventListener("click", () => {
 
-    const devotee = state.devotees.find(d => d.id === btn.dataset.sendWhatsapp);
-    if (!devotee) return;
+  // ✅ WHATSAPP
+  els.devoteeList.querySelectorAll("[data-send-whatsapp]")
+    .forEach(btn => {
 
-    const period = settlementPeriod();
-    const summary = devoteeSummary(devotee.id, period);
-    const assigned = couponsForDevotee(devotee.id).length;
+      btn.addEventListener("click", () => {
 
-    // ✅ YOUR MESSAGE (customized)
-    const message =
+        const devotee = state.devotees.find(
+          d => d.id === btn.dataset.sendWhatsapp
+        );
+
+        if (!devotee) return;
+
+        const period = settlementPeriod();
+
+        const summary = devoteeSummary(devotee.id, period);
+
+        const assigned = couponsForDevotee(devotee.id).length;
+
+        const message =
 `Hare Krishna 🙏
 
 ${devotee.name},
@@ -760,51 +874,67 @@ Use the following link to update your coupons:
 https://vikram34it.github.io/coupons-tracker/
 `;
 
-    const phone = (devotee.contact || "").replace(/\D/g, "");
+        const phone = (devotee.contact || "")
+          .replace(/\D/g, "");
 
-    if (!phone) {
-      showToast("No contact number for this devotee");
-      return;
-    }
+        if (!phone) {
+          showToast("No contact number for this devotee");
+          return;
+        }
 
-    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+        const url =
+          `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
 
-    window.open(url, "_blank");
-  });
-});
-  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
-  btn.addEventListener("click", () => {
+        window.open(url, "_blank");
 
-    const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
-    if (!devotee) return;
+      });
+    });
 
-    const newContact = window.prompt(
-      `Enter new contact for ${devotee.name}`,
-      devotee.contact || ""
-    );
+  // ✅ UPDATE CONTACT
+  els.devoteeList.querySelectorAll("[data-update-contact]")
+    .forEach(btn => {
 
-    if (newContact === null) return;
+      btn.addEventListener("click", () => {
 
-    const cleaned = newContact.replace(/\D/g, "");
+        const devotee = state.devotees.find(
+          d => d.id === btn.dataset.updateContact
+        );
 
-    if (cleaned.length !== 10) {
-      showToast("Enter valid 10-digit mobile number");
-      return;
-    }
+        if (!devotee) return;
 
-    devotee.contact = cleaned;
+        const newContact = window.prompt(
+          `Enter new contact for ${devotee.name}`,
+          devotee.contact || ""
+        );
 
-    saveState();
-    render();
-    showToast(`Contact updated for ${devotee.name}`);
-  });
-});
-els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    deleteDevotee(btn.dataset.deleteDevotee);
-  });
-});
- }
+        if (newContact === null) return;
+
+        const cleaned = newContact.replace(/\D/g, "");
+
+        if (cleaned.length !== 10) {
+          showToast("Enter valid 10-digit mobile number");
+          return;
+        }
+
+        devotee.contact = cleaned;
+
+        saveState();
+        render();
+
+        showToast(`Contact updated for ${devotee.name}`);
+      });
+    });
+
+  // ✅ DELETE DEVOTEE
+  els.devoteeList.querySelectorAll("[data-delete-devotee]")
+    .forEach(btn => {
+
+      btn.addEventListener("click", () => {
+        deleteDevotee(btn.dataset.deleteDevotee);
+      });
+
+    });
+}
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
