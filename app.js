@@ -55,7 +55,8 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
     settings: {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
-      invitationMessage: ""
+      invitationMessage: "",
+      viewerPassword: ""
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -79,7 +80,8 @@ function loadState() {
       settings: {
         adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
         totalCoupons,
-        invitationMessage: parsed.settings?.invitationMessage || ""
+        invitationMessage: parsed.settings?.invitationMessage || "",
+        viewerPassword: parsed.settings?.viewerPassword || ""
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons,
@@ -262,6 +264,7 @@ function bindEvents() {
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
+  els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -322,7 +325,16 @@ function login(event) {
       return;
     }
     saveSession({ role: "admin", devoteeId: "" });
-  } else {
+  } else if (role === "viewer") {
+    if (!state.settings.viewerPassword) {
+      showToast("Viewer password has not been set by admin yet");
+      return;
+    }
+    if (password !== state.settings.viewerPassword) {
+      showToast("Viewer password is incorrect");
+      return;
+    }
+    saveSession({ role: "viewer", devoteeId: "" });
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
@@ -385,6 +397,18 @@ function updateAdminPassword(event) {
   showToast("Admin password updated");
 }
 
+function updateViewerPassword(event) {
+  event.preventDefault();
+  const password = els.viewerPasswordInput.value.trim();
+  if (password.length < 4) {
+    showToast("Use at least 4 characters for viewer password");
+    return;
+  }
+  state.settings.viewerPassword = password;
+  els.viewerPasswordForm.reset();
+  saveState();
+  showToast("Viewer password set ✓");
+}
 
 function updateTotalCoupons(event) {
   event.preventDefault();
@@ -646,6 +670,7 @@ function validateSession() {
 
 function applyRoleAccess() {
   const isAdmin  = session?.role === "admin";
+  const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
     ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
@@ -654,6 +679,8 @@ function applyRoleAccess() {
   // Badge label
   els.userBadge.textContent = isAdmin
     ? "Admin"
+    : isViewer
+    ? "👁 Viewer"
     : activeDevotee
     ? `Devotee: ${activeDevotee.name}`
     : "";
@@ -669,10 +696,28 @@ function applyRoleAccess() {
   if (isDevotee) els.entryStatus.value = "all";
 
   // All Coupons tab — visible to admin & viewer
-  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
+  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin && !isViewer);
 
   // Devotee Entry tab — hidden for viewer
+  document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
+  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
+  document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+    if (isViewer) {
+      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
+    } else {
+      tab.classList.toggle("hidden", !isAdmin);
+    }
+  });
+
+  // Viewer: land on admin dashboard
+  if (isViewer) {
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    document.getElementById("adminView")?.classList.add("active");
+    activeAdminTab = "dashboard";
+    updateAdminView();
+  }
 
   // Devotee: land on devotee entry view
   if (isDevotee) {
@@ -837,7 +882,7 @@ function renderDevotees() {
           <span class="small-stat"> pending</span>
         </span>
 
-        `
+        ${session?.role === "viewer" ? "" : `
         <button
           class="ghost"
           type="button"
@@ -871,6 +916,7 @@ function renderDevotees() {
           data-open-devotee="${escapeAttr(devotee.id)}">
           Open
         </button>
+        `}
 
       </article>
     `;
@@ -1376,7 +1422,8 @@ if (devoteeFilter && devoteeFilter !== "all") {
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   els.allCouponsBody.innerHTML = coupons.map((coupon) => {
-      return `
+    const isViewer = session?.role === "viewer";
+    return `
     <tr>
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
