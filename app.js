@@ -56,7 +56,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
       invitationMessage: "",
-      viewerPassword: ""
+      
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -264,7 +264,6 @@ function bindEvents() {
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
-  els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -325,16 +324,7 @@ function login(event) {
       return;
     }
     saveSession({ role: "admin", devoteeId: "" });
-  } else if (role === "viewer") {
-    if (!state.settings.viewerPassword) {
-      showToast("Viewer password has not been set by admin yet");
-      return;
-    }
-    if (password !== state.settings.viewerPassword) {
-      showToast("Viewer password is incorrect");
-      return;
-    }
-    saveSession({ role: "viewer", devoteeId: "" });
+ 
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
@@ -397,18 +387,7 @@ function updateAdminPassword(event) {
   showToast("Admin password updated");
 }
 
-function updateViewerPassword(event) {
-  event.preventDefault();
-  const password = els.viewerPasswordInput.value.trim();
-  if (password.length < 4) {
-    showToast("Use at least 4 characters for viewer password");
-    return;
-  }
-  state.settings.viewerPassword = password;
-  els.viewerPasswordForm.reset();
-  saveState();
-  showToast("Viewer password set ✓");
-}
+
 
 function updateTotalCoupons(event) {
   event.preventDefault();
@@ -670,7 +649,6 @@ function validateSession() {
 
 function applyRoleAccess() {
   const isAdmin  = session?.role === "admin";
-  const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
     ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
@@ -679,8 +657,6 @@ function applyRoleAccess() {
   // Badge label
   els.userBadge.textContent = isAdmin
     ? "Admin"
-    : isViewer
-    ? "👁 Viewer"
     : activeDevotee
     ? `Devotee: ${activeDevotee.name}`
     : "";
@@ -696,10 +672,10 @@ function applyRoleAccess() {
   if (isDevotee) els.entryStatus.value = "all";
 
   // All Coupons tab — visible to admin & viewer
-  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin && !isViewer);
+  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
 
   // Devotee Entry tab — hidden for viewer
-  document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
+ document.querySelector('[data-view="devoteeView"]')?.classList.remove("hidden");
 
   // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
@@ -710,14 +686,7 @@ function applyRoleAccess() {
     }
   });
 
-  // Viewer: land on admin dashboard
-  if (isViewer) {
-    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-    document.getElementById("adminView")?.classList.add("active");
-    activeAdminTab = "dashboard";
-    updateAdminView();
-  }
+
 
   // Devotee: land on devotee entry view
   if (isDevotee) {
