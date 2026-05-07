@@ -184,7 +184,7 @@ main {
 }
 
 .compact-stats {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   margin-bottom: 14px;
 }
 
@@ -482,6 +482,10 @@ textarea {
   grid-column: span 4;
 }
 
+.coupon-fields .half {
+  grid-column: span 2;
+}
+
 .table-wrap {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -583,6 +587,10 @@ td {
   }
 
   .coupon-fields .wide {
+    grid-column: span 1;
+  }
+
+  .coupon-fields .half {
     grid-column: span 1;
   }
 

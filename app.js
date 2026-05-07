@@ -1183,7 +1183,7 @@ function renderEntryList() {
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
           </label>
           -->
-          <label class="wide">
+          <label class="half">
             Seva Type
             <select data-field="description" ${locked}>
               <option value="">Select Seva</option>
@@ -1196,7 +1196,7 @@ function renderEntryList() {
               <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
             </select>
           </label>
-          <label class="wide">
+          <label class="half">
             Payment Mode
             <select data-field="paymentMode" ${locked}>
               <option value="cash" ${(!coupon.paymentMode || coupon.paymentMode==="cash")?"selected":""}>Cash</option>
@@ -1405,6 +1405,7 @@ function renderDevoteeStats(devoteeId) {
   <article><span>Total Pending Amount</span><strong>${formatMoney(summary.totalPendingAmount)}</strong></article>
 
   <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
+  <article><span>Temple Transfer</span><strong>${formatMoney(summary.templeTransferAmount || 0)}</strong></article>
 `;
 }
 
@@ -1423,6 +1424,12 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
 // ✅ TOTALS
 const totalSettledAmount = settled.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiAmount;
 const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0);
+
+// ✅ TEMPLE TRANSFER AMOUNT (sold coupons with paymentMode = temple_transfer)
+const templeTransferAmount = sold
+  .filter(c => c.paymentMode === "temple_transfer")
+  .reduce((sum, c) => sum + amountValue(c.amount), 0);
+
 return {
   issued: assigned.length,
   sold: sold.length,
@@ -1437,7 +1444,8 @@ return {
   // ✅ NEW
   hundiAmount,
   totalSettledAmount,
-  totalPendingAmount
+  totalPendingAmount,
+  templeTransferAmount
 };
 }
 
