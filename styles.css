@@ -871,6 +871,8 @@ tr:hover td {
     flex-direction: column;
   }
 
+  /* topbar stays as a row at tablet — only mobile overrides it */
+
   .stats-grid,
   .setup-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -912,51 +914,61 @@ tr:hover td {
 
 @media (max-width: 600px) {
 
-  /* ── Topbar: compact mobile header ── */
+  /* ── Topbar: single compact row ── */
   .topbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 14px;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  /* Title block: shrinks to fit */
+  .topbar > div:first-child {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .topbar h1 {
-    font-size: 18px;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .topbar > div:first-child p {
-    display: none; /* hide subtitle on mobile to save space */
-  }
-
-  .toolbar {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 6px;
-    flex-wrap: nowrap;
-    flex-direction: row;
-  }
-
-  .toolbar .user-badge {
-    display: none; /* hide badges in toolbar, shown elsewhere */
-  }
-
-  #syncBadge {
     display: none;
   }
 
-  #userBadge {
-    font-size: 11px;
-    min-height: 30px;
-    padding: 0 8px;
-    display: inline-flex;
+  /* Toolbar: icon-sized buttons in a row */
+  .toolbar {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
   }
 
+  /* Badges: tiny pill */
+  #syncBadge,
+  #userBadge {
+    font-size: 10px;
+    min-height: 26px;
+    padding: 0 7px;
+    border-radius: 999px;
+  }
+
+  /* Action buttons: compact */
   .toolbar button,
   .toolbar .file-label {
-    font-size: 12px;
-    min-height: 36px;
+    font-size: 11px;
+    font-weight: 600;
+    min-height: 32px;
+    min-width: 36px;
     padding: 0 8px;
-    text-align: center;
+    border-radius: 7px;
   }
 
   /* ── Main layout ── */
