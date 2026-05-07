@@ -863,55 +863,37 @@ tr:hover td {
   word-break: break-word;
 }
 
-/* ── Responsive (breakpoint) ── */
+/* ── Responsive (breakpoint: tablet) ── */
 
 @media (max-width: 850px) {
-  .topbar,
   .section-head {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .toolbar,
-  .entry-controls,
-  .inline-fields {
-    flex-direction: column;
-  }
-
   .stats-grid,
   .setup-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .app-nav-row,
-  .tabs {
-    grid-template-columns: 1fr;
+  .top-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .compact-stats {
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .devotee-row {
     grid-template-columns: 1fr;
   }
 
-  .coupon-card {
-    grid-template-columns: 1fr;
-  }
-
-  .coupon-number {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    padding: 0 0 12px;
-  }
-
   .coupon-fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .coupon-fields .wide {
-    grid-column: span 1;
-  }
-
-  .coupon-fields .half {
-    grid-column: span 1;
+    grid-column: span 2;
   }
 
   .section-head input,
@@ -923,5 +905,331 @@ tr:hover td {
 
   .subtabs {
     width: 100%;
+  }
+}
+
+/* ── Responsive (breakpoint: mobile) ── */
+
+@media (max-width: 600px) {
+
+  /* ── Topbar: compact mobile header ── */
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .topbar h1 {
+    font-size: 18px;
+  }
+
+  .topbar > div:first-child p {
+    display: none; /* hide subtitle on mobile to save space */
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    flex-wrap: nowrap;
+    flex-direction: row;
+  }
+
+  .toolbar .user-badge {
+    display: none; /* hide badges in toolbar, shown elsewhere */
+  }
+
+  #syncBadge {
+    display: none;
+  }
+
+  #userBadge {
+    font-size: 11px;
+    min-height: 30px;
+    padding: 0 8px;
+    display: inline-flex;
+  }
+
+  .toolbar button,
+  .toolbar .file-label {
+    font-size: 12px;
+    min-height: 36px;
+    padding: 0 8px;
+    text-align: center;
+  }
+
+  /* ── Main layout ── */
+  main {
+    padding: 12px 10px 60px;
+  }
+
+  /* ── Stats: 2-column grid ── */
+  .top-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .compact-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .stats-grid article {
+    padding: 12px;
+  }
+
+  .stats-grid span {
+    font-size: 11px;
+  }
+
+  .stats-grid strong {
+    font-size: 20px;
+    margin-top: 4px;
+  }
+
+  /* ── Navigation tabs: horizontally scrollable ── */
+  .tabs.app-nav-row {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 10px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    grid-template-columns: unset;
+    margin: 12px 0;
+  }
+
+  .tabs.app-nav-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabs.app-nav-row .tab,
+  .tabs.app-nav-row .subtab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0 14px;
+    min-height: 38px;
+    font-size: 13px;
+  }
+
+  /* Subtabs: scrollable row */
+  .subtabs {
+    width: 100%;
+    justify-content: flex-start !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .subtabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .subtab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 13px;
+    min-height: 36px;
+    padding: 0 12px;
+  }
+
+  /* ── Setup grid: single column ── */
+  .setup-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* ── Panel ── */
+  .panel {
+    padding: 14px;
+  }
+
+  .panel h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Section head: stacked ── */
+  .section-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Entry controls: 2-up grid on mobile ── */
+  .entry-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .entry-controls input[type="search"] {
+    grid-column: 1 / -1;
+  }
+
+  .entry-controls select {
+    max-width: none;
+  }
+
+  .entry-controls.compact {
+    grid-template-columns: 1fr 1fr;
+    max-width: none;
+  }
+
+  .entry-controls.compact input[type="date"] {
+    max-width: none;
+  }
+
+  /* ── Inline fields: 2-up ── */
+  .inline-fields {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .inline-fields button,
+  .inline-fields .ghost {
+    flex: 1 1 auto;
+    min-width: 80px;
+  }
+
+  /* ── Coupon card: improved mobile layout ── */
+  .coupon-card {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .coupon-number {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 10px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .coupon-number strong {
+    font-size: 20px;
+  }
+
+  /* ── Coupon fields: 2-column ── */
+  .coupon-fields {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .coupon-fields .wide {
+    grid-column: span 2;
+  }
+
+  .coupon-fields .half {
+    grid-column: span 1;
+  }
+
+  .coupon-fields label {
+    margin-bottom: 0;
+  }
+
+  /* ── Form inputs: slightly larger for touch ── */
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    font-size: 16px; /* prevent iOS zoom on focus */
+  }
+
+  button,
+  .file-label {
+    min-height: 44px;
+  }
+
+  /* ── Devotee row: card layout ── */
+  .devotee-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .devotee-row > *:not(:last-child) {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* ── Reset list ── */
+  .reset-list {
+    max-height: 200px;
+  }
+
+  /* ── Table: better mobile scroll ── */
+  .table-wrap {
+    max-height: 480px;
+    border-radius: 8px;
+  }
+
+  /* ── Toast: full-width on mobile ── */
+  .toast {
+    bottom: 16px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
+    white-space: normal;
+    text-align: center;
+    transform: translate(0, 16px);
+    border-radius: 10px;
+    font-size: 13px;
+  }
+
+  .toast.show {
+    transform: translate(0, 0);
+  }
+
+  /* ── Modal: full-screen on mobile ── */
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal-card {
+    border-radius: 16px 16px 0 0;
+    max-height: 85vh;
+    padding: 20px 16px;
+  }
+
+  /* ── Login card ── */
+  .login-card {
+    padding: 22px 18px;
+    border-radius: 12px;
+  }
+
+  .login-card h1 {
+    font-size: 22px;
+  }
+
+  /* ── User badge in topbar header row ── */
+  .topbar > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* ── Seva summary table ── */
+  #sevaSummary .table-wrap {
+    max-height: 260px;
+  }
+
+  /* ── Stats grid: single column for very narrow ── */
+  @media (max-width: 360px) {
+    .top-stats,
+    .compact-stats {
+      grid-template-columns: 1fr;
+    }
   }
 }
