@@ -9,13 +9,11 @@ let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
-let saveTimer = null;
 const els = {};
 
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
-    renderSelectors(); // ✅ ADD THIS
   render();
 document.addEventListener("focusin", (e) => {
   if (e.target.matches("input, textarea, select")) {
@@ -25,21 +23,8 @@ document.addEventListener("focusin", (e) => {
 
 document.addEventListener("focusout", (e) => {
   if (e.target.matches("input, textarea, select")) {
-    
-    // ⏳ Delay to allow next field focus (TAB FIX)
-    setTimeout(() => {
-      const active = document.activeElement;
-
-      // ✅ If still inside input → DO NOTHING
-      if (active && active.matches("input, textarea, select")) {
-        return;
-      }
-
-      // ✅ Only now apply Firebase update
-      isEditing = false;
-      applyPendingFirebaseData();
-
-    }, 100); // small delay is KEY
+    isEditing = false;
+    applyPendingFirebaseData();
   }
 });
   // Wait until Firebase function exists
@@ -57,8 +42,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       totalCoupons
     },
     devotees: [],
-    coupons: makeCoupons(totalCoupons),
-    hundi: []
+    coupons: makeCoupons(totalCoupons)
   };
 }
 
@@ -80,8 +64,7 @@ function loadState() {
         totalCoupons
       },
       devotees: parsed.devotees.map(normalizeDevotee),
-      coupons,
-      hundi: Array.isArray(parsed.hundi) ? parsed.hundi : []
+      coupons
     };
   } catch {
     return defaultState();
@@ -109,62 +92,6 @@ function saveSession(nextSession) {
   }
 }
 
-function renderSevaSummary() {
-  const period = settlementPeriod();
-  const sevaMap = {};
-
-  state.coupons
-    .filter(c => c.settled && inSettlementPeriod(c, period))
-    .forEach(coupon => {
-      const seva = coupon.description || "Others";
-
-      if (!sevaMap[seva]) {
-        sevaMap[seva] = { count: 0, amount: 0 };
-      }
-
-      sevaMap[seva].count += 1;
-      sevaMap[seva].amount += amountValue(coupon.amount);
-    });
-
-  (state.hundi || []).forEach(h => {
-  const seva = "Hundi Donation";
-
-  if (!sevaMap[seva]) {
-    sevaMap[seva] = { count: 0, amount: 0 };
-  }
-
-  sevaMap[seva].count += 1;
-  sevaMap[seva].amount += h.amount;
-});
-  const rows = Object.entries(sevaMap)
-    .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
-    .map(([seva, data]) => `
-      <tr>
-        <td>${escapeHtml(seva)}</td>
-        <td>${data.count}</td>
-        <td>${formatMoney(data.amount)}</td>
-      </tr>
-    `)
-    .join("");
-
-  els.sevaSummary.innerHTML = `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Seva</th>
-            <th>Count</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows || `<tr><td colspan="3">No data</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-  `;
-}
-
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
@@ -173,52 +100,10 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
-}
-
-
-function updateDevoteePendingDisplay() {
-  if (!els.devoteePendingDisplay || !els.allDevoteeFilter) return;
-
-  const devoteeId = els.allDevoteeFilter.value;
-
-  if (!devoteeId || devoteeId === "all") {
-    els.devoteePendingDisplay.textContent = "";
-    return;
-  }
-
-  const pendingAmount = state.coupons
-    .filter(c =>
-      c.devoteeId === devoteeId &&
-      !c.settled &&
-      amountValue(c.amount) > 0   // ✅ THIS IS KEY
-    )
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  els.devoteePendingDisplay.textContent =
-    `Pending: ${formatMoney(pendingAmount)}`;
-
-  // 🎨 optional color
-  els.devoteePendingDisplay.style.color =
-    pendingAmount > 0 ? "red" : "green";
-}
-
-function renderAllDevoteeFilter() {
-  if (!els.allDevoteeFilter) return;
-
-  const sorted = [...state.devotees].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  const options = [
-    `<option value="all">All Devotees</option>`,
-    ...sorted.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
-  ];
-
-  els.allDevoteeFilter.innerHTML = options.join("");
 }
 
 function bindEvents() {
@@ -254,10 +139,6 @@ function bindEvents() {
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
-  els.allDevoteeFilter.addEventListener("change", () => {
-  renderAllCoupons();
-  updateDevoteePendingDisplay();
-});
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -518,87 +399,38 @@ function assignCoupons(event) {
 
 function render() {
   validateSession();
-  renderSelectors();  
-  renderAllDevoteeFilter();
-  updateDevoteePendingDisplay();
+  renderSelectors();
   applyRoleAccess();
   renderStats();
   renderDevotees();
-  renderSevaSummary();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
 
-const topStats = document.querySelector(".stats-grid");
-
-if (topStats) {
-  if (session?.role === "devotee") {
-    // 🔥 ALWAYS HIDE (all tabs including dashboard)
-    topStats.style.display = "none";
-  } else {
-    // ✅ Admin always sees it
-    topStats.style.display = "grid";
-  }
-}
 }
 
 function renderSelectors() {
-
-  // ✅ SORT DEVOTEES ASCENDING
-  const sortedDevotees = [...state.devotees].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  // ✅ CREATE OPTIONS
-  const options = sortedDevotees
-    .map((devotee) =>
-      `<option value="${escapeAttr(devotee.id)}">
-        ${escapeHtml(devotee.name)}
-      </option>`
-    )
+  const options = state.devotees
+    .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
     .join("");
-
   const empty = '<option value="">Select devotee</option>';
 
-  // ✅ LOGIN DROPDOWN
   els.loginDevotee.innerHTML = empty + options;
-
-  // ✅ ASSIGN DROPDOWN
   els.assignDevotee.innerHTML = empty + options;
-
-  // ✅ RESET DROPDOWN
   const currentResetValue = els.resetDevotee.value;
-
   els.resetDevotee.innerHTML = empty + options;
-
-  if (
-    state.devotees.some(
-      (devotee) => devotee.id === currentResetValue
-    )
-  ) {
+  if (state.devotees.some((devotee) => devotee.id === currentResetValue)) {
     els.resetDevotee.value = currentResetValue;
   }
-
-  // ✅ ENTRY DROPDOWN
   const currentEntryValue = els.entryDevotee.value;
-
   els.entryDevotee.innerHTML = empty + options;
 
   if (session?.role === "devotee") {
-
     els.entryDevotee.value = session.devoteeId;
-
-  } else if (
-    state.devotees.some(
-      (devotee) => devotee.id === currentEntryValue
-    )
-  ) {
-
+  } else if (state.devotees.some((devotee) => devotee.id === currentEntryValue)) {
     els.entryDevotee.value = currentEntryValue;
-
   } else if (state.devotees.length) {
-
     els.entryDevotee.value = state.devotees[0].id;
   }
 
@@ -650,312 +482,96 @@ function renderStats() {
   const sold = state.coupons.filter(isSold).length;
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
   const money = state.coupons.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
-  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  els.moneyReceived.textContent = formatMoney(money + hundiMoney);
+  els.moneyReceived.textContent = formatMoney(money);
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
-
   // 🔒 Prevent devotees from seeing admin dashboard
-  if (session?.role === "devotee") {
-    if (els.devoteeList) els.devoteeList.innerHTML = "";
-    return;
-  }
-
+if (session?.role === "devotee") {
+  if (els.devoteeList) els.devoteeList.innerHTML = "";
+  return;
+}
   const query = els.devoteeSearch.value.trim().toLowerCase();
   const period = settlementPeriod();
-
-  // ✅ FILTER DEVOTEES
   const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`
-      .toLowerCase()
-      .includes(query);
+    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
-  // ✅ SORT DEVOTEES BY NAME (ASCENDING)
-  devotees.sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  // ✅ HUNDI PERIOD TOTAL
-  const hundiPeriod = (state.hundi || [])
-    .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
-    .reduce((sum, h) => sum + h.amount, 0);
-
-  // ✅ COUPON PERIOD TOTAL
   const periodTotal = state.coupons
-    .filter((coupon) =>
-      coupon.settled &&
-      inSettlementPeriod(coupon, period)
-    )
-    .reduce((sum, coupon) =>
-      sum + amountValue(coupon.amount), 0
-    ) + hundiPeriod;
+    .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
+    .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0);
+  els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
-  els.adminPeriodSummary.textContent =
-    `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
-
-  // ✅ EMPTY STATE
   if (!devotees.length) {
-    els.devoteeList.innerHTML =
-      `<div class="empty">No devotees found.</div>`;
+    els.devoteeList.innerHTML = `<div class="empty">No devotees found.</div>`;
     return;
   }
 
-  // ✅ RENDER DEVOTEES
   els.devoteeList.innerHTML = devotees.map((devotee) => {
-
     const summary = devoteeSummary(devotee.id, period);
-
     const assigned = couponsForDevotee(devotee.id);
-
-    const ranges = summarizeCouponRanges(
-      assigned.map((coupon) => coupon.number)
-    );
-
+    const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
     return `
       <article class="devotee-row">
-
         <div>
-          <strong>
-            ${escapeHtml(devotee.name)}
-            <span class="small-stat">
-              (PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})
-            </span>
-          </strong>
-
-          <span class="small-stat">
-            ${escapeHtml(devotee.contact || "No contact number")}
-          </span>
-
-          <div>
-            ${
-              ranges.map((range) =>
-                `<span class="coupon-pill">${range}</span>`
-              ).join("")
-              ||
-              '<span class="small-stat">No coupons assigned</span>'
-            }
-          </div>
+            <strong>
+              ${escapeHtml(devotee.name)}
+              <span class="small-stat">(PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})</span>
+            </strong>
+            
+            <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
+          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
         </div>
-
-        <span>
-          <strong>${summary.issued}</strong>
-          <span class="small-stat"> issued</span>
-        </span>
-
-        <span>
-          <strong>${summary.sold}</strong>
-          <span class="small-stat"> sold</span>
-        </span>
-
-        <span>
-          <strong>${summary.left}</strong>
-          <span class="small-stat"> left</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.settledAmount)}</strong>
-          <span class="small-stat"> settled</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.pendingAmount)}</strong>
-          <span class="small-stat"> pending</span>
-        </span>
-
-        <button
-          class="ghost"
-          type="button"
-          data-set-password="${escapeAttr(devotee.id)}">
-          Set Password
-        </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-send-whatsapp="${escapeAttr(devotee.id)}">
-          WhatsApp
-        </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-update-contact="${escapeAttr(devotee.id)}">
-          Update Contact
-        </button>
-
-        <button
-          class="danger"
-          data-delete-devotee="${escapeAttr(devotee.id)}">
+        <span><strong>${summary.issued}</strong><span class="small-stat"> issued</span></span>
+        <span><strong>${summary.sold}</strong><span class="small-stat"> sold</span></span>
+        <span><strong>${summary.left}</strong><span class="small-stat"> left</span></span>
+        <span><strong>${formatMoney(summary.settledAmount)}</strong><span class="small-stat"> settled</span></span>
+        <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
+        <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
+        <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+        <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-open-devotee="${escapeAttr(devotee.id)}">
-          Open
-        </button>
-
+        <button class="ghost" type="button" data-open-devotee="${escapeAttr(devotee.id)}">Open</button>
       </article>
     `;
-
   }).join("");
 
-  // ✅ OPEN DEVOTEE
-  els.devoteeList.querySelectorAll("[data-open-devotee]")
-    .forEach((button) => {
-
-      button.addEventListener("click", () => {
-
-        els.entryDevotee.value = button.dataset.openDevotee;
-
-        document
-          .querySelector('[data-view="devoteeView"]')
-          .click();
-      });
+  els.devoteeList.querySelectorAll("[data-open-devotee]").forEach((button) => {
+    button.addEventListener("click", () => {
+      els.entryDevotee.value = button.dataset.openDevotee;
+      document.querySelector('[data-view="devoteeView"]').click();
     });
+  });
 
-  // ✅ SET PASSWORD
-  els.devoteeList.querySelectorAll("[data-set-password]")
-    .forEach((button) => {
-
-      button.addEventListener("click", () => {
-
-        const devotee = state.devotees.find(
-          (item) => item.id === button.dataset.setPassword
-        );
-
-        if (!devotee) return;
-
-        const password = window.prompt(
-          `Enter new password for ${devotee.name}`
-        );
-
-        if (password === null) return;
-
-        if (password.trim().length < 4) {
-          showToast("Use at least 4 characters");
-          return;
-        }
-
-        devotee.pin = password.trim();
-
-        saveState();
-        renderDevotees();
-        renderSelectors();
-
-        showToast(`Password updated for ${devotee.name}`);
-      });
+  els.devoteeList.querySelectorAll("[data-set-password]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const devotee = state.devotees.find((item) => item.id === button.dataset.setPassword);
+      if (!devotee) return;
+      const password = window.prompt(`Enter new password for ${devotee.name}`);
+      if (password === null) return;
+      if (password.trim().length < 4) {
+        showToast("Use at least 4 characters");
+        return;
+      }
+      devotee.pin = password.trim();
+      saveState();
+      renderDevotees();
+      renderSelectors();
+      showToast(`Password updated for ${devotee.name}`);
     });
-
-  // ✅ WHATSAPP
-  els.devoteeList.querySelectorAll("[data-send-whatsapp]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-
-        const devotee = state.devotees.find(
-          d => d.id === btn.dataset.sendWhatsapp
-        );
-
-        if (!devotee) return;
-
-        const period = settlementPeriod();
-
-        const summary = devoteeSummary(devotee.id, period);
-
-        const assigned = couponsForDevotee(devotee.id).length;
-
-        const message =
-`Hare Krishna 🙏
-
-${devotee.name},
-
-Here is your seva summary:
-
-🔐 PIN: ${devotee.pin || "Not set"}
-
-🎟 Coupons Assigned: ${assigned}
-🟢 Sold Coupons: ${summary.sold}
-🟡 Pending Coupons: ${summary.left}
-
-💰 Amount Settled: ${formatMoney(summary.settledAmount)}
-⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}
-
-Please continue your seva enthusiastically 🙏
-
-Use the following link to update your coupons:
-https://vikram34it.github.io/coupons-tracker/
-`;
-
-        const phone = (devotee.contact || "")
-          .replace(/\D/g, "");
-
-        if (!phone) {
-          showToast("No contact number for this devotee");
-          return;
-        }
-
-        const url =
-          `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
-
-        window.open(url, "_blank");
-
-      });
-    });
-
-  // ✅ UPDATE CONTACT
-  els.devoteeList.querySelectorAll("[data-update-contact]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-
-        const devotee = state.devotees.find(
-          d => d.id === btn.dataset.updateContact
-        );
-
-        if (!devotee) return;
-
-        const newContact = window.prompt(
-          `Enter new contact for ${devotee.name}`,
-          devotee.contact || ""
-        );
-
-        if (newContact === null) return;
-
-        const cleaned = newContact.replace(/\D/g, "");
-
-        if (cleaned.length !== 10) {
-          showToast("Enter valid 10-digit mobile number");
-          return;
-        }
-
-        devotee.contact = cleaned;
-
-        saveState();
-        render();
-
-        showToast(`Contact updated for ${devotee.name}`);
-      });
-    });
-
-  // ✅ DELETE DEVOTEE
-  els.devoteeList.querySelectorAll("[data-delete-devotee]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-        deleteDevotee(btn.dataset.deleteDevotee);
-      });
-
-    });
-}
+  });
+els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    deleteDevotee(btn.dataset.deleteDevotee);
+  });
+});
+ }
 
 function deleteDevotee(devoteeId) {
   const devotee = state.devotees.find(d => d.id === devoteeId);
@@ -1016,71 +632,8 @@ function renderResetCouponList() {
 }
 
 function renderEntryList() {
-  if (activeDevoteeTab === "hundi") {
-
   const devoteeId = els.entryDevotee.value;
 
-  const entries = (state.hundi || [])
-    .filter(h => h.devoteeId === devoteeId)
-    .sort((a, b) => b.date.localeCompare(a.date));
-
-  els.entryList.innerHTML = `
-    <div class="panel">
-      <h3>Add Hundi Entry</h3>
-      <div class="inline-fields">
-        <input type="date" id="hundiDate">
-        <input type="number" id="hundiAmount" placeholder="Amount">
-        <button id="addHundiBtn">Add</button>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${
-            entries.map(e => `
-              <tr>
-                <td>${e.date}</td>
-                <td>${formatMoney(e.amount)}</td>
-              </tr>
-            `).join("") || `<tr><td colspan="2">No entries</td></tr>`
-          }
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  document.getElementById("addHundiBtn").onclick = () => {
-    const amount = Number(document.getElementById("hundiAmount").value);
-    const date = document.getElementById("hundiDate").value || todayKey();
-
-    if (!amount) {
-      showToast("Enter amount");
-      return;
-    }
-
-    state.hundi.push({
-      id: newId(),
-      devoteeId,
-      amount,
-      date
-    });
-
-    saveState();
-    renderEntryList();
-    showToast("Hundi added");
-  };
-
-  return;
-}
-  const devoteeId = els.entryDevotee.value;
- 
   // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
@@ -1103,39 +656,6 @@ function renderEntryList() {
 
   if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
-  if (activeDevoteeTab === "settled") {
-
-  els.entryList.innerHTML = `
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Coupon</th>
-            <th>Buyer</th>
-            <th>Contact</th>
-            <th>Amount</th>
-            <th>Seva</th>
-            <th>Receipt</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${coupons.map(coupon => `
-            <tr>
-              <td>#${coupon.number}</td>
-              <td>${escapeHtml(coupon.buyerName || "-")}</td>
-              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
-              <td>${formatMoney(coupon.amount)}</td>
-              <td>${escapeHtml(coupon.description || "-")}</td>
-              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  return; // 🔥 VERY IMPORTANT (stops card rendering)
-}
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
@@ -1175,10 +695,10 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-     <!--     <label>
+          <label>
             Receipt Number
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
-      -->    </label>
+          </label>
           <label class="wide">
             Description / Purpose
             <label class="wide">
@@ -1215,19 +735,6 @@ function renderAllCoupons() {
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
-  if (status === "sold_unsettled") {
- coupons = coupons.filter(c =>
-    c.devoteeId &&              // must be assigned
-    isSold(c) &&               // must be sold
-    !c.settled &&              // must NOT be settled
-    amountValue(c.amount) > 0  // must have real amount
-  );
-}
-  const devoteeFilter = els.allDevoteeFilter?.value;
-
-if (devoteeFilter && devoteeFilter !== "all") {
-  coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
-}
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   els.allCouponsBody.innerHTML = coupons.map((coupon) => `
@@ -1255,59 +762,34 @@ if (devoteeFilter && devoteeFilter !== "all") {
 }
 
 function toggleSettlement(event) {
-
   if (session?.role !== "admin") {
     showToast("Only admin can update settlement");
     return;
   }
 
-  const coupon =
-    state.coupons[
-      Number(event.currentTarget.dataset.settlement) - 1
-    ];
-
+  const coupon = state.coupons[Number(event.currentTarget.dataset.settlement) - 1];
   coupon.settled = !coupon.settled;
-
-  coupon.settledAt = coupon.settled
-    ? todayKey()
-    : "";
-
+  coupon.settledAt = coupon.settled ? todayKey() : "";
   saveState();
-
-  // ✅ ONLY UPDATE REQUIRED SECTIONS
-  renderAllCoupons();
-  renderStats();
-  renderDevotees();
-  renderSevaSummary();
-  updateDevoteePendingDisplay();
-
-  showToast(
-    coupon.settled
-      ? `Coupon ${coupon.number} settled`
-      : `Coupon ${coupon.number} marked pending`
-  );
+  render();
+  showToast(coupon.settled ? `Coupon ${coupon.number} settled` : `Coupon ${coupon.number} marked pending`);
 }
 
 function updateCouponField(event) {
-  const field = event.target;
-
-  const card = field.closest("[data-coupon-number]");
+  const card = event.target.closest("[data-coupon-number]");
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
-
   if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
+  coupon[event.target.dataset.field] = event.target.value.trimStart();
+  saveState();
+  renderStats();
+  renderDevotees();
 
-  coupon[field.dataset.field] = field.value.trimStart();
-
-  // 🔥 DELAY SAVE (KEY FIX)
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveState();   // only after user pauses
-  }, 500);
-
-  // ❌ NO render()
+  const status = card.querySelector(".status");
+  status.textContent = isSold(coupon) ? "Sold" : "Pending";
+  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
 }
 
 function couponsForDevotee(devoteeId) {
@@ -1382,19 +864,13 @@ function renderDevoteeStats(devoteeId) {
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
-  <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
-  <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
-  <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
-
-  <article><span>Coupons Amount</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
-  <article><span>Hundi Amount</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
-  <article><span>Total Settled Amount</span><strong>${formatMoney(summary.totalSettledAmount)}</strong></article>
-
-  <article><span>Pending Coupons Amount</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
-  <article><span>Total Pending Amount</span><strong>${formatMoney(summary.totalPendingAmount)}</strong></article>
-
-  <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
-`;
+    <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
+    <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
+    <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
+    <article><span>Amount Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
+    <article><span>Amount Pending</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
+    <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
+  `;
 }
 
 function devoteeSummary(devoteeId, period = settlementPeriod()) {
@@ -1403,31 +879,18 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const settled = sold.filter((coupon) => coupon.settled);
   const pending = sold.filter((coupon) => !coupon.settled);
   const periodSettled = settled.filter((coupon) => inSettlementPeriod(coupon, period));
-  // ✅ HUNDI CALCULATION
-  const hundiEntries = (state.hundi || [])
-    .filter(h => h.devoteeId === devoteeId);
-  
-  const hundiAmount = hundiEntries.reduce((sum, h) => sum + h.amount, 0);
 
-// ✅ TOTALS
-const totalSettledAmount = settled.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiAmount;
-const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0);
-return {
-  issued: assigned.length,
-  sold: sold.length,
-  left: assigned.length - sold.length,
-
-  settledCount: settled.length,
-  pendingCount: pending.length,
-
-  settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
-  pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
-
-  // ✅ NEW
-  hundiAmount,
-  totalSettledAmount,
-  totalPendingAmount
-};
+  return {
+    issued: assigned.length,
+    sold: sold.length,
+    left: assigned.length - sold.length,
+    settledCount: settled.length,
+    pendingCount: pending.length,
+    amountReceived: sold.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    periodSettledAmount: periodSettled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0)
+  };
 }
 
 function devoteeName(devoteeId) {
@@ -1642,8 +1105,6 @@ function applyFirebaseData(data) {
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
 
   originalSaveState();
-   // ✅ IMPORTANT FIX
-  renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
 
@@ -1690,7 +1151,7 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-         if (isEditing) {
+          if (isEditing && document.hasFocus()) {
             pendingFirebaseData = snapshot.val();
             return;
           }
