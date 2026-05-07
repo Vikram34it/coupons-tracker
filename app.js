@@ -55,7 +55,8 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
     settings: {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
-      invitationMessage: ""
+      invitationMessage: "",
+      viewerPassword: ""
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -79,7 +80,8 @@ function loadState() {
       settings: {
         adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
         totalCoupons,
-        invitationMessage: parsed.settings?.invitationMessage || ""
+        invitationMessage: parsed.settings?.invitationMessage || "",
+        viewerPassword: parsed.settings?.viewerPassword || ""
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons,
@@ -174,8 +176,9 @@ function cacheElements() {
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "adminPasswordForm", "adminPassword", "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
+    "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
+    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
@@ -261,9 +264,11 @@ function bindEvents() {
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
+  els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
+  els.devoteeStatusFilter.addEventListener("change", renderDevotees);
   els.settledFromDate.addEventListener("change", renderDevotees);
   els.settledToDate.addEventListener("change", renderDevotees);
   els.entryDevotee.addEventListener("change", renderEntryList);
@@ -320,6 +325,16 @@ function login(event) {
       return;
     }
     saveSession({ role: "admin", devoteeId: "" });
+  } else if (role === "viewer") {
+    if (!state.settings.viewerPassword) {
+      showToast("Viewer password has not been set by admin yet");
+      return;
+    }
+    if (password !== state.settings.viewerPassword) {
+      showToast("Viewer password is incorrect");
+      return;
+    }
+    saveSession({ role: "viewer", devoteeId: "" });
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
@@ -380,6 +395,19 @@ function updateAdminPassword(event) {
   els.adminPasswordForm.reset();
   saveState();
   showToast("Admin password updated");
+}
+
+function updateViewerPassword(event) {
+  event.preventDefault();
+  const password = els.viewerPasswordInput.value.trim();
+  if (password.length < 4) {
+    showToast("Use at least 4 characters for viewer password");
+    return;
+  }
+  state.settings.viewerPassword = password;
+  els.viewerPasswordForm.reset();
+  saveState();
+  showToast("Viewer password set ✓");
 }
 
 function updateTotalCoupons(event) {
@@ -641,21 +669,57 @@ function validateSession() {
 }
 
 function applyRoleAccess() {
-  const isAdmin = session?.role === "admin";
+  const isAdmin  = session?.role === "admin";
+  const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
-  const activeDevotee = isDevotee ? state.devotees.find((devotee) => devotee.id === session.devoteeId) : null;
+  const activeDevotee = isDevotee
+    ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
+    : null;
 
-  els.userBadge.textContent = isAdmin ? "Admin" : activeDevotee ? `Devotee: ${activeDevotee.name}` : "";
+  // Badge label
+  els.userBadge.textContent = isAdmin
+    ? "Admin"
+    : isViewer
+    ? "👁 Viewer"
+    : activeDevotee
+    ? `Devotee: ${activeDevotee.name}`
+    : "";
+
+  // Export / import — admin only
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
+
+  // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
   els.entryStatus.classList.toggle("hidden", isDevotee);
   if (isDevotee) els.entryStatus.value = "all";
 
-  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin);
-  document.querySelectorAll("[data-admin-tab]").forEach((tab) => tab.classList.toggle("hidden", !isAdmin));
+  // All Coupons tab — visible to admin & viewer
+  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin && !isViewer);
 
+  // Devotee Entry tab — hidden for viewer
+  document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
+
+  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
+  document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+    if (isViewer) {
+      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
+    } else {
+      tab.classList.toggle("hidden", !isAdmin);
+    }
+  });
+
+  // Viewer: land on admin dashboard
+  if (isViewer) {
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    document.getElementById("adminView")?.classList.add("active");
+    activeAdminTab = "dashboard";
+    updateAdminView();
+  }
+
+  // Devotee: land on devotee entry view
   if (isDevotee) {
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
     document.querySelector('[data-view="devoteeView"]').classList.add("active");
@@ -702,14 +766,29 @@ function renderDevotees() {
   }
 
   const query = els.devoteeSearch.value.trim().toLowerCase();
+  const statusFilter = els.devoteeStatusFilter?.value || "all";
   const period = settlementPeriod();
 
-  // ✅ FILTER DEVOTEES
-  const devotees = state.devotees.filter((devotee) => {
-    return `${devotee.name} ${devotee.contact}`
-      .toLowerCase()
-      .includes(query);
-  });
+  // ✅ FILTER DEVOTEES — by name/contact search
+  let devotees = state.devotees.filter((devotee) =>
+    `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query)
+  );
+
+  // ✅ FILTER BY STATUS
+  if (statusFilter !== "all") {
+    devotees = devotees.filter((devotee) => {
+      const assigned = state.coupons.filter(c => c.devoteeId === devotee.id);
+      const sold     = assigned.filter(isSold);
+      const settled  = assigned.filter(c => c.settled);
+      const pending  = sold.filter(c => !c.settled);
+
+      if (statusFilter === "has_pending")    return pending.length > 0;
+      if (statusFilter === "fully_settled")  return sold.length > 0 && pending.length === 0;
+      if (statusFilter === "not_started")    return assigned.length > 0 && sold.length === 0;
+      if (statusFilter === "no_coupons")     return assigned.length === 0;
+      return true;
+    });
+  }
 
   // ✅ SORT DEVOTEES BY NAME (ASCENDING)
   devotees.sort((a, b) =>
@@ -803,6 +882,7 @@ function renderDevotees() {
           <span class="small-stat"> pending</span>
         </span>
 
+        ${session?.role === "viewer" ? "" : `
         <button
           class="ghost"
           type="button"
@@ -836,6 +916,7 @@ function renderDevotees() {
           data-open-devotee="${escapeAttr(devotee.id)}">
           Open
         </button>
+        `}
 
       </article>
     `;
@@ -1340,7 +1421,9 @@ if (devoteeFilter && devoteeFilter !== "all") {
 }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
-  els.allCouponsBody.innerHTML = coupons.map((coupon) => `
+  els.allCouponsBody.innerHTML = coupons.map((coupon) => {
+    const isViewer = session?.role === "viewer";
+    return `
     <tr>
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
@@ -1351,23 +1434,27 @@ if (devoteeFilter && devoteeFilter !== "all") {
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
-        <button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
-          ${coupon.settled ? "✓ Settled" : "Mark Settled"}
-        </button>
+        ${isViewer
+          ? `<span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? "\u2713 Settled" : "Pending"}</span>`
+          : `<button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
+              ${coupon.settled ? "\u2713 Settled" : "Mark Settled"}
+            </button>`
+        }
       </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
       <td>
-        ${coupon.settled && coupon.buyerContact
+        ${(!isViewer && coupon.settled && coupon.buyerContact)
           ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
               Send
             </button>`
-          : `<span class="small-stat">–</span>`
+          : `<span class="small-stat">\u2013</span>`
         }
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 
   els.allCouponsBody.querySelectorAll("[data-settlement]").forEach((button) => {
     button.addEventListener("click", toggleSettlement);
