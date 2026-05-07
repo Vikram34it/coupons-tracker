@@ -545,40 +545,61 @@ if (topStats) {
 
 function renderSelectors() {
 
-  // ✅ SORT DEVOTEES A–Z
+  // ✅ SORT DEVOTEES ASCENDING
   const sortedDevotees = [...state.devotees].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    a.name.localeCompare(b.name)
   );
 
+  // ✅ CREATE OPTIONS
   const options = sortedDevotees
-    .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
+    .map((devotee) =>
+      `<option value="${escapeAttr(devotee.id)}">
+        ${escapeHtml(devotee.name)}
+      </option>`
+    )
     .join("");
 
   const empty = '<option value="">Select devotee</option>';
 
-  // ✅ LOGIN DROPDOWN (THIS WAS YOUR MAIN REQUIREMENT)
+  // ✅ LOGIN DROPDOWN
   els.loginDevotee.innerHTML = empty + options;
 
-  // ✅ OTHER DROPDOWNS
+  // ✅ ASSIGN DROPDOWN
   els.assignDevotee.innerHTML = empty + options;
 
+  // ✅ RESET DROPDOWN
   const currentResetValue = els.resetDevotee.value;
+
   els.resetDevotee.innerHTML = empty + options;
 
-  if (state.devotees.some((devotee) => devotee.id === currentResetValue)) {
+  if (
+    state.devotees.some(
+      (devotee) => devotee.id === currentResetValue
+    )
+  ) {
     els.resetDevotee.value = currentResetValue;
   }
 
+  // ✅ ENTRY DROPDOWN
   const currentEntryValue = els.entryDevotee.value;
+
   els.entryDevotee.innerHTML = empty + options;
 
   if (session?.role === "devotee") {
+
     els.entryDevotee.value = session.devoteeId;
-  } else if (state.devotees.some((devotee) => devotee.id === currentEntryValue)) {
+
+  } else if (
+    state.devotees.some(
+      (devotee) => devotee.id === currentEntryValue
+    )
+  ) {
+
     els.entryDevotee.value = currentEntryValue;
+
   } else if (state.devotees.length) {
-    // ✅ FIRST ELEMENT WILL NOW BE A–Z FIRST NAME
-    els.entryDevotee.value = sortedDevotees[0].id;
+
+    els.entryDevotee.value = state.devotees[0].id;
   }
 
   renderLoginRole();
