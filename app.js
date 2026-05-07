@@ -1067,7 +1067,7 @@ function renderEntryList() {
           <tr>
             <th>Date</th>
             <th>Amount</th>
-            <th>Settlement</th>
+            ${session?.role === "admin" ? "<th>Settlement</th>" : ""}
           </tr>
         </thead>
         <tbody>
@@ -1076,13 +1076,14 @@ function renderEntryList() {
               <tr>
                 <td>${e.date}</td>
                 <td>${formatMoney(e.amount)}</td>
+                ${session?.role === "admin" ? `
                 <td>
                   <button class="ghost settlement-btn" type="button" data-hundi-settle="${e.id}">
                     ${e.settled ? "Settled" : "Mark Settled"}
                   </button>
-                </td>
+                </td>` : ""}
               </tr>
-            `).join("") || `<tr><td colspan="3">No entries</td></tr>`
+            `).join("") || `<tr><td colspan="${session?.role === "admin" ? 3 : 2}">No entries</td></tr>`
           }
         </tbody>
       </table>
