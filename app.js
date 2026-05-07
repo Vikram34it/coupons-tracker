@@ -15,33 +15,33 @@ const els = {};
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
-    renderSelectors(); // ✅ ADD THIS
+  renderSelectors(); // ✅ ADD THIS
   render();
-document.addEventListener("focusin", (e) => {
-  if (e.target.matches("input, textarea, select")) {
-    isEditing = true;
-  }
-});
+  document.addEventListener("focusin", (e) => {
+    if (e.target.matches("input, textarea, select")) {
+      isEditing = true;
+    }
+  });
 
-document.addEventListener("focusout", (e) => {
-  if (e.target.matches("input, textarea, select")) {
-    
-    // ⏳ Delay to allow next field focus (TAB FIX)
-    setTimeout(() => {
-      const active = document.activeElement;
+  document.addEventListener("focusout", (e) => {
+    if (e.target.matches("input, textarea, select")) {
 
-      // ✅ If still inside input → DO NOTHING
-      if (active && active.matches("input, textarea, select")) {
-        return;
-      }
+      // ⏳ Delay to allow next field focus (TAB FIX)
+      setTimeout(() => {
+        const active = document.activeElement;
 
-      // ✅ Only now apply Firebase update
-      isEditing = false;
-      applyPendingFirebaseData();
+        // ✅ If still inside input → DO NOTHING
+        if (active && active.matches("input, textarea, select")) {
+          return;
+        }
 
-    }, 100); // small delay is KEY
-  }
-});
+        // ✅ Only now apply Firebase update
+        isEditing = false;
+        applyPendingFirebaseData();
+
+      }, 100); // small delay is KEY
+    }
+  });
   // Wait until Firebase function exists
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
@@ -131,15 +131,15 @@ function renderSevaSummary() {
     });
 
   (state.hundi || []).filter(h => h.settled).forEach(h => {
-  const seva = "Hundi Donation";
+    const seva = "Hundi Donation";
 
-  if (!sevaMap[seva]) {
-    sevaMap[seva] = { count: 0, amount: 0 };
-  }
+    if (!sevaMap[seva]) {
+      sevaMap[seva] = { count: 0, amount: 0 };
+    }
 
-  sevaMap[seva].count += 1;
-  sevaMap[seva].amount += h.amount;
-});
+    sevaMap[seva].count += 1;
+    sevaMap[seva].amount += h.amount;
+  });
   const rows = Object.entries(sevaMap)
     .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
     .map(([seva, data]) => `
@@ -280,9 +280,9 @@ function bindEvents() {
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
   els.allDevoteeFilter.addEventListener("change", () => {
-  renderAllCoupons();
-  updateDevoteePendingDisplay();
-});
+    renderAllCoupons();
+    updateDevoteePendingDisplay();
+  });
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -294,17 +294,17 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-  tab.addEventListener("click", () => {
-    activeAdminTab = tab.dataset.adminTab;
+    tab.addEventListener("click", () => {
+      activeAdminTab = tab.dataset.adminTab;
 
-    document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-    tab.classList.add("active");
+      document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
 
-    activateView("adminView");
-    updateAdminView();
+      activateView("adminView");
+      updateAdminView();
+    });
   });
-});
-  
+
 }
 
 function activateView(viewId) {
@@ -566,7 +566,7 @@ function assignCoupons(event) {
 
 function render() {
   validateSession();
-  renderSelectors();  
+  renderSelectors();
   renderAllDevoteeFilter();
   updateDevoteePendingDisplay();
   applyRoleAccess();
@@ -579,15 +579,15 @@ function render() {
   updateAdminView();
   loadInvitationTemplate(); // ✅ populate textarea from saved state
 
-const topStats = document.querySelector(".stats-grid");
+  const topStats = document.querySelector(".stats-grid");
 
-if (topStats) {
-  if (session?.role === "devotee") {
-    topStats.style.display = "none";
-  } else {
-    topStats.style.display = "grid";
+  if (topStats) {
+    if (session?.role === "devotee") {
+      topStats.style.display = "none";
+    } else {
+      topStats.style.display = "grid";
+    }
   }
-}
 }
 
 function renderSelectors() {
@@ -669,7 +669,7 @@ function validateSession() {
 }
 
 function applyRoleAccess() {
-  const isAdmin  = session?.role === "admin";
+  const isAdmin = session?.role === "admin";
   const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
@@ -680,10 +680,10 @@ function applyRoleAccess() {
   els.userBadge.textContent = isAdmin
     ? "Admin"
     : isViewer
-    ? "👁 Viewer"
-    : activeDevotee
-    ? `Devotee: ${activeDevotee.name}`
-    : "";
+      ? "👁 Viewer"
+      : activeDevotee
+        ? `Devotee: ${activeDevotee.name}`
+        : "";
 
   // Export / import — admin only
   els.csvBtn.classList.toggle("hidden", !isAdmin);
@@ -778,14 +778,14 @@ function renderDevotees() {
   if (statusFilter !== "all") {
     devotees = devotees.filter((devotee) => {
       const assigned = state.coupons.filter(c => c.devoteeId === devotee.id);
-      const sold     = assigned.filter(isSold);
-      const settled  = assigned.filter(c => c.settled);
-      const pending  = sold.filter(c => !c.settled);
+      const sold = assigned.filter(isSold);
+      const settled = assigned.filter(c => c.settled);
+      const pending = sold.filter(c => !c.settled);
 
-      if (statusFilter === "has_pending")    return pending.length > 0;
-      if (statusFilter === "fully_settled")  return sold.length > 0 && pending.length === 0;
-      if (statusFilter === "not_started")    return assigned.length > 0 && sold.length === 0;
-      if (statusFilter === "no_coupons")     return assigned.length === 0;
+      if (statusFilter === "has_pending") return pending.length > 0;
+      if (statusFilter === "fully_settled") return sold.length > 0 && pending.length === 0;
+      if (statusFilter === "not_started") return assigned.length > 0 && sold.length === 0;
+      if (statusFilter === "no_coupons") return assigned.length === 0;
       return true;
     });
   }
@@ -847,13 +847,12 @@ function renderDevotees() {
           </span>
 
           <div>
-            ${
-              ranges.map((range) =>
-                `<span class="coupon-pill">${range}</span>`
-              ).join("")
-              ||
-              '<span class="small-stat">No coupons assigned</span>'
-            }
+            ${ranges.map((range) =>
+      `<span class="coupon-pill">${range}</span>`
+    ).join("")
+      ||
+      '<span class="small-stat">No coupons assigned</span>'
+      }
           </div>
         </div>
 
@@ -1002,7 +1001,7 @@ function renderDevotees() {
         const assigned = couponsForDevotee(devotee.id).length;
 
         const message =
-`Hare Krishna 🙏
+          `Hare Krishna 🙏
 
 ${devotee.name},
 
@@ -1146,13 +1145,13 @@ function renderResetCouponList() {
 function renderEntryList() {
   if (activeDevoteeTab === "hundi") {
 
-  const devoteeId = els.entryDevotee.value;
+    const devoteeId = els.entryDevotee.value;
 
-  const entries = (state.hundi || [])
-    .filter(h => h.devoteeId === devoteeId)
-    .sort((a, b) => b.date.localeCompare(a.date));
+    const entries = (state.hundi || [])
+      .filter(h => h.devoteeId === devoteeId)
+      .sort((a, b) => b.date.localeCompare(a.date));
 
-  els.entryList.innerHTML = `
+    els.entryList.innerHTML = `
     <div class="panel">
       <h3>Add Hundi Entry</h3>
       <div class="inline-fields">
@@ -1172,8 +1171,7 @@ function renderEntryList() {
           </tr>
         </thead>
         <tbody>
-          ${
-            entries.map(e => `
+          ${entries.map(e => `
               <tr>
                 <td>${e.date}</td>
                 <td>${formatMoney(e.amount)}</td>
@@ -1185,56 +1183,56 @@ function renderEntryList() {
                 </td>` : ""}
               </tr>
             `).join("") || `<tr><td colspan="${session?.role === "admin" ? 3 : 2}">No entries</td></tr>`
-          }
+      }
         </tbody>
       </table>
     </div>
   `;
 
-  els.entryList.querySelectorAll("[data-hundi-settle]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (session?.role !== "admin") {
-        showToast("Only admin can settle hundi");
+    els.entryList.querySelectorAll("[data-hundi-settle]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can settle hundi");
+          return;
+        }
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
+        if (!hundi) return;
+        hundi.settled = !hundi.settled;
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
+      });
+    });
+
+    document.getElementById("addHundiBtn").onclick = () => {
+      const amount = Number(document.getElementById("hundiAmount").value);
+      const date = document.getElementById("hundiDate").value || todayKey();
+
+      if (!amount) {
+        showToast("Enter amount");
         return;
       }
-      const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
-      if (!hundi) return;
-      hundi.settled = !hundi.settled;
+
+      state.hundi.push({
+        id: newId(),
+        devoteeId,
+        amount,
+        date,
+        settled: false
+      });
+
       saveState();
       renderEntryList();
-      renderStats();
-      renderDevoteeStats(hundi.devoteeId);
-      renderSevaSummary();
-      showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
-    });
-  });
+      showToast("Hundi added");
+    };
 
-  document.getElementById("addHundiBtn").onclick = () => {
-    const amount = Number(document.getElementById("hundiAmount").value);
-    const date = document.getElementById("hundiDate").value || todayKey();
-
-    if (!amount) {
-      showToast("Enter amount");
-      return;
-    }
-
-    state.hundi.push({
-      id: newId(),
-      devoteeId,
-      amount,
-      date,
-      settled: false
-    });
-
-    saveState();
-    renderEntryList();
-    showToast("Hundi added");
-  };
-
-  return;
-}
+    return;
+  }
   const devoteeId = els.entryDevotee.value;
- 
+
   // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
@@ -1244,14 +1242,14 @@ function renderEntryList() {
 
   // ❌ Clear stats in other tabs
   els.devoteeStats.innerHTML = "";
-  
+
   if (!devoteeId) {
     els.devoteeStats.innerHTML = "";
     els.entryList.innerHTML = `<div class="empty">Add a devotee and assign coupons to begin entry.</div>`;
     return;
   }
 
-   const query = els.entrySearch.value.trim().toLowerCase();
+  const query = els.entrySearch.value.trim().toLowerCase();
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
@@ -1265,7 +1263,7 @@ function renderEntryList() {
          </div>`
       : "";
 
-  els.entryList.innerHTML = `
+    els.entryList.innerHTML = `
     ${noTemplateBanner}
     <div class="table-wrap">
       <table>
@@ -1293,12 +1291,12 @@ function renderEntryList() {
               <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
               <td>
                 ${coupon.buyerContact
-                  ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                       Send
                     </button>`
-                  : `<span class="small-stat">No contact</span>`
-                }
+        : `<span class="small-stat">No contact</span>`
+      }
               </td>
             </tr>
           `).join("")}
@@ -1307,16 +1305,16 @@ function renderEntryList() {
     </div>
   `;
 
-  // Wire up send buttons
-  els.entryList.querySelectorAll("[data-wa-coupon]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
-      openWhatsAppForBuyer(coupon);
+    // Wire up send buttons
+    els.entryList.querySelectorAll("[data-wa-coupon]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
+        openWhatsAppForBuyer(coupon);
+      });
     });
-  });
 
-  return; // 🔥 VERY IMPORTANT (stops card rendering)
-}
+    return; // 🔥 VERY IMPORTANT (stops card rendering)
+  }
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
@@ -1360,20 +1358,20 @@ function renderEntryList() {
             Seva Type
             <select data-field="description" ${locked}>
               <option value="">Select Seva</option>
-              <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-              <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-              <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-              <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-              <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-              <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-              <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+              <option value="Deepa Seva" ${coupon.description === "Deepa Seva" ? "selected" : ""}>Deepa Seva</option>
+              <option value="Chenetha Seva" ${coupon.description === "Chenetha Seva" ? "selected" : ""}>Chenetha Seva</option>
+              <option value="Sumangala Subhadram" ${coupon.description === "Sumangala Subhadram" ? "selected" : ""}>Sumangala Subhadram</option>
+              <option value="Panchopachara Seva" ${coupon.description === "Panchopachara Seva" ? "selected" : ""}>Panchopachara Seva</option>
+              <option value="General Donation" ${coupon.description === "General Donation" ? "selected" : ""}>General Donation</option>
+              <option value="Prasadam Donation" ${coupon.description === "Prasadam Donation" ? "selected" : ""}>Prasadam Donation</option>
+              <option value="Donation in Kind" ${coupon.description === "Donation in Kind" ? "selected" : ""}>Donation in Kind</option>
             </select>
           </label>
           <label class="half">
             Payment Mode
             <select data-field="paymentMode" ${locked}>
-              <option value="cash" ${(!coupon.paymentMode || coupon.paymentMode==="cash")?"selected":""}>Cash</option>
-              <option value="temple_transfer" ${coupon.paymentMode==="temple_transfer"?"selected":""}>Temple Transfer</option>
+              <option value="cash" ${(!coupon.paymentMode || coupon.paymentMode === "cash") ? "selected" : ""}>Cash</option>
+              <option value="temple_transfer" ${coupon.paymentMode === "temple_transfer" ? "selected" : ""}>Temple Transfer</option>
             </select>
           </label>
         </div>
@@ -1407,18 +1405,18 @@ function renderAllCoupons() {
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
   if (status === "sold_unsettled") {
- coupons = coupons.filter(c =>
-    c.devoteeId &&              // must be assigned
-    isSold(c) &&               // must be sold
-    !c.settled &&              // must NOT be settled
-    amountValue(c.amount) > 0  // must have real amount
-  );
-}
+    coupons = coupons.filter(c =>
+      c.devoteeId &&              // must be assigned
+      isSold(c) &&               // must be sold
+      !c.settled &&              // must NOT be settled
+      amountValue(c.amount) > 0  // must have real amount
+    );
+  }
   const devoteeFilter = els.allDevoteeFilter?.value;
 
-if (devoteeFilter && devoteeFilter !== "all") {
-  coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
-}
+  if (devoteeFilter && devoteeFilter !== "all") {
+    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
+  }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   els.allCouponsBody.innerHTML = coupons.map((coupon) => {
@@ -1435,22 +1433,22 @@ if (devoteeFilter && devoteeFilter !== "all") {
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
         ${isViewer
-          ? `<span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? "\u2713 Settled" : "Pending"}</span>`
-          : `<button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
+        ? `<span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? "\u2713 Settled" : "Pending"}</span>`
+        : `<button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
               ${coupon.settled ? "\u2713 Settled" : "Mark Settled"}
             </button>`
-        }
+      }
       </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
       <td>
         ${(!isViewer && coupon.settled && coupon.buyerContact)
-          ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
               Send
             </button>`
-          : `<span class="small-stat">\u2013</span>`
-        }
+        : `<span class="small-stat">\u2013</span>`
+      }
       </td>
     </tr>
   `;
@@ -1478,7 +1476,7 @@ function toggleSettlement(event) {
 
   const coupon =
     state.coupons[
-      Number(event.currentTarget.dataset.settlement) - 1
+    Number(event.currentTarget.dataset.settlement) - 1
     ];
 
   // ✅ Confirmation with amount shown
@@ -1645,36 +1643,36 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   // ✅ HUNDI CALCULATION
   const hundiEntries = (state.hundi || [])
     .filter(h => h.devoteeId === devoteeId);
-  
+
   const hundiAmount = hundiEntries.filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
   const hundiPendingAmount = hundiEntries.filter(h => !h.settled).reduce((sum, h) => sum + h.amount, 0);
 
-// ✅ TOTALS
-const totalSettledAmount = settled.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiAmount;
-const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiPendingAmount;
+  // ✅ TOTALS
+  const totalSettledAmount = settled.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiAmount;
+  const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiPendingAmount;
 
-// ✅ TEMPLE TRANSFER AMOUNT (sold coupons with paymentMode = temple_transfer)
-const templeTransferAmount = sold
-  .filter(c => c.paymentMode === "temple_transfer")
-  .reduce((sum, c) => sum + amountValue(c.amount), 0);
+  // ✅ TEMPLE TRANSFER AMOUNT (sold coupons with paymentMode = temple_transfer)
+  const templeTransferAmount = sold
+    .filter(c => c.paymentMode === "temple_transfer")
+    .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
-return {
-  issued: assigned.length,
-  sold: sold.length,
-  left: assigned.length - sold.length,
+  return {
+    issued: assigned.length,
+    sold: sold.length,
+    left: assigned.length - sold.length,
 
-  settledCount: settled.length,
-  pendingCount: pending.length,
+    settledCount: settled.length,
+    pendingCount: pending.length,
 
-  settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
-  pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    settledAmount: settled.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
+    pendingAmount: pending.reduce((sum, coupon) => sum + amountValue(coupon.amount), 0),
 
-  // ✅ NEW
-  hundiAmount,
-  totalSettledAmount,
-  totalPendingAmount,
-  templeTransferAmount
-};
+    // ✅ NEW
+    hundiAmount,
+    totalSettledAmount,
+    totalPendingAmount,
+    templeTransferAmount
+  };
 }
 
 function devoteeName(devoteeId) {
@@ -1874,10 +1872,10 @@ function buildInvitationMessage(coupon) {
   const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
   const template = state.settings.invitationMessage || "";
   return template
-    .replace(/{name}/g,    coupon.buyerName    || "Devotee")
-    .replace(/{coupon}/g,  String(coupon.number))
-    .replace(/{seva}/g,    coupon.description  || "Seva")
-    .replace(/{amount}/g,  formatMoney(amountValue(coupon.amount)))
+    .replace(/{name}/g, coupon.buyerName || "Devotee")
+    .replace(/{coupon}/g, String(coupon.number))
+    .replace(/{seva}/g, coupon.description || "Seva")
+    .replace(/{amount}/g, formatMoney(amountValue(coupon.amount)))
     .replace(/{devotee}/g, devotee ? devotee.name : "");
 }
 
@@ -1891,8 +1889,8 @@ function openWhatsAppForBuyer(coupon) {
     return;
   }
   const message = buildInvitationMessage(coupon);
-  const phone   = coupon.buyerContact.replace(/\D/g, "");
-  const url     = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+  const phone = coupon.buyerContact.replace(/\D/g, "");
+  const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
   window.open(url, "_blank");
 }
 
@@ -1905,10 +1903,10 @@ function previewInvitationMessage() {
 
   // Build a sample substitution
   const sample = template
-    .replace(/{name}/g,    "Ramesh Kumar")
-    .replace(/{coupon}/g,  "42")
-    .replace(/{seva}/g,    "Deepa Seva")
-    .replace(/{amount}/g,  "₹500")
+    .replace(/{name}/g, "Ramesh Kumar")
+    .replace(/{coupon}/g, "42")
+    .replace(/{seva}/g, "Deepa Seva")
+    .replace(/{amount}/g, "₹500")
     .replace(/{devotee}/g, "Devotee Name");
 
   // Create/reuse modal
@@ -2008,7 +2006,7 @@ function applyFirebaseData(data) {
   if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
   originalSaveState();
-   // ✅ IMPORTANT FIX
+  // ✅ IMPORTANT FIX
   renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
@@ -2054,15 +2052,15 @@ function initFirebaseSync() {
         // 🔥 Listen to realtime updates
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
-        
+
           // 🚫 Don't re-render while typing
-         if (isEditing) {
+          if (isEditing) {
             pendingFirebaseData = snapshot.val();
             return;
           }
-        
+
           const data = snapshot.val();
-        
+
           applyFirebaseData(data);
         });
 
