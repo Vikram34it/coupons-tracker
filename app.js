@@ -209,6 +209,9 @@ function updateDevoteePendingDisplay() {
 function renderAllDevoteeFilter() {
   if (!els.allDevoteeFilter) return;
 
+  // ✅ Preserve current selection before rebuilding
+  const currentValue = els.allDevoteeFilter.value;
+
   const sorted = [...state.devotees].sort((a, b) =>
     a.name.localeCompare(b.name)
   );
@@ -219,6 +222,11 @@ function renderAllDevoteeFilter() {
   ];
 
   els.allDevoteeFilter.innerHTML = options.join("");
+
+  // ✅ Restore selection if it still exists
+  if (currentValue && els.allDevoteeFilter.querySelector(`option[value="${currentValue}"]`)) {
+    els.allDevoteeFilter.value = currentValue;
+  }
 }
 
 function bindEvents() {
@@ -1298,12 +1306,17 @@ function toggleSettlement(event) {
 
   saveState();
 
-  // ✅ ONLY UPDATE REQUIRED SECTIONS
+  // ✅ ONLY UPDATE REQUIRED SECTIONS — preserve scroll position
+  const tableWrap = els.allCouponsBody.closest(".table-wrap");
+  const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
+
   renderAllCoupons();
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
+
+  if (tableWrap) tableWrap.scrollTop = scrollTop;
 
   showToast(
     coupon.settled
