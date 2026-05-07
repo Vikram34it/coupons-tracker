@@ -9,11 +9,13 @@ let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
+let saveTimer = null;
 const els = {};
 
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
+    renderSelectors(); // ✅ ADD THIS
   render();
 document.addEventListener("focusin", (e) => {
   if (e.target.matches("input, textarea, select")) {
@@ -23,8 +25,21 @@ document.addEventListener("focusin", (e) => {
 
 document.addEventListener("focusout", (e) => {
   if (e.target.matches("input, textarea, select")) {
-    isEditing = false;
-    applyPendingFirebaseData();
+    
+    // ⏳ Delay to allow next field focus (TAB FIX)
+    setTimeout(() => {
+      const active = document.activeElement;
+
+      // ✅ If still inside input → DO NOTHING
+      if (active && active.matches("input, textarea, select")) {
+        return;
+      }
+
+      // ✅ Only now apply Firebase update
+      isEditing = false;
+      applyPendingFirebaseData();
+
+    }, 100); // small delay is KEY
   }
 });
   // Wait until Firebase function exists
@@ -92,6 +107,52 @@ function saveSession(nextSession) {
   }
 }
 
+function renderSevaSummary() {
+  const period = settlementPeriod();
+  const sevaMap = {};
+
+  state.coupons
+    .filter(c => c.settled && inSettlementPeriod(c, period))
+    .forEach(coupon => {
+      const seva = coupon.description || "Others";
+
+      if (!sevaMap[seva]) {
+        sevaMap[seva] = { count: 0, amount: 0 };
+      }
+
+      sevaMap[seva].count += 1;
+      sevaMap[seva].amount += amountValue(coupon.amount);
+    });
+
+  const rows = Object.entries(sevaMap)
+    .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
+    .map(([seva, data]) => `
+      <tr>
+        <td>${escapeHtml(seva)}</td>
+        <td>${data.count}</td>
+        <td>${formatMoney(data.amount)}</td>
+      </tr>
+    `)
+    .join("");
+
+  els.sevaSummary.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Seva</th>
+            <th>Count</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || `<tr><td colspan="3">No data</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
@@ -100,7 +161,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -403,26 +464,51 @@ function render() {
   applyRoleAccess();
   renderStats();
   renderDevotees();
+  renderSevaSummary();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
 
+const topStats = document.querySelector(".stats-grid");
+
+if (topStats) {
+  if (session?.role === "devotee") {
+    // 🔥 ALWAYS HIDE (all tabs including dashboard)
+    topStats.style.display = "none";
+  } else {
+    // ✅ Admin always sees it
+    topStats.style.display = "grid";
+  }
+}
 }
 
 function renderSelectors() {
-  const options = state.devotees
+
+  // ✅ SORT DEVOTEES A–Z
+  const sortedDevotees = [...state.devotees].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+
+  const options = sortedDevotees
     .map((devotee) => `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
     .join("");
+
   const empty = '<option value="">Select devotee</option>';
 
+  // ✅ LOGIN DROPDOWN (THIS WAS YOUR MAIN REQUIREMENT)
   els.loginDevotee.innerHTML = empty + options;
+
+  // ✅ OTHER DROPDOWNS
   els.assignDevotee.innerHTML = empty + options;
+
   const currentResetValue = els.resetDevotee.value;
   els.resetDevotee.innerHTML = empty + options;
+
   if (state.devotees.some((devotee) => devotee.id === currentResetValue)) {
     els.resetDevotee.value = currentResetValue;
   }
+
   const currentEntryValue = els.entryDevotee.value;
   els.entryDevotee.innerHTML = empty + options;
 
@@ -431,7 +517,8 @@ function renderSelectors() {
   } else if (state.devotees.some((devotee) => devotee.id === currentEntryValue)) {
     els.entryDevotee.value = currentEntryValue;
   } else if (state.devotees.length) {
-    els.entryDevotee.value = state.devotees[0].id;
+    // ✅ FIRST ELEMENT WILL NOW BE A–Z FIRST NAME
+    els.entryDevotee.value = sortedDevotees[0].id;
   }
 
   renderLoginRole();
@@ -534,6 +621,12 @@ if (session?.role === "devotee") {
         <span><strong>${formatMoney(summary.pendingAmount)}</strong><span class="small-stat"> pending</span></span>
         <span><strong>${formatMoney(summary.periodSettledAmount)}</strong><span class="small-stat"> ${escapeHtml(period.shortLabel)}</span></span>
         <button class="ghost" type="button" data-set-password="${escapeAttr(devotee.id)}">Set Password</button>
+        <button class="ghost" type="button" data-send-whatsapp="${escapeAttr(devotee.id)}">
+          WhatsApp
+        </button>
+        <button class="ghost" type="button" data-update-contact="${escapeAttr(devotee.id)}">
+          Update Contact
+        </button>
         <button class="danger" data-delete-devotee="${escapeAttr(devotee.id)}">
           Delete
         </button>
@@ -566,6 +659,78 @@ if (session?.role === "devotee") {
       showToast(`Password updated for ${devotee.name}`);
     });
   });
+  els.devoteeList.querySelectorAll("[data-send-whatsapp]").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    const devotee = state.devotees.find(d => d.id === btn.dataset.sendWhatsapp);
+    if (!devotee) return;
+
+    const period = settlementPeriod();
+    const summary = devoteeSummary(devotee.id, period);
+    const assigned = couponsForDevotee(devotee.id).length;
+
+    // ✅ YOUR MESSAGE (customized)
+    const message =
+`Hare Krishna 🙏
+
+${devotee.name},
+
+Here is your seva summary:
+
+🔐 PIN: ${devotee.pin || "Not set"}
+
+🎟 Coupons Assigned: ${assigned}
+🟢 Sold Coupons: ${summary.sold}
+🟡 Pending Coupons: ${summary.left}
+
+💰 Amount Settled: ${formatMoney(summary.settledAmount)}
+⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}
+
+Please continue your seva enthusiastically 🙏
+
+Use the following link to update your coupons:
+https://vikram34it.github.io/coupons-tracker/
+`;
+
+    const phone = (devotee.contact || "").replace(/\D/g, "");
+
+    if (!phone) {
+      showToast("No contact number for this devotee");
+      return;
+    }
+
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+
+    window.open(url, "_blank");
+  });
+});
+  els.devoteeList.querySelectorAll("[data-update-contact]").forEach(btn => {
+  btn.addEventListener("click", () => {
+
+    const devotee = state.devotees.find(d => d.id === btn.dataset.updateContact);
+    if (!devotee) return;
+
+    const newContact = window.prompt(
+      `Enter new contact for ${devotee.name}`,
+      devotee.contact || ""
+    );
+
+    if (newContact === null) return;
+
+    const cleaned = newContact.replace(/\D/g, "");
+
+    if (cleaned.length !== 10) {
+      showToast("Enter valid 10-digit mobile number");
+      return;
+    }
+
+    devotee.contact = cleaned;
+
+    saveState();
+    render();
+    showToast(`Contact updated for ${devotee.name}`);
+  });
+});
 els.devoteeList.querySelectorAll("[data-delete-devotee]").forEach(btn => {
   btn.addEventListener("click", () => {
     deleteDevotee(btn.dataset.deleteDevotee);
@@ -633,7 +798,7 @@ function renderResetCouponList() {
 
 function renderEntryList() {
   const devoteeId = els.entryDevotee.value;
-
+ 
   // 🔥 Only render stats in Dashboard tab
   if (activeDevoteeTab === "dashboard") {
     renderDevoteeStats(devoteeId);
@@ -656,6 +821,39 @@ function renderEntryList() {
 
   if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (activeDevoteeTab === "settled") {
+
+  els.entryList.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Coupon</th>
+            <th>Buyer</th>
+            <th>Contact</th>
+            <th>Amount</th>
+            <th>Seva</th>
+            <th>Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map(coupon => `
+            <tr>
+              <td>#${coupon.number}</td>
+              <td>${escapeHtml(coupon.buyerName || "-")}</td>
+              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+              <td>${formatMoney(coupon.amount)}</td>
+              <td>${escapeHtml(coupon.description || "-")}</td>
+              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return; // 🔥 VERY IMPORTANT (stops card rendering)
+}
   if (status === "sold") coupons = coupons.filter(isSold);
   if (status === "unsold") coupons = coupons.filter((coupon) => !isSold(coupon));
   if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
@@ -695,10 +893,10 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-          <label>
+     <!--     <label>
             Receipt Number
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
-          </label>
+      -->    </label>
           <label class="wide">
             Description / Purpose
             <label class="wide">
@@ -776,20 +974,25 @@ function toggleSettlement(event) {
 }
 
 function updateCouponField(event) {
-  const card = event.target.closest("[data-coupon-number]");
+  const field = event.target;
+
+  const card = field.closest("[data-coupon-number]");
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
+
   if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
-  coupon[event.target.dataset.field] = event.target.value.trimStart();
-  saveState();
-  renderStats();
-  renderDevotees();
 
-  const status = card.querySelector(".status");
-  status.textContent = isSold(coupon) ? "Sold" : "Pending";
-  status.className = `status ${isSold(coupon) ? "sold" : "pending"}`;
+  coupon[field.dataset.field] = field.value.trimStart();
+
+  // 🔥 DELAY SAVE (KEY FIX)
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveState();   // only after user pauses
+  }, 500);
+
+  // ❌ NO render()
 }
 
 function couponsForDevotee(devoteeId) {
@@ -1105,6 +1308,8 @@ function applyFirebaseData(data) {
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
 
   originalSaveState();
+   // ✅ IMPORTANT FIX
+  renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
 
@@ -1151,7 +1356,7 @@ function initFirebaseSync() {
           if (!snapshot.exists()) return;
         
           // 🚫 Don't re-render while typing
-          if (isEditing && document.hasFocus()) {
+         if (isEditing) {
             pendingFirebaseData = snapshot.val();
             return;
           }
