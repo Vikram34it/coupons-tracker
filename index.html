@@ -21,8 +21,7 @@
           Login Type
          <select id="loginRole">
             <option value="admin">Admin</option>
-            <option value="viewer">Viewer</option>
-            <option value="devotee" selected>Devotee</option>
+                        <option value="devotee" selected>Devotee</option>
           </select>
         </label>
         <label id="loginDevoteeLabel">
@@ -157,18 +156,7 @@
               </label>
               <button type="submit">Update Password</button>
           </form>
-
-          <form id="viewerPasswordForm" class="panel">
-              <h2>Viewer Password</h2>
-              <p class="hint" style="margin-bottom:8px">Viewer can see the admin dashboard and all coupons but cannot edit anything.</p>
-              <label>
-                New Password
-                <input id="viewerPasswordInput" type="password" minlength="4" required placeholder="Minimum 4 characters">
-              </label>
-              <button type="submit">Set Viewer Password</button>
-          </form>
-
-          <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
+<form id="invitationForm" class="panel" style="grid-column: 1 / -1">
               <h2>📲 WhatsApp Invitation Template</h2>
               <p class="hint" style="margin-bottom:12px">Write the message devotees will send to their buyers. Use <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong> for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
               <label>
