@@ -223,9 +223,13 @@ function renderAllDevoteeFilter() {
 
   els.allDevoteeFilter.innerHTML = options.join("");
 
-  // ✅ Restore selection if it still exists
-  if (currentValue && els.allDevoteeFilter.querySelector(`option[value="${currentValue}"]`)) {
+  // ✅ Restore by setting value directly — works even with UUIDs
+  if (currentValue) {
     els.allDevoteeFilter.value = currentValue;
+    // If value didn't stick (devotee no longer exists), fall back to "all"
+    if (els.allDevoteeFilter.value !== currentValue) {
+      els.allDevoteeFilter.value = "all";
+    }
   }
 }
 
@@ -1306,15 +1310,24 @@ function toggleSettlement(event) {
 
   saveState();
 
-  // ✅ ONLY UPDATE REQUIRED SECTIONS — preserve scroll position
+  // ✅ ONLY UPDATE REQUIRED SECTIONS — preserve filters and scroll position
   const tableWrap = els.allCouponsBody.closest(".table-wrap");
   const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
+  const savedDevoteeFilter = els.allDevoteeFilter ? els.allDevoteeFilter.value : "all";
+  const savedStatus = els.allStatus ? els.allStatus.value : "all";
 
   renderAllCoupons();
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
+
+  // ✅ Restore filters after any re-render that may have reset them
+  if (els.allDevoteeFilter && savedDevoteeFilter) els.allDevoteeFilter.value = savedDevoteeFilter;
+  if (els.allStatus && savedStatus) els.allStatus.value = savedStatus;
+
+  // ✅ Re-run renderAllCoupons with restored filters so the table reflects them
+  renderAllCoupons();
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
