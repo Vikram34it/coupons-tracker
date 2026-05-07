@@ -178,7 +178,7 @@ function cacheElements() {
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
@@ -239,6 +239,30 @@ function renderAllDevoteeFilter() {
   }
 }
 
+function renderDashboardDevoteeFilter() {
+  if (!els.dashboardDevoteeFilter) return;
+
+  const currentValue = els.dashboardDevoteeFilter.value;
+
+  const sorted = [...state.devotees].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  const options = [
+    `<option value="all">All Devotees</option>`,
+    ...sorted.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
+  ];
+
+  els.dashboardDevoteeFilter.innerHTML = options.join("");
+
+  if (currentValue) {
+    els.dashboardDevoteeFilter.value = currentValue;
+    if (els.dashboardDevoteeFilter.value !== currentValue) {
+      els.dashboardDevoteeFilter.value = "all";
+    }
+  }
+}
+
 function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -269,6 +293,7 @@ function bindEvents() {
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
   els.devoteeStatusFilter.addEventListener("change", renderDevotees);
+  els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
   els.settledFromDate.addEventListener("change", renderDevotees);
   els.settledToDate.addEventListener("change", renderDevotees);
   els.entryDevotee.addEventListener("change", renderEntryList);
@@ -568,6 +593,7 @@ function render() {
   validateSession();
   renderSelectors();
   renderAllDevoteeFilter();
+  renderDashboardDevoteeFilter();
   updateDevoteePendingDisplay();
   applyRoleAccess();
   renderStats();
@@ -710,13 +736,16 @@ function applyRoleAccess() {
     }
   });
 
-  // Viewer: land on admin dashboard
+  // Viewer: land on admin dashboard (only if not already on All Coupons)
   if (isViewer) {
-    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-    document.getElementById("adminView")?.classList.add("active");
-    activeAdminTab = "dashboard";
-    updateAdminView();
+    const allCouponsActive = document.getElementById("allCouponsView")?.classList.contains("active");
+    if (!allCouponsActive) {
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+      document.getElementById("adminView")?.classList.add("active");
+      activeAdminTab = "dashboard";
+      updateAdminView();
+    }
   }
 
   // Devotee: land on devotee entry view
@@ -769,10 +798,14 @@ function renderDevotees() {
   const statusFilter = els.devoteeStatusFilter?.value || "all";
   const period = settlementPeriod();
 
+  // ✅ FILTER DEVOTEES — by dropdown selection
+  const selectedDevotee = els.dashboardDevoteeFilter?.value || "all";
+
   // ✅ FILTER DEVOTEES — by name/contact search
-  let devotees = state.devotees.filter((devotee) =>
-    `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query)
-  );
+  let devotees = state.devotees.filter((devotee) => {
+    if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
+    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+  });
 
   // ✅ FILTER BY STATUS
   if (statusFilter !== "all") {
