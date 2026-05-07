@@ -1,7 +1,7 @@
 const DEFAULT_TOTAL_COUPONS = 3000;
 const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
-const DEFAULT_ADMIN_PASSWORD = "admin123";
+const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 
 const state = loadState();
 let session = loadSession();
@@ -173,7 +173,7 @@ function cacheElements() {
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "adminPeriodSummary", "devoteeSearch", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -443,7 +443,7 @@ function resetAllCoupons() {
 }
 
 function resetCouponNumbers(numbers, message) {
-  if (!window.confirm(`${message} This will clear buyer details, amount, description, and settlement.`)) return;
+  if (!window.confirm(message)) return;
   numbers.forEach((number) => {
     state.coupons[number - 1] = emptyCoupon(number);
   });
@@ -597,9 +597,9 @@ function renderSelectors() {
 
     els.entryDevotee.value = currentEntryValue;
 
-  } else if (state.devotees.length) {
+  } else if (sortedDevotees.length) {
 
-    els.entryDevotee.value = state.devotees[0].id;
+    els.entryDevotee.value = sortedDevotees[0].id;
   }
 
   renderLoginRole();
@@ -684,7 +684,7 @@ function renderDevotees() {
 
   // ✅ HUNDI PERIOD TOTAL
   const hundiPeriod = (state.hundi || [])
-    .filter(h => inSettlementPeriod({ settledDate: h.date }, period))
+    .filter(h => inSettlementPeriod({ settledAt: h.date }, period))
     .reduce((sum, h) => sum + h.amount, 0);
 
   // ✅ COUPON PERIOD TOTAL
@@ -1175,25 +1175,24 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-     <!--     <label>
+     <!--
+          <label>
             Receipt Number
             <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
-      -->    </label>
+          </label>
+          -->
           <label class="wide">
-            Description / Purpose
-            <label class="wide">
-              Seva Type
-              <select data-field="description" ${locked}>
-                <option value="">Select Seva</option>
-                <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
-                <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
-                <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
-                <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
-                <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
-                <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
-                <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
-              </select>
-</label>
+            Seva Type
+            <select data-field="description" ${locked}>
+              <option value="">Select Seva</option>
+              <option value="Deepa Seva" ${coupon.description==="Deepa Seva"?"selected":""}>Deepa Seva</option>
+              <option value="Chenetha Seva" ${coupon.description==="Chenetha Seva"?"selected":""}>Chenetha Seva</option>
+              <option value="Sumangala Subhadram" ${coupon.description==="Sumangala Subhadram"?"selected":""}>Sumangala Subhadram</option>
+              <option value="Panchopachara Seva" ${coupon.description==="Panchopachara Seva"?"selected":""}>Panchopachara Seva</option>
+              <option value="General Donation" ${coupon.description==="General Donation"?"selected":""}>General Donation</option>
+              <option value="Prasadam Donation" ${coupon.description==="Prasadam Donation"?"selected":""}>Prasadam Donation</option>
+              <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
+            </select>
           </label>
         </div>
       </article>
@@ -1504,7 +1503,7 @@ function summarizeCouponRanges(numbers) {
   let start = sorted[0];
   let prev = sorted[0];
 
-  for (let index = 1; index <= sorted.length; index += 1) {
+  for (let index = 1; index < sorted.length; index += 1) {
     const number = sorted[index];
     if (number === prev + 1) {
       prev = number;
@@ -1514,6 +1513,8 @@ function summarizeCouponRanges(numbers) {
     start = number;
     prev = number;
   }
+  // Always push the final range
+  ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
 
   return ranges.slice(0, 8);
 }
