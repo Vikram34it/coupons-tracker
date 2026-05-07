@@ -81,7 +81,7 @@ function loadState() {
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons,
-      hundi: Array.isArray(parsed.hundi) ? parsed.hundi : []
+      hundi: Array.isArray(parsed.hundi) ? parsed.hundi.map(h => ({ settled: false, ...h })) : []
     };
   } catch {
     return defaultState();
@@ -126,7 +126,7 @@ function renderSevaSummary() {
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
-  (state.hundi || []).forEach(h => {
+  (state.hundi || []).filter(h => h.settled).forEach(h => {
   const seva = "Hundi Donation";
 
   if (!sevaMap[seva]) {
@@ -666,7 +666,7 @@ function renderStats() {
   const settledMoney = state.coupons
     .filter(c => c.settled)
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const hundiMoney = (state.hundi || []).reduce((sum, h) => sum + h.amount, 0);
+  const hundiMoney = (state.hundi || []).filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
 
   // Unsettled = sold but not yet settled
   const unsettledMoney = state.coupons
@@ -711,7 +711,7 @@ function renderDevotees() {
 
   // ✅ HUNDI PERIOD TOTAL
   const hundiPeriod = (state.hundi || [])
-    .filter(h => inSettlementPeriod({ settledAt: h.date }, period))
+    .filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period))
     .reduce((sum, h) => sum + h.amount, 0);
 
   // ✅ COUPON PERIOD TOTAL
@@ -1067,6 +1067,7 @@ function renderEntryList() {
           <tr>
             <th>Date</th>
             <th>Amount</th>
+            <th>Settlement</th>
           </tr>
         </thead>
         <tbody>
@@ -1075,13 +1076,36 @@ function renderEntryList() {
               <tr>
                 <td>${e.date}</td>
                 <td>${formatMoney(e.amount)}</td>
+                <td>
+                  <button class="ghost settlement-btn" type="button" data-hundi-settle="${e.id}">
+                    ${e.settled ? "Settled" : "Mark Settled"}
+                  </button>
+                </td>
               </tr>
-            `).join("") || `<tr><td colspan="2">No entries</td></tr>`
+            `).join("") || `<tr><td colspan="3">No entries</td></tr>`
           }
         </tbody>
       </table>
     </div>
   `;
+
+  els.entryList.querySelectorAll("[data-hundi-settle]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (session?.role !== "admin") {
+        showToast("Only admin can settle hundi");
+        return;
+      }
+      const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
+      if (!hundi) return;
+      hundi.settled = !hundi.settled;
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(hundi.devoteeId);
+      renderSevaSummary();
+      showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
+    });
+  });
 
   document.getElementById("addHundiBtn").onclick = () => {
     const amount = Number(document.getElementById("hundiAmount").value);
@@ -1096,7 +1120,8 @@ function renderEntryList() {
       id: newId(),
       devoteeId,
       amount,
-      date
+      date,
+      settled: false
     });
 
     saveState();
@@ -1460,11 +1485,12 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const hundiEntries = (state.hundi || [])
     .filter(h => h.devoteeId === devoteeId);
   
-  const hundiAmount = hundiEntries.reduce((sum, h) => sum + h.amount, 0);
+  const hundiAmount = hundiEntries.filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
+  const hundiPendingAmount = hundiEntries.filter(h => !h.settled).reduce((sum, h) => sum + h.amount, 0);
 
 // ✅ TOTALS
 const totalSettledAmount = settled.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiAmount;
-const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0);
+const totalPendingAmount = pending.reduce((sum, c) => sum + amountValue(c.amount), 0) + hundiPendingAmount;
 
 // ✅ TEMPLE TRANSFER AMOUNT (sold coupons with paymentMode = temple_transfer)
 const templeTransferAmount = sold
@@ -1636,6 +1662,9 @@ function importBackup(event) {
       };
       state.devotees = imported.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
+      state.hundi = Array.isArray(imported.hundi)
+        ? imported.hundi.map(h => ({ settled: false, ...h }))
+        : [];
 
       saveState();
       render();
@@ -1703,6 +1732,7 @@ function applyFirebaseData(data) {
   if (data.settings) state.settings = data.settings;
   if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
+  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
   originalSaveState();
    // ✅ IMPORTANT FIX
