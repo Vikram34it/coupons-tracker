@@ -156,6 +156,20 @@
               </label>
               <button type="submit">Update Password</button>
           </form>
+
+          <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
+              <h2>📲 WhatsApp Invitation Template</h2>
+              <p class="hint" style="margin-bottom:12px">Write the message devotees will send to their buyers. Use <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong> for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
+              <label>
+                Message Body
+                <textarea id="invitationMessageInput" rows="8" placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to our seva event..."></textarea>
+              </label>
+              <div class="inline-fields" style="align-items:center">
+                <button type="submit">Save Template</button>
+                <button type="button" id="previewInvitationBtn" class="ghost">Preview</button>
+                <span id="invitationSavedBadge" class="hidden user-badge" style="background:#e6f4ec;border-color:#a8d8be;color:#1e7a45">✓ Saved</span>
+              </div>
+          </form>
         </div>
 
         <div data-admin-section="reset">
@@ -282,6 +296,7 @@
                   <th>Settlement</th>
                   <th>Settled Date</th>
                   <th>Description</th>
+                  <th>Send Invite</th>
                 </tr>
               </thead>
               <tbody id="allCouponsBody"></tbody>
