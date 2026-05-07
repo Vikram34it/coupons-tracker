@@ -168,7 +168,7 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
@@ -240,6 +240,9 @@ function bindEvents() {
       render();
     });
   });
+
+  // Auto-set assign date to today
+  if (els.assignDate && !els.assignDate.value) els.assignDate.value = todayKey();
 
   els.loginForm.addEventListener("submit", login);
   els.loginRole.addEventListener("change", renderLoginRole);
@@ -751,8 +754,8 @@ function renderDevotees() {
         <div>
           <strong>
             ${escapeHtml(devotee.name)}
-            <span class="small-stat">
-              (PIN: ${devotee.pin ? escapeHtml(devotee.pin) : "Not set"})
+            <span class="pin-mask" title="Click to reveal PIN" data-pin="${escapeAttr(devotee.pin || '')}">
+              ${devotee.pin ? '••••' : 'No PIN'}
             </span>
           </strong>
 
@@ -834,6 +837,19 @@ function renderDevotees() {
     `;
 
   }).join("");
+
+  // ✅ PIN REVEAL ON CLICK
+  els.devoteeList.querySelectorAll(".pin-mask")
+    .forEach((span) => {
+      let revealed = false;
+      span.addEventListener("click", () => {
+        revealed = !revealed;
+        span.textContent = revealed
+          ? (span.dataset.pin || 'Not set')
+          : (span.dataset.pin ? '••••' : 'No PIN');
+        span.title = revealed ? 'Click to hide PIN' : 'Click to reveal PIN';
+      });
+    });
 
   // ✅ OPEN DEVOTEE
   els.devoteeList.querySelectorAll("[data-open-devotee]")
@@ -1055,7 +1071,7 @@ function renderEntryList() {
     <div class="panel">
       <h3>Add Hundi Entry</h3>
       <div class="inline-fields">
-        <input type="date" id="hundiDate">
+        <input type="date" id="hundiDate" value="${todayKey()}">
         <input type="number" id="hundiAmount" placeholder="Amount">
         <button id="addHundiBtn">Add</button>
       </div>
@@ -1210,17 +1226,17 @@ function renderEntryList() {
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
-          <span class="status ${isSold(coupon) ? "sold" : "pending"}">${isSold(coupon) ? "Sold" : "Pending"}</span>
-          <span class="status ${coupon.settled ? "settled" : "pending"}">${coupon.settled ? "Settled" : "Not Settled"}</span>
+          <span class="status ${isSold(coupon) ? 'sold' : 'pending'}">${isSold(coupon) ? 'Sold' : 'Pending'}</span>
+          <span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? 'Settled' : 'Not Settled'}</span>
         </div>
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
+            <input data-field="buyerName" autocomplete="name" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
           </label>
           <label>
             Contact Number
-            <input data-field="buyerContact" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
+            <input data-field="buyerContact" type="tel" autocomplete="tel" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
           </label>
           <label>
             Amount Received
@@ -1230,12 +1246,6 @@ function renderEntryList() {
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
           </label>
-     <!--
-          <label>
-            Receipt Number
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt No" ${locked}>
-          </label>
-          -->
           <label class="half">
             Seva Type
             <select data-field="description" ${locked}>
@@ -1263,6 +1273,16 @@ function renderEntryList() {
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
     field.addEventListener("change", updateCouponField);
+  });
+
+  // ✅ Buyer contact 10-digit validation on blur
+  els.entryList.querySelectorAll("[data-field='buyerContact']").forEach((input) => {
+    input.addEventListener("blur", () => {
+      const val = input.value.replace(/\D/g, "");
+      if (val && val.length !== 10) {
+        showToast("Contact number should be 10 digits");
+      }
+    });
   });
 }
 
@@ -1302,8 +1322,8 @@ if (devoteeFilter && devoteeFilter !== "all") {
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
-        <button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">
-          ${coupon.settled ? "Settled" : "Mark Settled"}
+        <button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
+          ${coupon.settled ? "✓ Settled" : "Mark Settled"}
         </button>
       </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
@@ -1328,6 +1348,16 @@ function toggleSettlement(event) {
       Number(event.currentTarget.dataset.settlement) - 1
     ];
 
+  // ✅ Confirmation with amount shown
+  if (!coupon.settled) {
+    const amt = amountValue(coupon.amount);
+    const amtText = amt > 0 ? ` for ${formatMoney(amt)}` : '';
+    const confirmed = window.confirm(
+      `Mark Coupon #${coupon.number}${amtText} as settled?`
+    );
+    if (!confirmed) return;
+  }
+
   coupon.settled = !coupon.settled;
 
   coupon.settledAt = coupon.settled
@@ -1336,30 +1366,27 @@ function toggleSettlement(event) {
 
   saveState();
 
-  // ✅ ONLY UPDATE REQUIRED SECTIONS — preserve filters and scroll position
+  // ✅ Preserve scroll position and filters
   const tableWrap = els.allCouponsBody.closest(".table-wrap");
   const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
   const savedDevoteeFilter = els.allDevoteeFilter ? els.allDevoteeFilter.value : "all";
   const savedStatus = els.allStatus ? els.allStatus.value : "all";
 
-  renderAllCoupons();
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
 
-  // ✅ Restore filters after any re-render that may have reset them
+  // ✅ Restore filters then render table once
   if (els.allDevoteeFilter && savedDevoteeFilter) els.allDevoteeFilter.value = savedDevoteeFilter;
   if (els.allStatus && savedStatus) els.allStatus.value = savedStatus;
-
-  // ✅ Re-run renderAllCoupons with restored filters so the table reflects them
   renderAllCoupons();
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
   showToast(
     coupon.settled
-      ? `Coupon ${coupon.number} settled`
+      ? `✓ Coupon ${coupon.number} settled`
       : `Coupon ${coupon.number} marked pending`
   );
 }
@@ -1725,7 +1752,7 @@ let firebaseReady = false;
 let dbRef = null;
 
 function updateSyncBadge(text) {
-  const badge = document.getElementById("syncBadge");
+  const badge = els.syncBadge || document.getElementById("syncBadge");
   if (badge) badge.textContent = text;
 }
 
