@@ -236,11 +236,10 @@ main {
   background: #e9e4da;
   border: 1px solid var(--line);
   border-radius: 8px;
-  display: inline-grid;
-  gap: 4px;
-  grid-template-columns: repeat(3, minmax(110px, 1fr));
+  justify-content: center;  
+  gap: 12px;                   /* ✅ equal spacing */
+  padding: 8px;
   margin: 0 0 14px;
-  padding: 4px;
 }
 
 .tab,
@@ -563,10 +562,7 @@ td {
     grid-template-columns: 1fr;
   }
 
-  .subtabs,
-  .compact-stats {
-    grid-template-columns: 1fr;
-  }
+ 
 
   .devotee-row {
     grid-template-columns: 1fr;
@@ -596,5 +592,25 @@ td {
   .entry-controls.compact {
     max-width: none;
   }
+ 
+}
+  /* ✅ FINAL PERFECT TAB LAYOUT */
+.subtabs {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+
+  background: #e9e4da;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
 }
 
+.subtab {
+  flex: 1;
+  text-align: center;
+  white-space: nowrap;
+}

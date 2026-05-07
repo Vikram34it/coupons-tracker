@@ -30,7 +30,7 @@
           <input id="loginPassword" type="password" required placeholder="Enter password">
         </label>
         <button type="submit">Login</button>
-        <p class="hint">First admin password: admin123</p>
+        <p class="hint">First admin password: hare krishna</p>
       </form>
     </section>
 
@@ -216,6 +216,7 @@
            <nav class="subtabs" aria-label="Devotee coupon views">
             <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
             <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
+             <button class="subtab" type="button" data-devotee-tab="hundi">Hundi</button>
             <button class="subtab" type="button" data-devotee-tab="dashboard">Dashboard</button>
           </nav>
           <div class="entry-controls">
@@ -238,14 +239,21 @@
             <h2>All Coupon Records</h2>
             <div class="entry-controls compact">
               <input id="allSearch" type="search" placeholder="Search all coupons">
+              <select id="allDevoteeFilter">
+                <option value="all">All Devotees</option>
+              </select>
               <select id="allStatus">
                 <option value="all">All</option>
                 <option value="unassigned">Unassigned</option>
                 <option value="assigned">Assigned</option>
                 <option value="sold">Sold</option>
+                <option value="sold_unsettled">Sold & Unsettled</option>
                 <option value="unsettled">Settlement Pending</option>
                 <option value="settled">Settled</option>
               </select>
+              <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
+                Pending: ₹0
+              </span>
             </div>
           </div>
           <div class="table-wrap">
