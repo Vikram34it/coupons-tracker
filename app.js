@@ -1116,6 +1116,7 @@ function renderEntryList() {
             <th>Amount</th>
             <th>Seva</th>
             <th>Receipt</th>
+            <th>Payment Mode</th>
           </tr>
         </thead>
         <tbody>
@@ -1127,6 +1128,7 @@ function renderEntryList() {
               <td>${formatMoney(coupon.amount)}</td>
               <td>${escapeHtml(coupon.description || "-")}</td>
               <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+              <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -1194,6 +1196,13 @@ function renderEntryList() {
               <option value="Donation in Kind" ${coupon.description==="Donation in Kind"?"selected":""}>Donation in Kind</option>
             </select>
           </label>
+          <label class="wide">
+            Payment Mode
+            <select data-field="paymentMode" ${locked}>
+              <option value="cash" ${(!coupon.paymentMode || coupon.paymentMode==="cash")?"selected":""}>Cash</option>
+              <option value="temple_transfer" ${coupon.paymentMode==="temple_transfer"?"selected":""}>Temple Transfer</option>
+            </select>
+          </label>
         </div>
       </article>
     `;
@@ -1238,6 +1247,7 @@ if (devoteeFilter && devoteeFilter !== "all") {
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+      <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
         <button class="ghost settlement-btn" type="button" data-settlement="${coupon.number}">
           ${coupon.settled ? "Settled" : "Mark Settled"}
@@ -1331,6 +1341,7 @@ function emptyCoupon(number) {
     amount: "",
     description: "",
     receiptNumber: "",
+    paymentMode: "cash",
     settled: false,
     settledAt: ""
   };
@@ -1350,6 +1361,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       amount: savedCoupon.amount || "",
       description: savedCoupon.description || "",
       receiptNumber: savedCoupon.receiptNumber || "",
+      paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || ""
     };
@@ -1530,7 +1542,7 @@ function exportBackup() {
 }
 
 function exportCsv() {
-  const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description"];
+  const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
   const rows = state.coupons.map((coupon) => {
     const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
     return [
@@ -1543,7 +1555,8 @@ function exportCsv() {
       coupon.amount,
       coupon.settled ? "Settled" : "Not Settled",
       coupon.settledAt,
-      coupon.description
+      coupon.description,
+      coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"
     ];
   });
   const csv = [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
