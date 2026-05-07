@@ -1255,16 +1255,22 @@ if (devoteeFilter && devoteeFilter !== "all") {
 }
 
 function toggleSettlement(event) {
+
   if (session?.role !== "admin") {
     showToast("Only admin can update settlement");
     return;
   }
 
   const coupon =
-    state.coupons[Number(event.currentTarget.dataset.settlement) - 1];
+    state.coupons[
+      Number(event.currentTarget.dataset.settlement) - 1
+    ];
 
   coupon.settled = !coupon.settled;
-  coupon.settledAt = coupon.settled ? todayKey() : "";
+
+  coupon.settledAt = coupon.settled
+    ? todayKey()
+    : "";
 
   saveState();
 
