@@ -186,7 +186,7 @@ function cacheElements() {
     "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale",     "analyticsSettlementRate", "analyticsTempleTransfer", "analyticsHundiTotal", "sevaChart", "trendChart", "topDevotees", "topSevas",
     "bulkSelectAll", "selectAllVisibleBtn", "bulkSettleBtn",
     "attendancePasswordForm", "attendancePasswordInput",
-    "attendanceSearch", "attendanceDevoteeFilter", "attendanceStatus", "attendanceBody", "markAllPresentBtn"
+    "attendanceSearch", "attendanceDevoteeFilter", "attendanceStatus", "attendanceBody", "markAllPresentBtn", "markAllAbsentBtn", "attendanceSummary"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -299,6 +299,9 @@ function bindEvents() {
     tab.addEventListener("click", () => {
       activateView(tab.dataset.view);
       document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
+      if (tab.dataset.view === "attendanceView") {
+        renderAttendance();
+      }
       render();
     });
   });
@@ -326,6 +329,7 @@ function bindEvents() {
   els.attendanceDevoteeFilter.addEventListener("change", renderAttendance);
   els.attendanceStatus.addEventListener("change", renderAttendance);
   els.markAllPresentBtn?.addEventListener("click", markAllPresent);
+  els.markAllAbsentBtn?.addEventListener("click", markAllAbsent);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -881,8 +885,9 @@ function applyRoleAccess() {
   // Hide PDF button for viewer & attendance
   els.pdfBtn?.classList.toggle("hidden", !isAdmin);
 
-  // Hide Mark All Present button for non-admin
+  // Hide Mark All buttons for non-admin
   els.markAllPresentBtn?.classList.toggle("hidden", !isAdmin);
+  els.markAllAbsentBtn?.classList.toggle("hidden", !isAdmin);
 
   // Viewer: land on Analytics dashboard
   if (isViewer) {
@@ -903,6 +908,8 @@ function applyRoleAccess() {
     document.getElementById("topbar")?.classList.remove("hidden");
     document.querySelector('[data-view="attendanceView"]').classList.add("active");
     document.getElementById("attendanceView")?.classList.add("active");
+    renderSelectors();
+    renderAttendanceDevoteeFilter();
     renderAttendance();
   }
 
@@ -1751,22 +1758,31 @@ function markAllPresent() {
     showToast("Only admin can mark attendance");
     return;
   }
+  bulkMarkAttendance(true);
+}
 
-  const search = els.attendanceSearch?.value.trim().toLowerCase() || "";
+function markAllAbsent() {
+  if (session?.role !== "admin") {
+    showToast("Only admin can mark attendance");
+    return;
+  }
+  bulkMarkAttendance(false);
+}
+
+function bulkMarkAttendance(markPresent) {
+  const search = (els.attendanceSearch?.value || "").toLowerCase().trim();
   const devoteeFilter = els.attendanceDevoteeFilter?.value || "all";
   const statusFilter = els.attendanceStatus?.value || "all";
 
-  let coupons = state.coupons.filter(c => c.settled);
+  let coupons = state.coupons.filter(c => isSold(c));
 
   if (devoteeFilter !== "all") {
     coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
   }
 
-  if (statusFilter !== "all") {
-    if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
-    else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
-    else if (statusFilter === "not_marked") coupons = coupons.filter(c => c.present !== true);
-  }
+  if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
+  else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
+  else if (statusFilter === "unmarked") coupons = coupons.filter(c => c.present === undefined || c.present === null);
 
   if (search) {
     coupons = coupons.filter(c => {
@@ -1775,24 +1791,23 @@ function markAllPresent() {
     });
   }
 
-  const unmarked = coupons.filter(c => !c.present);
-  if (!unmarked.length) {
-    showToast("All visible settled coupons already marked present");
+  if (!coupons.length) {
+    showToast("No coupons found to mark");
     return;
   }
 
-  const confirmed = window.confirm(`Mark ${unmarked.length} settled coupon(s) as Present?`);
+  const confirmed = window.confirm(`Mark ${coupons.length} coupon(s) as ${markPresent ? "Present" : "Absent"}?`);
   if (!confirmed) return;
 
-  unmarked.forEach(c => {
-    c.present = true;
-    c.presentAt = todayKey();
+  coupons.forEach(c => {
+    c.present = markPresent;
+    c.presentAt = markPresent ? todayKey() : "";
   });
 
   saveState();
   renderAttendance();
   renderAllCoupons();
-  showToast(`${unmarked.length} coupon(s) marked present`);
+  showToast(`${coupons.length} coupon(s) marked ${markPresent ? "Present" : "Absent"}`);
 }
 
 function toggleSettlement(event) {
@@ -2638,24 +2653,23 @@ function renderTopSevas() {
 
 function renderAttendance() {
   const tbody = document.getElementById("attendanceBody");
+  const summaryEl = document.getElementById("attendanceSummary");
   if (!tbody) return;
 
-  const search = els.attendanceSearch?.value.trim().toLowerCase() || "";
+  const search = (els.attendanceSearch?.value || "").toLowerCase().trim();
   const devoteeFilter = els.attendanceDevoteeFilter?.value || "all";
   const statusFilter = els.attendanceStatus?.value || "all";
   const canMark = session?.role === "admin";
 
-  let coupons = state.coupons.filter(c => c.settled);
+  let coupons = state.coupons.filter(c => isSold(c));
 
   if (devoteeFilter !== "all") {
     coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
   }
 
-  if (statusFilter !== "all") {
-    if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
-    else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
-    else if (statusFilter === "not_marked") coupons = coupons.filter(c => c.present !== true);
-  }
+  if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
+  else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
+  else if (statusFilter === "unmarked") coupons = coupons.filter(c => c.present === undefined || c.present === null);
 
   if (search) {
     coupons = coupons.filter(c => {
@@ -2664,25 +2678,35 @@ function renderAttendance() {
     });
   }
 
+  const totalSold = state.coupons.filter(isSold).length;
+  const totalPresent = state.coupons.filter(c => isSold(c) && c.present === true).length;
+  const totalAbsent = state.coupons.filter(c => isSold(c) && c.present === false).length;
+  const totalUnmarked = totalSold - totalPresent - totalAbsent;
+
+  if (summaryEl) {
+    summaryEl.textContent = `Total Sold: ${totalSold} | Present: ${totalPresent} | Absent: ${totalAbsent} | Unmarked: ${totalUnmarked}`;
+  }
+
   coupons.sort((a, b) => {
-    const dateComp = (b.settledAt || "").localeCompare(a.settledAt || "");
+    const dateComp = (b.settledAt || b.assignedAt || "").localeCompare(a.settledAt || a.assignedAt || "");
     if (dateComp !== 0) return dateComp;
     return a.number - b.number;
   });
 
   if (!coupons.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No settled coupons found.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No sold coupons found.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = coupons.map(coupon => {
     const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
     const devoteeName = devotee ? devotee.name : "-";
-    const present = coupon.present;
-    const isAbsent = coupon.present === false;
+    const date = coupon.settledAt || coupon.assignedAt || "-";
+    const pClass = coupon.present === true ? "att-p-active" : coupon.present === false ? "att-a-active" : "att-none";
+    const attLabel = coupon.present === true ? "P" : coupon.present === false ? "A" : "-";
 
     return `
-      <tr>
+      <tr class="att-row-${pClass}">
         <td><strong>#${coupon.number}</strong></td>
         <td>${escapeHtml(coupon.buyerName || "-")}</td>
         <td>${escapeHtml(coupon.buyerContact || "-")}</td>
@@ -2690,34 +2714,34 @@ function renderAttendance() {
         <td>${coupon.amount ? formatMoney(amountValue(coupon.amount)) : "-"}</td>
         <td>
           ${canMark
-            ? `<span class="attendance-toggle" data-att-num="${coupon.number}">
-                 <button class="att-btn att-present${present ? " active" : ""}" type="button" data-att="present" title="Mark Present">Present</button>
-                 <button class="att-btn att-absent${isAbsent ? " active" : ""}" type="button" data-att="absent" title="Mark Absent">Absent</button>
+            ? `<span class="att-toggle" data-att-num="${coupon.number}">
+                 <button class="att-p ${coupon.present === true ? "active" : ""}" type="button" data-att="true" title="Present">P</button>
+                 <button class="att-a ${coupon.present === false ? "active" : ""}" type="button" data-att="false" title="Absent">A</button>
                </span>`
-            : `<span class="status ${present ? "settled" : isAbsent ? "att-absent-badge" : "pending"}">${present ? "Present" : isAbsent ? "Absent" : "Not Marked"}</span>`
+            : `<span class="att-label att-label-${pClass}">${attLabel}</span>`
           }
         </td>
         <td>${escapeHtml(devoteeName)}</td>
-        <td>${escapeHtml(coupon.settledAt || "-")}</td>
+        <td>${escapeHtml(date)}</td>
       </tr>
     `;
   }).join("");
 
   tbody.querySelectorAll("[data-att]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const wrap = btn.closest(".attendance-toggle");
+      const wrap = btn.closest(".att-toggle");
       const num = Number(wrap?.dataset.attNum);
       const coupon = state.coupons[num - 1];
       if (!coupon) return;
 
-      const isPresent = btn.dataset.att === "present";
-      coupon.present = isPresent;
-      coupon.presentAt = isPresent ? todayKey() : "";
+      const newVal = btn.dataset.att === "true";
+      coupon.present = newVal;
+      coupon.presentAt = newVal ? todayKey() : "";
 
       saveState();
       renderAttendance();
       renderAllCoupons();
-      showToast(isPresent ? `Coupon #${num} marked Present` : `Coupon #${num} marked Absent`);
+      showToast(`Coupon #${num} marked ${newVal ? "Present" : "Absent"}`);
     });
   });
 }

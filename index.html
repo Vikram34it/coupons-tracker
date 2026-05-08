@@ -413,7 +413,7 @@
         <div class="section-head">
           <div>
             <h2>Attendance Tracker</h2>
-            <p class="hint">All settled coupons with buyer details and attendance marking.</p>
+            <p class="hint" id="attendanceSummary">All sold coupons with P (Present) or A (Absent) marking.</p>
           </div>
           <div class="entry-controls compact">
             <input id="attendanceSearch" type="search" placeholder="Search buyer, devotee, seva">
@@ -422,11 +422,12 @@
             </select>
             <select id="attendanceStatus">
               <option value="all">All</option>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="not_marked">Not Marked</option>
+              <option value="present">P - Present</option>
+              <option value="absent">A - Absent</option>
+              <option value="unmarked">Unmarked</option>
             </select>
-            <button id="markAllPresentBtn" class="ghost" type="button" title="Mark all visible coupons as present" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All Present</button>
+            <button id="markAllPresentBtn" class="ghost" type="button" title="Mark all visible as Present" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All P</button>
+            <button id="markAllAbsentBtn" class="ghost" type="button" title="Mark all visible as Absent" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All A</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -438,9 +439,9 @@
                 <th>Contact</th>
                 <th>Seva Type</th>
                 <th>Amount</th>
-                <th>Attendance</th>
+                <th>Att</th>
                 <th>Devotee</th>
-                <th>Settled Date</th>
+                <th>Date</th>
               </tr>
             </thead>
             <tbody id="attendanceBody"></tbody>

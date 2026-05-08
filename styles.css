@@ -1631,52 +1631,85 @@ tr:hover td {
   color: #fff;
 }
 
-.attendance-toggle {
+.att-toggle {
   display: inline-flex;
-  gap: 4px;
+  gap: 3px;
   align-items: center;
 }
 
-.att-btn {
+.att-p,
+.att-a {
   border: 1px solid var(--line-dark);
-  border-radius: var(--radius-sm);
+  border-radius: 4px;
   background: var(--surface-elevated);
   color: var(--ink-secondary);
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 600;
-  min-height: 28px;
-  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  width: 30px;
+  height: 26px;
+  padding: 0;
   transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: unset;
 }
 
-.att-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+.att-p:hover,
+.att-a:hover {
+  border-color: var(--ink);
+  background: var(--surface);
 }
 
-.att-present.active {
+.att-p.active {
   background: var(--ok);
   border-color: var(--ok);
   color: #fff;
 }
 
-.att-absent.active {
+.att-a.active {
   background: var(--danger);
   border-color: var(--danger);
   color: #fff;
 }
 
-.att-absent-badge {
+.att-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.att-label.att-label-att-p-active {
+  background: var(--ok-light);
+  color: var(--ok);
+}
+
+.att-label.att-label-att-a-active {
   background: var(--danger-light);
   color: var(--danger);
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 11px;
-  font-weight: 600;
-  justify-content: center;
-  padding: 4px 10px;
-  width: fit-content;
+}
+
+.att-label.att-label-att-none {
+  background: var(--surface-elevated);
+  color: var(--muted);
+}
+
+tr.att-row-att-p-active td {
+  background: rgba(16, 185, 129, 0.04);
+}
+
+tr.att-row-att-a-active td {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+tr.att-row-att-none td {
+  background: rgba(245, 158, 11, 0.04);
 }
 
 .top-item-name {
