@@ -6,7 +6,7 @@ const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
-let activeAdminTab = "dashboard";
+let activeAdminTab = "analytics";
 let isEditing = false;
 let pendingFirebaseData = null;
 let saveTimer = null;
@@ -18,6 +18,7 @@ window.addEventListener("load", () => {
   initTheme();
   renderSelectors();
   render();
+  updateAdminView();
   renderAnalytics();
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
@@ -2384,15 +2385,26 @@ function applyPendingFirebaseData() {
 
 function updateAdminView() {
   const adminView = document.getElementById("adminView");
-  if (!adminView || !adminView.classList.contains("active")) return;
+  if (!adminView || !adminView.classList.contains("active")) {
+    return;
+  }
 
-  document.querySelectorAll("[data-admin-section]").forEach(section => {
-    section.style.display =
-      section.dataset.adminSection === activeAdminTab ? "" : "none";
+  const sections = document.querySelectorAll("#adminView > [data-admin-section]");
+  sections.forEach(section => {
+    const sectionName = section.getAttribute("data-admin-section");
+    if (sectionName === activeAdminTab) {
+      section.style.display = "block";
+    } else {
+      section.style.display = "none";
+    }
   });
 
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-    tab.classList.toggle("active", tab.dataset.adminTab === activeAdminTab);
+    if (tab.getAttribute("data-admin-tab") === activeAdminTab) {
+      tab.classList.add("active");
+    } else {
+      tab.classList.remove("active");
+    }
   });
 }
 
