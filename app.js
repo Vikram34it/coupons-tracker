@@ -1478,7 +1478,8 @@ function renderEntryList() {
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !isSold(coupon));
+  if (activeDevoteeTab === "sold") coupons = coupons.filter((coupon) => isSold(coupon) && !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (activeDevoteeTab === "settled") {
     const hasTemplate = Boolean(state.settings.invitationMessage);
@@ -1549,7 +1550,9 @@ function renderEntryList() {
   if (!coupons.length) {
     els.entryList.innerHTML = activeDevoteeTab === "settled"
       ? `<div class="empty">No settled coupons found.</div>`
-      : `<div class="empty">No pending coupons found.</div>`;
+      : activeDevoteeTab === "sold"
+        ? `<div class="empty">No sold coupons found.</div>`
+        : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
