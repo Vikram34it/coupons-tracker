@@ -309,7 +309,7 @@ main {
 }
 
 .top-stats {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(9, minmax(0, 1fr));
 }
 
 .compact-stats {
@@ -1691,6 +1691,11 @@ tr:hover td {
 }
 
 .att-label.att-label-att-a-active {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.status.att-absent-badge {
   background: var(--danger-light);
   color: var(--danger);
 }

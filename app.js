@@ -175,7 +175,9 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "pdfBtn", "importFile", "themeToggle", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "pdfBtn", "importFile", "themeToggle", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney",     "templeTransferMoney",
+    "totalPresent", "totalAbsent",
+
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
@@ -885,9 +887,9 @@ function applyRoleAccess() {
   // Hide PDF button for viewer & attendance
   els.pdfBtn?.classList.toggle("hidden", !isAdmin);
 
-  // Hide Mark All buttons for non-admin
-  els.markAllPresentBtn?.classList.toggle("hidden", !isAdmin);
-  els.markAllAbsentBtn?.classList.toggle("hidden", !isAdmin);
+  // Hide Mark All buttons for viewer
+  els.markAllPresentBtn?.classList.toggle("hidden", isViewer);
+  els.markAllAbsentBtn?.classList.toggle("hidden", isViewer);
 
   // Viewer: land on Analytics dashboard
   if (isViewer) {
@@ -942,6 +944,9 @@ function renderStats() {
     .filter(c => c.paymentMode === "temple_transfer" && isSold(c))
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
+  const totalPresent = state.coupons.filter(c => isSold(c) && c.present === true).length;
+  const totalAbsent = state.coupons.filter(c => isSold(c) && c.present === false).length;
+
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
@@ -949,6 +954,8 @@ function renderStats() {
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
   if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(unsettledMoney);
   if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(templeTransfer);
+  if (els.totalPresent) els.totalPresent.textContent = totalPresent.toLocaleString("en-IN");
+  if (els.totalAbsent) els.totalAbsent.textContent = totalAbsent.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
@@ -1668,10 +1675,11 @@ function renderAllCoupons() {
       </td>
       <td>
         ${canMarkAttendance
-        ? `<button class="present-btn${coupon.present ? ' is-present' : ''}" type="button" data-present="${coupon.number}">
-              ${coupon.present ? "\u2713 Present" : "Mark Present"}
-            </button>`
-        : `<span class="status ${coupon.present ? 'settled' : 'pending'}">${coupon.present ? "Present" : "Not Marked"}</span>`
+        ? `<span class="att-toggle">
+             <button class="att-p ${coupon.present === true ? 'active' : ''}" type="button" data-att-present="${coupon.number}" data-val="true" title="Present">P</button>
+             <button class="att-a ${coupon.present === false ? 'active' : ''}" type="button" data-att-present="${coupon.number}" data-val="false" title="Absent">A</button>
+           </span>`
+        : `<span class="status ${coupon.present === true ? 'settled' : coupon.present === false ? 'att-absent-badge' : 'pending'}">${coupon.present === true ? 'P' : coupon.present === false ? 'A' : '-'}</span>`
         }
       </td>
     </tr>
@@ -1690,16 +1698,19 @@ function renderAllCoupons() {
     });
   });
 
-  // Wire up Present buttons
-  els.allCouponsBody.querySelectorAll("[data-present]").forEach(btn => {
+  // Wire up Present/Absent buttons in All Coupons
+  els.allCouponsBody.querySelectorAll("[data-att-present]").forEach(btn => {
     btn.addEventListener("click", () => {
-      const coupon = state.coupons[Number(btn.dataset.present) - 1];
+      const num = Number(btn.dataset.attPresent);
+      const coupon = state.coupons[num - 1];
       if (!coupon) return;
-      coupon.present = !coupon.present;
-      coupon.presentAt = coupon.present ? todayKey() : "";
+      const newVal = btn.dataset.val === "true";
+      coupon.present = newVal;
+      coupon.presentAt = newVal ? todayKey() : "";
       saveState();
+      renderStats();
       renderAllCoupons();
-      showToast(coupon.present ? `Coupon #${coupon.number} marked present` : `Coupon #${coupon.number} unmarked`);
+      showToast(`Coupon #${num} marked ${newVal ? "Present" : "Absent"}`);
     });
   });
 }
@@ -1754,16 +1765,16 @@ function bulkSettleSelected() {
 }
 
 function markAllPresent() {
-  if (session?.role !== "admin") {
-    showToast("Only admin can mark attendance");
+  if (session?.role !== "admin" && session?.role !== "attendance") {
+    showToast("Only admin or attendance can mark attendance");
     return;
   }
   bulkMarkAttendance(true);
 }
 
 function markAllAbsent() {
-  if (session?.role !== "admin") {
-    showToast("Only admin can mark attendance");
+  if (session?.role !== "admin" && session?.role !== "attendance") {
+    showToast("Only admin or attendance can mark attendance");
     return;
   }
   bulkMarkAttendance(false);
@@ -1805,6 +1816,7 @@ function bulkMarkAttendance(markPresent) {
   });
 
   saveState();
+  renderStats();
   renderAttendance();
   renderAllCoupons();
   showToast(`${coupons.length} coupon(s) marked ${markPresent ? "Present" : "Absent"}`);
@@ -2659,7 +2671,7 @@ function renderAttendance() {
   const search = (els.attendanceSearch?.value || "").toLowerCase().trim();
   const devoteeFilter = els.attendanceDevoteeFilter?.value || "all";
   const statusFilter = els.attendanceStatus?.value || "all";
-  const canMark = session?.role === "admin";
+  const canMark = session?.role === "admin" || session?.role === "attendance";
 
   let coupons = state.coupons.filter(c => isSold(c));
 
@@ -2739,6 +2751,7 @@ function renderAttendance() {
       coupon.presentAt = newVal ? todayKey() : "";
 
       saveState();
+      renderStats();
       renderAttendance();
       renderAllCoupons();
       showToast(`Coupon #${num} marked ${newVal ? "Present" : "Absent"}`);
