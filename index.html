@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-08-2">
+  <link rel="stylesheet" href="styles.css?v=2026-05-08-3">
 </head>
 
 <body>
@@ -106,31 +106,50 @@
 
     <section id="adminView" class="view active">
       <div data-admin-section="analytics" class="analytics-section">
-        <section class="panel">
-          <h2>📊 Analytics Dashboard</h2>
+        <section class="panel analytics-panel">
+          <div class="analytics-header">
+            <div>
+              <h2>📊 Analytics Overview</h2>
+              <p class="analytics-subtitle">Real-time monitoring of your coupon seva operations</p>
+            </div>
+            <button type="button" class="ghost" id="refreshAnalytics" title="Refresh Data">🔄 Refresh</button>
+          </div>
           <div class="quick-filters" id="quickFilters">
-            <button type="button" class="filter-chip active" data-filter="all">All Time</button>
-            <button type="button" class="filter-chip" data-filter="today">Today</button>
-            <button type="button" class="filter-chip" data-filter="week">This Week</button>
-            <button type="button" class="filter-chip" data-filter="month">This Month</button>
-            <button type="button" class="filter-chip" data-filter="year">This Year</button>
+              <button type="button" class="filter-chip active" data-filter="all">All Time</button>
+              <button type="button" class="filter-chip" data-filter="today">Today</button>
+              <button type="button" class="filter-chip" data-filter="week">This Week</button>
+              <button type="button" class="filter-chip" data-filter="month">This Month</button>
+              <button type="button" class="filter-chip" data-filter="year">This Year</button>
+            </div>
           </div>
           <div class="stats-grid analytics-grid" id="analyticsGrid">
-            <article class="stat-card"><span>Total Revenue</span><strong id="analyticsTotalRevenue">₹0</strong></article>
-            <article class="stat-card"><span>Sold Coupons</span><strong id="analyticsSoldCoupons">0</strong></article>
-            <article class="stat-card"><span>Pending Amount</span><strong id="analyticsPendingAmount">₹0</strong></article>
-            <article class="stat-card"><span>Active Devotees</span><strong id="analyticsActiveDevotees">0</strong></article>
-            <article class="stat-card"><span>Avg. Sale/ Coupon</span><strong id="analyticsAvgSale">₹0</strong></article>
-            <article class="stat-card"><span>Settlement Rate</span><strong id="analyticsSettlementRate">0%</strong></article>
+            <article class="stat-card revenue-card"><span>💰 Total Revenue</span><strong id="analyticsTotalRevenue">₹0</strong></article>
+            <article class="stat-card"><span>🎟 Sold Coupons</span><strong id="analyticsSoldCoupons">0</strong></article>
+            <article class="stat-card pending-card"><span>⏳ Pending Amount</span><strong id="analyticsPendingAmount">₹0</strong></article>
+            <article class="stat-card"><span>🙋 Active Devotees</span><strong id="analyticsActiveDevotees">0</strong></article>
+            <article class="stat-card"><span>📈 Avg. Sale/Coupon</span><strong id="analyticsAvgSale">₹0</strong></article>
+            <article class="stat-card"><span>✅ Settlement Rate</span><strong id="analyticsSettlementRate">0%</strong></article>
+            <article class="stat-card"><span>🏛 Temple Transfer</span><strong id="analyticsTempleTransfer">₹0</strong></article>
+            <article class="stat-card"><span>🙏 Hundi Collected</span><strong id="analyticsHundiTotal">₹0</strong></article>
           </div>
           <div class="charts-container">
             <div class="chart-panel">
-              <h3>Seva Distribution</h3>
+              <h3>📊 Seva Distribution</h3>
               <div id="sevaChart" class="chart-placeholder"></div>
             </div>
             <div class="chart-panel">
-              <h3>Daily Sales Trend</h3>
+              <h3>📈 Sales Trend (Last 7 Days)</h3>
               <div id="trendChart" class="chart-placeholder"></div>
+            </div>
+          </div>
+          <div class="top-performers">
+            <div class="chart-panel">
+              <h3>🏆 Top Performing Devotees</h3>
+              <div id="topDevotees" class="top-list"></div>
+            </div>
+            <div class="chart-panel">
+              <h3>🔥 Hot Seva Types</h3>
+              <div id="topSevas" class="top-list"></div>
             </div>
           </div>
         </section>
@@ -375,8 +394,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-  <script src="firebase-config.js?v=2026-05-08-2"></script>
-  <script src="app.js?v=2026-05-08-2"></script>
+  <script src="firebase-config.js?v=2026-05-08-3"></script>
+  <script src="app.js?v=2026-05-08-3"></script>
 </body>
 
 </html>

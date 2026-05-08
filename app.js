@@ -182,7 +182,7 @@ function cacheElements() {
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
-    "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale", "analyticsSettlementRate", "sevaChart", "trendChart"
+    "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale", "analyticsSettlementRate", "analyticsTempleTransfer", "analyticsHundiTotal", "sevaChart", "trendChart", "refreshAnalytics"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -319,6 +319,13 @@ function bindEvents() {
       chip.classList.add("active");
       renderAnalytics(chip.dataset.filter);
     });
+  });
+
+  // Refresh analytics
+  els.refreshAnalytics?.addEventListener("click", () => {
+    const activeFilter = document.querySelector(".filter-chip.active")?.dataset.filter || "all";
+    renderAnalytics(activeFilter);
+    showToast("Analytics refreshed");
   });
 
   els.allDevoteeFilter.addEventListener("change", () => {
@@ -719,11 +726,11 @@ function applyRoleAccess() {
     ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
     : null;
 
-  // Badge label
+  // Badge label - premium role badges
   els.userBadge.textContent = isAdmin
-    ? "Admin"
+    ? "👑 Admin"
     : isViewer
-      ? "👁 Viewer"
+      ? "📊 Monitor"
       : activeDevotee
         ? `Devotee: ${activeDevotee.name}`
         : "";
@@ -744,25 +751,30 @@ function applyRoleAccess() {
   // Devotee Entry tab — hidden for viewer
   document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
-  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
+  // Admin sub-tabs: viewer sees Analytics + Dashboard (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     if (isViewer) {
-      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
+      tab.classList.toggle("hidden", tab.dataset.adminTab === "setup" || tab.dataset.adminTab === "reset");
     } else {
       tab.classList.toggle("hidden", !isAdmin);
     }
   });
 
-  // Viewer: land on admin dashboard (only if not already on All Coupons)
+  // Hide admin-only toolbar buttons for viewer
+  const hideForViewer = isViewer || isDevotee;
+  els.csvBtn?.classList.toggle("hidden", !isAdmin);
+  els.exportBtn?.classList.toggle("hidden", !isAdmin);
+  els.importFile?.closest(".file-label")?.classList.toggle("hidden", !isAdmin);
+  els.pdfBtn?.classList.toggle("hidden", hideForViewer); // Hide PDF for viewer too
+
+  // Viewer: land on Analytics (monitor view) - the boss view!
   if (isViewer) {
-    const allCouponsActive = document.getElementById("allCouponsView")?.classList.contains("active");
-    if (!allCouponsActive) {
-      document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-      document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-      document.getElementById("adminView")?.classList.add("active");
-      activeAdminTab = "dashboard";
-      updateAdminView();
-    }
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+    document.getElementById("adminView")?.classList.add("active");
+    activeAdminTab = "analytics";
+    updateAdminView();
+    renderAnalytics("all");
   }
 
   // Devotee: land on devotee entry view
@@ -2092,15 +2104,27 @@ function renderAnalytics(filter = "all") {
     ? Math.round((allSoldCoupons.filter(c => c.settled).length / allSoldCoupons.length) * 100)
     : 0;
 
-  if (els.analyticsTotalRevenue) els.analyticsTotalRevenue.textContent = formatMoney(totalRevenue);
+  const templeTransfer = allSoldCoupons
+    .filter(c => c.paymentMode === "temple_transfer")
+    .reduce((sum, c) => sum + amountValue(c.amount), 0);
+
+  const hundiTotal = (state.hundi || [])
+    .filter(h => h.settled)
+    .reduce((sum, h) => sum + h.amount, 0);
+
+  if (els.analyticsTotalRevenue) els.analyticsTotalRevenue.textContent = formatMoney(totalRevenue + hundiTotal);
   if (els.analyticsSoldCoupons) els.analyticsSoldCoupons.textContent = soldCoupons.toLocaleString("en-IN");
   if (els.analyticsPendingAmount) els.analyticsPendingAmount.textContent = formatMoney(pendingAmount);
   if (els.analyticsActiveDevotees) els.analyticsActiveDevotees.textContent = activeDevotees.toLocaleString("en-IN");
   if (els.analyticsAvgSale) els.analyticsAvgSale.textContent = formatMoney(avgSale);
   if (els.analyticsSettlementRate) els.analyticsSettlementRate.textContent = `${settlementRate}%`;
+  if (els.analyticsTempleTransfer) els.analyticsTempleTransfer.textContent = formatMoney(templeTransfer);
+  if (els.analyticsHundiTotal) els.analyticsHundiTotal.textContent = formatMoney(hundiTotal);
 
   renderSevaDistributionChart();
   renderTrendChart(filter);
+  renderTopPerformers();
+  renderTopSevas();
 }
 
 function getAnalyticsPeriod(filter) {
@@ -2180,6 +2204,66 @@ function renderTrendChart(filter) {
       `).join("")}
     </div>
   `;
+}
+
+function renderTopPerformers() {
+  const topDevoteesEl = document.getElementById("topDevotees");
+  if (!topDevoteesEl) return;
+
+  const devoteeStats = state.devotees.map(devotee => {
+    const settled = state.coupons
+      .filter(c => c.devoteeId === devotee.id && c.settled)
+      .reduce((sum, c) => sum + amountValue(c.amount), 0);
+    return { name: devotee.name, amount: settled };
+  })
+  .filter(d => d.amount > 0)
+  .sort((a, b) => b.amount - a.amount)
+  .slice(0, 5);
+
+  if (devoteeStats.length === 0) {
+    topDevoteesEl.innerHTML = '<div class="empty">No data available</div>';
+    return;
+  }
+
+  const rankClasses = ["gold", "silver", "bronze", "", ""];
+
+  topDevoteesEl.innerHTML = devoteeStats.map((d, i) => `
+    <div class="top-item">
+      <div class="top-item-rank ${rankClasses[i]}">${i + 1}</div>
+      <span class="top-item-name">${escapeHtml(d.name)}</span>
+      <span class="top-item-value">${formatMoney(d.amount)}</span>
+    </div>
+  `).join("");
+}
+
+function renderTopSevas() {
+  const topSevasEl = document.getElementById("topSevas");
+  if (!topSevasEl) return;
+
+  const suaMap = {};
+  state.coupons.filter(c => c.settled).forEach(coupon => {
+    const sua = coupon.description || "Others";
+    suaMap[sua] = (suaMap[sua] || 0) + amountValue(coupon.amount);
+  });
+
+  const entries = Object.entries(suaMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  if (entries.length === 0) {
+    topSevasEl.innerHTML = '<div class="empty">No data available</div>';
+    return;
+  }
+
+  const rankClasses = ["gold", "silver", "bronze", "", ""];
+
+  topSevasEl.innerHTML = entries.map(([sua, amount], i) => `
+    <div class="top-item">
+      <div class="top-item-rank ${rankClasses[i]}">${i + 1}</div>
+      <span class="top-item-name">${escapeHtml(sua)}</span>
+      <span class="top-item-value">${formatMoney(amount)}</span>
+    </div>
+  `).join("");
 }
 
 // ================= PDF REPORT =================
