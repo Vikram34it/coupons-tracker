@@ -2440,10 +2440,17 @@ function applyPendingFirebaseData() {
 }
 
 function updateAdminView() {
+  const adminView = document.getElementById("adminView");
+  if (!adminView || !adminView.classList.contains("active")) return;
+
   document.querySelectorAll("[data-admin-section]").forEach(section => {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
+
+  if (activeAdminTab === "analytics") {
+    renderAnalytics("all");
+  }
 }
 
 function initFirebaseSync() {
