@@ -787,10 +787,17 @@ function applyRoleAccess() {
 
   // Admin sub-tabs: viewer sees Analytics + Dashboard (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+    const tabName = tab.dataset.adminTab;
     if (isViewer) {
-      tab.classList.toggle("hidden", tab.dataset.adminTab === "setup" || tab.dataset.adminTab === "reset");
+      if (tabName === "setup" || tabName === "reset") {
+        tab.classList.add("hidden");
+      } else {
+        tab.classList.remove("hidden");
+      }
+    } else if (isAdmin) {
+      tab.classList.remove("hidden");
     } else {
-      tab.classList.toggle("hidden", !isAdmin);
+      tab.classList.add("hidden");
     }
   });
 
