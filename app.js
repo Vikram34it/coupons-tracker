@@ -2383,9 +2383,16 @@ function applyPendingFirebaseData() {
 }
 
 function updateAdminView() {
+  const adminView = document.getElementById("adminView");
+  if (!adminView || !adminView.classList.contains("active")) return;
+
   document.querySelectorAll("[data-admin-section]").forEach(section => {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
+  });
+
+  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.adminTab === activeAdminTab);
   });
 }
 
