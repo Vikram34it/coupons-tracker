@@ -2038,8 +2038,8 @@ function applyFirebaseData(data) {
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
   if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
-  originalSaveState();
-  // ✅ IMPORTANT FIX
+  // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
@@ -2117,11 +2117,11 @@ function initFirebaseSync() {
   }
 }
 
-// 🔥 Override saveState (no logic change)
-const originalSaveState = saveState;
+// 🔥 Override saveState for Firebase sync
+const _localSaveState = saveState;
 
 saveState = function () {
-  originalSaveState();
+  _localSaveState();
 
   if (firebaseReady && dbRef) {
     dbRef.set(state);
