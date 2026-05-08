@@ -595,6 +595,51 @@ function assignCoupons(event) {
     }
   });
 
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+
+  if (devotee && devotee.contact) {
+    const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId && c.number >= from && c.number <= to);
+    const couponNumbers = assignedCoupons.map(c => c.number).sort((a, b) => a - b);
+
+    let couponRanges = [];
+    let start = couponNumbers[0];
+    let prev = couponNumbers[0];
+    for (let i = 1; i < couponNumbers.length; i++) {
+      if (couponNumbers[i] === prev + 1) {
+        prev = couponNumbers[i];
+      } else {
+        couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = couponNumbers[i];
+        prev = couponNumbers[i];
+      }
+    }
+    couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    const couponList = couponRanges.join(", ");
+
+    const message = `Hare Krishna 🙏
+
+Dear ${devotee.name},
+
+Thank you for your devotional service! 🙏
+
+You have been assigned the following coupon(s):
+
+📋 Coupon Numbers: ${couponList}
+🎟 Total Coupons: ${assignedCoupons.length}
+📅 Assigned Date: ${assignedAt}
+
+🔐 Your PIN: ${devotee.pin || "Not set"}
+
+Please start selling the coupons and update the details using the link below:
+https://vikram34it.github.io/coupons-tracker/
+
+Jai Shri Krishna! 🙏`;
+
+    const phone = devotee.contact.replace(/\D/g, "");
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  }
+
   els.assignForm.reset();
   els.assignHint.textContent = "";
   saveState();
@@ -1044,7 +1089,26 @@ function renderDevotees() {
 
         const summary = devoteeSummary(devotee.id, period);
 
-        const assigned = couponsForDevotee(devotee.id).length;
+        const assignedCoupons = couponsForDevotee(devotee.id);
+        const assignedCount = assignedCoupons.length;
+        const couponNumbers = assignedCoupons.map(c => c.number).sort((a, b) => a - b);
+
+        let couponRanges = [];
+        if (couponNumbers.length > 0) {
+          let start = couponNumbers[0];
+          let prev = couponNumbers[0];
+          for (let i = 1; i < couponNumbers.length; i++) {
+            if (couponNumbers[i] === prev + 1) {
+              prev = couponNumbers[i];
+            } else {
+              couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+              start = couponNumbers[i];
+              prev = couponNumbers[i];
+            }
+          }
+          couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        }
+        const couponList = couponRanges.length > 0 ? couponRanges.join(", ") : "None";
 
         const message =
           `Hare Krishna 🙏
@@ -1055,7 +1119,8 @@ Here is your seva summary:
 
 🔐 PIN: ${devotee.pin || "Not set"}
 
-🎟 Coupons Assigned: ${assigned}
+🎟 Coupons Assigned: ${assignedCount}
+📋 Coupon Numbers: ${couponList}
 🟢 Sold Coupons: ${summary.sold}
 🟡 Pending Coupons: ${summary.left}
 
