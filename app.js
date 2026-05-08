@@ -762,9 +762,9 @@ function applyRoleAccess() {
 
   // Badge label
   els.userBadge.textContent = isAdmin
-    ? "Admin"
+    ? "👑 Admin"
     : isViewer
-      ? "👁 Viewer"
+      ? "📊 Monitor"
       : activeDevotee
         ? `Devotee: ${activeDevotee.name}`
         : "";
@@ -785,23 +785,26 @@ function applyRoleAccess() {
   // Devotee Entry tab — hidden for viewer
   document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
-  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
+  // Admin sub-tabs: viewer sees Analytics + Dashboard (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     if (isViewer) {
-      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
+      tab.classList.toggle("hidden", tab.dataset.adminTab === "setup" || tab.dataset.adminTab === "reset");
     } else {
       tab.classList.toggle("hidden", !isAdmin);
     }
   });
 
-  // Viewer: land on admin dashboard (only if not already on All Coupons)
+  // Hide PDF button for viewer
+  els.pdfBtn?.classList.toggle("hidden", !isAdmin);
+
+  // Viewer: land on Analytics dashboard
   if (isViewer) {
     const allCouponsActive = document.getElementById("allCouponsView")?.classList.contains("active");
     if (!allCouponsActive) {
       document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
       document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
       document.getElementById("adminView")?.classList.add("active");
-      activeAdminTab = "dashboard";
+      activeAdminTab = "analytics";
       updateAdminView();
     }
   }
