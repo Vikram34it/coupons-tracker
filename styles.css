@@ -1616,6 +1616,21 @@ tr:hover td {
   margin-right: 10px;
 }
 
+.top-item-rank.gold {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+}
+
+.top-item-rank.silver {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  color: #fff;
+}
+
+.top-item-rank.bronze {
+  background: linear-gradient(135deg, #b45309, #92400e);
+  color: #fff;
+}
+
 .top-item-name {
   flex: 1;
   font-weight: 600;

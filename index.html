@@ -25,6 +25,7 @@
         <select id="loginRole">
           <option value="admin">Admin</option>
           <option value="viewer">Viewer</option>
+          <option value="attendance">Attendance</option>
           <option value="devotee" selected>Devotee</option>
         </select>
       </label>
@@ -102,6 +103,7 @@
       <button class="subtab" data-admin-tab="reset">Reset</button>
       <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
       <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
+      <button class="tab" type="button" data-view="attendanceView">Attendance</button>
     </nav>
 
     <section id="adminView" class="view active">
@@ -223,6 +225,16 @@
             <input id="viewerPasswordInput" type="password" minlength="4" required placeholder="Minimum 4 characters">
           </label>
           <button type="submit">Set Viewer Password</button>
+        </form>
+
+        <form id="attendancePasswordForm" class="panel">
+          <h2>Attendance Password</h2>
+          <p class="hint" style="margin-bottom:8px">Attendance role can view all settled coupons with buyer, devotee, and attendance status. Cannot edit.</p>
+          <label>
+            New Password
+            <input id="attendancePasswordInput" type="password" minlength="4" required placeholder="Minimum 4 characters">
+          </label>
+          <button type="submit">Set Attendance Password</button>
         </form>
 
         <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
@@ -366,12 +378,15 @@
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
+            <button id="selectAllVisibleBtn" class="ghost" type="button" title="Select all visible coupons" style="min-height:32px;padding:0 12px;font-size:12px;">Select All</button>
+            <button id="bulkSettleBtn" class="danger" type="button" title="Settle all selected coupons" style="min-height:32px;padding:0 12px;font-size:12px;">Settle Selected</button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style="width:36px"><input type="checkbox" id="bulkSelectAll" title="Select all"></th>
                 <th>Coupon</th>
                 <th>Assigned To</th>
                 <th>Assigned Date</th>
@@ -388,6 +403,47 @@
               </tr>
             </thead>
             <tbody id="allCouponsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="attendanceView" class="view">
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Attendance Tracker</h2>
+            <p class="hint">All settled coupons with buyer details and attendance marking.</p>
+          </div>
+          <div class="entry-controls compact">
+            <input id="attendanceSearch" type="search" placeholder="Search buyer, devotee, seva">
+            <select id="attendanceDevoteeFilter">
+              <option value="all">All Devotees</option>
+            </select>
+            <select id="attendanceStatus">
+              <option value="all">All</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="not_marked">Not Marked</option>
+            </select>
+            <button id="markAllPresentBtn" class="ghost" type="button" title="Mark all visible unsettled coupons as present" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All Present</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Coupon #</th>
+                <th>Devotee</th>
+                <th>Buyer Name</th>
+                <th>Contact</th>
+                <th>Seva Type</th>
+                <th>Amount</th>
+                <th>Settled Date</th>
+                <th>Attendance</th>
+              </tr>
+            </thead>
+            <tbody id="attendanceBody"></tbody>
           </table>
         </div>
       </section>
