@@ -6,7 +6,7 @@ const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
-let activeAdminTab = "analytics";
+let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
 let saveTimer = null;
@@ -15,11 +15,8 @@ const els = {};
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
-  initTheme();
-  renderSelectors();
+  renderSelectors(); // ✅ ADD THIS
   render();
-  updateAdminView();
-  renderAnalytics();
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
       isEditing = true;
@@ -175,15 +172,14 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "pdfBtn", "importFile", "themeToggle", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
-    "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale", "analyticsSettlementRate", "analyticsTempleTransfer", "analyticsHundiTotal", "sevaChart", "trendChart", "refreshAnalytics"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -307,28 +303,7 @@ function bindEvents() {
   els.allStatus.addEventListener("change", renderAllCoupons);
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
-  els.pdfBtn.addEventListener("click", generatePdfReport);
   els.importFile.addEventListener("change", importBackup);
-
-  // Theme toggle
-  els.themeToggle?.addEventListener("click", toggleTheme);
-
-  // Quick filters
-  document.querySelectorAll(".filter-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
-      renderAnalytics(chip.dataset.filter);
-    });
-  });
-
-  // Refresh analytics
-  els.refreshAnalytics?.addEventListener("click", () => {
-    const activeFilter = document.querySelector(".filter-chip.active")?.dataset.filter || "all";
-    renderAnalytics(activeFilter);
-    showToast("Analytics refreshed");
-  });
-
   els.allDevoteeFilter.addEventListener("change", () => {
     renderAllCoupons();
     updateDevoteePendingDisplay();
@@ -727,11 +702,11 @@ function applyRoleAccess() {
     ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
     : null;
 
-  // Badge label - premium role badges
+  // Badge label
   els.userBadge.textContent = isAdmin
-    ? "👑 Admin"
+    ? "Admin"
     : isViewer
-      ? "📊 Monitor"
+      ? "👁 Viewer"
       : activeDevotee
         ? `Devotee: ${activeDevotee.name}`
         : "";
@@ -752,30 +727,25 @@ function applyRoleAccess() {
   // Devotee Entry tab — hidden for viewer
   document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
-  // Admin sub-tabs: viewer sees Analytics + Dashboard (no Setup / Reset)
+  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     if (isViewer) {
-      tab.classList.toggle("hidden", tab.dataset.adminTab === "setup" || tab.dataset.adminTab === "reset");
+      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
     } else {
       tab.classList.toggle("hidden", !isAdmin);
     }
   });
 
-  // Hide admin-only toolbar buttons for viewer
-  const hideForViewer = isViewer || isDevotee;
-  els.csvBtn?.classList.toggle("hidden", !isAdmin);
-  els.exportBtn?.classList.toggle("hidden", !isAdmin);
-  els.importFile?.closest(".file-label")?.classList.toggle("hidden", !isAdmin);
-  els.pdfBtn?.classList.toggle("hidden", hideForViewer); // Hide PDF for viewer too
-
-  // Viewer: land on Analytics (monitor view) - the boss view!
+  // Viewer: land on admin dashboard (only if not already on All Coupons)
   if (isViewer) {
-    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-    document.getElementById("adminView")?.classList.add("active");
-    activeAdminTab = "analytics";
-    updateAdminView();
-    renderAnalytics("all");
+    const allCouponsActive = document.getElementById("allCouponsView")?.classList.contains("active");
+    if (!allCouponsActive) {
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+      document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
+      document.getElementById("adminView")?.classList.add("active");
+      activeAdminTab = "dashboard";
+      updateAdminView();
+    }
   }
 
   // Devotee: land on devotee entry view
@@ -2052,308 +2022,6 @@ function normalizeDevotee(devotee) {
     pin: devotee.pin || ""
   };
 }
-
-// ================= THEME TOGGLE =================
-function toggleTheme() {
-  const html = document.documentElement;
-  const currentTheme = html.getAttribute("data-theme");
-  const newTheme = currentTheme === "dark" ? "light" : "dark";
-
-  html.setAttribute("data-theme", newTheme);
-  localStorage.setItem("coupon-tracker-theme", newTheme);
-
-  updateThemeIcon(newTheme);
-}
-
-function updateThemeIcon(theme) {
-  const icon = document.getElementById("themeIcon");
-  if (!icon) return;
-
-  if (theme === "dark") {
-    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
-  } else {
-    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
-  }
-}
-
-function initTheme() {
-  const savedTheme = localStorage.getItem("coupon-tracker-theme");
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-  const theme = savedTheme || (prefersDark ? "dark" : "light");
-  document.documentElement.setAttribute("data-theme", theme);
-  updateThemeIcon(theme);
-}
-
-// ================= ANALYTICS =================
-function renderAnalytics(filter = "all") {
-  const period = getAnalyticsPeriod(filter);
-
-  const filteredCoupons = state.coupons.filter(coupon =>
-    coupon.settled && inSettlementPeriod(coupon, period)
-  );
-
-  const totalRevenue = filteredCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const soldCoupons = filteredCoupons.length;
-  const activeDevotees = new Set(filteredCoupons.map(c => c.devoteeId).filter(Boolean)).size;
-
-  const allSoldCoupons = state.coupons.filter(c => isSold(c));
-  const pendingAmount = allSoldCoupons.filter(c => !c.settled).reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  const avgSale = soldCoupons > 0 ? Math.round(totalRevenue / soldCoupons) : 0;
-  const settlementRate = allSoldCoupons.length > 0
-    ? Math.round((allSoldCoupons.filter(c => c.settled).length / allSoldCoupons.length) * 100)
-    : 0;
-
-  const templeTransfer = allSoldCoupons
-    .filter(c => c.paymentMode === "temple_transfer")
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  const hundiTotal = (state.hundi || [])
-    .filter(h => h.settled)
-    .reduce((sum, h) => sum + h.amount, 0);
-
-  if (els.analyticsTotalRevenue) els.analyticsTotalRevenue.textContent = formatMoney(totalRevenue + hundiTotal);
-  if (els.analyticsSoldCoupons) els.analyticsSoldCoupons.textContent = soldCoupons.toLocaleString("en-IN");
-  if (els.analyticsPendingAmount) els.analyticsPendingAmount.textContent = formatMoney(pendingAmount);
-  if (els.analyticsActiveDevotees) els.analyticsActiveDevotees.textContent = activeDevotees.toLocaleString("en-IN");
-  if (els.analyticsAvgSale) els.analyticsAvgSale.textContent = formatMoney(avgSale);
-  if (els.analyticsSettlementRate) els.analyticsSettlementRate.textContent = `${settlementRate}%`;
-  if (els.analyticsTempleTransfer) els.analyticsTempleTransfer.textContent = formatMoney(templeTransfer);
-  if (els.analyticsHundiTotal) els.analyticsHundiTotal.textContent = formatMoney(hundiTotal);
-
-  renderSevaDistributionChart();
-  renderTrendChart(filter);
-  renderTopPerformers();
-  renderTopSevas();
-}
-
-function getAnalyticsPeriod(filter) {
-  const now = new Date();
-  const today = now.toISOString().split("T")[0];
-
-  switch (filter) {
-    case "today":
-      return { from: today, to: today, label: "Today" };
-    case "week":
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      return { from: weekStart.toISOString().split("T")[0], to: today, label: "This Week" };
-    case "month":
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { from: monthStart.toISOString().split("T")[0], to: today, label: "This Month" };
-    case "year":
-      const yearStart = new Date(now.getFullYear(), 0, 1);
-      return { from: yearStart.toISOString().split("T")[0], to: today, label: "This Year" };
-    default:
-      return { from: "", to: "", label: "All Time" };
-  }
-}
-
-function renderSevaDistributionChart() {
-  if (!els.sevaChart) return;
-
-  const sevaMap = {};
-  state.coupons.filter(c => c.settled).forEach(coupon => {
-    const seva = coupon.description || "Others";
-    sevaMap[seva] = (sevaMap[seva] || 0) + amountValue(coupon.amount);
-  });
-
-  const entries = Object.entries(sevaMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const maxValue = entries.length > 0 ? Math.max(...entries.map(e => e[1])) : 1;
-
-  const colors = ["#0d9488", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"];
-
-  els.sevaChart.innerHTML = `
-    <div class="bar-chart">
-      ${entries.map(([seva, amount], i) => `
-        <div class="bar-item">
-          <div class="bar" style="height: ${(amount / maxValue) * 120}px; background: ${colors[i % colors.length]}"></div>
-          <span class="bar-label">${seva.substring(0, 8)}</span>
-          <span style="font-size: 11px; font-weight: 600; color: var(--ink);">${formatMoney(amount)}</span>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function renderTrendChart(filter) {
-  if (!els.trendChart) return;
-
-  const last7Days = [];
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    last7Days.push(date.toISOString().split("T")[0]);
-  }
-
-  const dailyData = last7Days.map(date => {
-    return state.coupons
-      .filter(c => c.settled && c.settledAt === date)
-      .reduce((sum, c) => sum + amountValue(c.amount), 0);
-  });
-
-  const maxValue = Math.max(...dailyData, 1);
-
-  els.trendChart.innerHTML = `
-    <div class="bar-chart">
-      ${dailyData.map((amount, i) => `
-        <div class="bar-item">
-          <div class="bar" style="height: ${(amount / maxValue) * 120}px"></div>
-          <span class="bar-label">${last7Days[i].slice(5)}</span>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function renderTopPerformers() {
-  const topDevoteesEl = document.getElementById("topDevotees");
-  if (!topDevoteesEl) return;
-
-  const devoteeStats = state.devotees.map(devotee => {
-    const settled = state.coupons
-      .filter(c => c.devoteeId === devotee.id && c.settled)
-      .reduce((sum, c) => sum + amountValue(c.amount), 0);
-    return { name: devotee.name, amount: settled };
-  })
-  .filter(d => d.amount > 0)
-  .sort((a, b) => b.amount - a.amount)
-  .slice(0, 5);
-
-  if (devoteeStats.length === 0) {
-    topDevoteesEl.innerHTML = '<div class="empty">No data available</div>';
-    return;
-  }
-
-  const rankClasses = ["gold", "silver", "bronze", "", ""];
-
-  topDevoteesEl.innerHTML = devoteeStats.map((d, i) => `
-    <div class="top-item">
-      <div class="top-item-rank ${rankClasses[i]}">${i + 1}</div>
-      <span class="top-item-name">${escapeHtml(d.name)}</span>
-      <span class="top-item-value">${formatMoney(d.amount)}</span>
-    </div>
-  `).join("");
-}
-
-function renderTopSevas() {
-  const topSevasEl = document.getElementById("topSevas");
-  if (!topSevasEl) return;
-
-  const suaMap = {};
-  state.coupons.filter(c => c.settled).forEach(coupon => {
-    const sua = coupon.description || "Others";
-    suaMap[sua] = (suaMap[sua] || 0) + amountValue(coupon.amount);
-  });
-
-  const entries = Object.entries(suaMap)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
-  if (entries.length === 0) {
-    topSevasEl.innerHTML = '<div class="empty">No data available</div>';
-    return;
-  }
-
-  const rankClasses = ["gold", "silver", "bronze", "", ""];
-
-  topSevasEl.innerHTML = entries.map(([sua, amount], i) => `
-    <div class="top-item">
-      <div class="top-item-rank ${rankClasses[i]}">${i + 1}</div>
-      <span class="top-item-name">${escapeHtml(sua)}</span>
-      <span class="top-item-value">${formatMoney(amount)}</span>
-    </div>
-  `).join("");
-}
-
-// ================= PDF REPORT =================
-function generatePdfReport() {
-  const period = settlementPeriod();
-  const reportDate = new Date().toLocaleDateString("en-IN", {
-    day: "numeric", month: "long", year: "numeric"
-  });
-
-  const settledCoupons = state.coupons.filter(c => c.settled && inSettlementPeriod(c, period));
-  const totalRevenue = settledCoupons.reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const hundiTotal = (state.hundi || []).filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
-
-  const devoteeSummaryList = state.devotees.map(devotee => {
-    const summary = devoteeSummary(devotee.id, period);
-    return {
-      name: devotee.name,
-      contact: devotee.contact,
-      issued: summary.issued,
-      sold: summary.sold,
-      settled: formatMoney(summary.settledAmount),
-      pending: formatMoney(summary.pendingAmount)
-    };
-  }).sort((a, b) => parseInt(b.settled.replace(/[^\d]/g, "")) - parseInt(a.settled.replace(/[^\d]/g, "")));
-
-  let htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Coupon Seva Report</title>
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', sans-serif; padding: 20px; color: #1a1a1a; }
-        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #0d9488; }
-        .header h1 { color: #0d9488; font-size: 28px; margin-bottom: 8px; }
-        .header p { color: #666; font-size: 14px; }
-        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 30px; }
-        .summary-card { background: #f8f7f4; padding: 16px; border-radius: 8px; text-align: center; border: 1px solid #e8e6e1; }
-        .summary-card span { font-size: 12px; color: #666; }
-        .summary-card strong { display: block; font-size: 24px; color: #0d9488; margin-top: 4px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { background: #0d9488; color: white; padding: 12px; text-align: left; }
-        td { padding: 10px 12px; border-bottom: 1px solid #e8e6e1; }
-        tr:nth-child(even) { background: #faf9f7; }
-        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; }
-        @media print { body { padding: 0; } }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Coupon Seva Report</h1>
-        <p>Generated on ${reportDate}</p>
-        <p>Period: ${period.label}</p>
-      </div>
-      <div class="summary-grid">
-        <div class="summary-card"><span>Total Revenue</span><strong>${formatMoney(totalRevenue + hundiTotal)}</strong></div>
-        <div class="summary-card"><span>Settled Coupons</span><strong>${settledCoupons.length}</strong></div>
-        <div class="summary-card"><span>Active Devotees</span><strong>${state.devotees.length}</strong></div>
-      </div>
-      <h3 style="margin: 20px 0 12px; color: #0d9488;">Devotee Summary</h3>
-      <table>
-        <thead><tr><th>Devotee</th><th>Contact</th><th>Issued</th><th>Sold</th><th>Settled</th><th>Pending</th></tr></thead>
-        <tbody>
-          ${devoteeSummaryList.map(d => `
-            <tr>
-              <td>${d.name}</td>
-              <td>${d.contact || "-"}</td>
-              <td>${d.issued}</td>
-              <td>${d.sold}</td>
-              <td>${d.settled}</td>
-              <td>${d.pending}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-      <div class="footer">
-        <p>Coupon Seva Tracker | Generated automatically</p>
-      </div>
-    </body>
-    </html>
-  `;
-
-  const printWindow = window.open("", "_blank");
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  printWindow.print();
-
-  showToast("PDF report generated");
-}
 // ================= FIREBASE SYNC (ADD ONLY THIS) =================
 
 let firebaseReady = false;
@@ -2384,27 +2052,9 @@ function applyPendingFirebaseData() {
 }
 
 function updateAdminView() {
-  const adminView = document.getElementById("adminView");
-  if (!adminView || !adminView.classList.contains("active")) {
-    return;
-  }
-
-  const sections = document.querySelectorAll("#adminView > [data-admin-section]");
-  sections.forEach(section => {
-    const sectionName = section.getAttribute("data-admin-section");
-    if (sectionName === activeAdminTab) {
-      section.style.display = "block";
-    } else {
-      section.style.display = "none";
-    }
-  });
-
-  document.querySelectorAll("[data-admin-tab]").forEach(tab => {
-    if (tab.getAttribute("data-admin-tab") === activeAdminTab) {
-      tab.classList.add("active");
-    } else {
-      tab.classList.remove("active");
-    }
+  document.querySelectorAll("[data-admin-section]").forEach(section => {
+    section.style.display =
+      section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
 }
 
