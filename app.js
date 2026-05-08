@@ -2444,8 +2444,11 @@ function updateAdminView() {
   if (!adminView || !adminView.classList.contains("active")) return;
 
   document.querySelectorAll("[data-admin-section]").forEach(section => {
-    section.style.display =
-      section.dataset.adminSection === activeAdminTab ? "" : "none";
+    if (section.dataset.adminSection === activeAdminTab) {
+      section.style.display = "block";
+    } else {
+      section.style.display = "none";
+    }
   });
 
   if (activeAdminTab === "analytics") {
