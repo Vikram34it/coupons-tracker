@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-12-1">
+  <link rel="stylesheet" href="styles.css?v=2026-05-13-2">
 </head>
 
 <body>
@@ -358,6 +358,11 @@
               <option value="unsettled">Settlement Pending</option>
               <option value="settled">Settled</option>
             </select>
+            <select id="allAttendance">
+              <option value="all">All Attendance</option>
+              <option value="present">Present</option>
+              <option value="absent">Not Marked</option>
+            </select>
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
@@ -379,6 +384,7 @@
                 <th>Settled Date</th>
                 <th>Description</th>
                 <th>Send Invite</th>
+                <th>Attendance</th>
               </tr>
             </thead>
             <tbody id="allCouponsBody"></tbody>
@@ -393,7 +399,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-08-1"></script>
-  <script src="app.js?v=2026-05-12-1"></script>
+  <script src="app.js?v=2026-05-13-2"></script>
 </body>
 
 </html>

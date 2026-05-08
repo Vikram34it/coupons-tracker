@@ -803,6 +803,34 @@ textarea {
   color: #fff;
 }
 
+.present-btn {
+  min-height: 28px;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--surface-elevated);
+  border: 1px solid var(--line-dark);
+  color: var(--ink-secondary);
+}
+
+.present-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.present-btn.is-present {
+  background: var(--ok-light);
+  color: var(--ok);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.present-btn.is-present:hover {
+  background: var(--ok);
+  color: #fff;
+}
+
 /* ================= TABLE ================= */
 .table-wrap {
   border: 1px solid var(--line);
