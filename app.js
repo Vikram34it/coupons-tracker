@@ -584,10 +584,14 @@ function assignCoupons(event) {
     return;
   }
 
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+  const assignedCoupons = [];
+
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
       coupon.assignedAt = assignedAt;
+      assignedCoupons.push(coupon.number);
     }
   });
 
@@ -595,6 +599,36 @@ function assignCoupons(event) {
   els.assignHint.textContent = "";
   saveState();
   render();
+
+  // Send WhatsApp message to devotee
+  if (devotee && devotee.contact) {
+    const sortedNumbers = assignedCoupons.sort((a, b) => a - b);
+    const ranges = summarizeCouponRanges(sortedNumbers);
+
+    const message = `Hare Krishna 🙏
+
+Dear ${devotee.name},
+
+You have been assigned new coupons for Seva:
+
+🎟 Coupons Assigned: ${assignedCoupons.length}
+📋 Coupon Numbers: ${ranges.join(", ")}
+
+Please login and start entering buyer details:
+https://vikram34it.github.io/coupons-tracker/
+
+Thank you for your service 🙏`;
+
+    const phone = devotee.contact.replace(/\D/g, "");
+    if (phone.length === 10) {
+      const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+      const sendWA = window.confirm(`Coupons assigned! Send WhatsApp notification to ${devotee.name}?`);
+      if (sendWA) {
+        window.open(url, "_blank");
+      }
+    }
+  }
+
   showToast(`Assigned coupons ${from} to ${to}`);
 }
 
@@ -1040,7 +1074,10 @@ function renderDevotees() {
 
         const summary = devoteeSummary(devotee.id, period);
 
-        const assigned = couponsForDevotee(devotee.id).length;
+        const assignedCoupons = couponsForDevotee(devotee.id);
+        const assignedCount = assignedCoupons.length;
+        const couponNumbers = assignedCoupons.map(c => c.number).sort((a, b) => a - b);
+        const couponRanges = summarizeCouponRanges(couponNumbers);
 
         const message =
           `Hare Krishna 🙏
@@ -1051,7 +1088,8 @@ Here is your seva summary:
 
 🔐 PIN: ${devotee.pin || "Not set"}
 
-🎟 Coupons Assigned: ${assigned}
+🎟 Coupons Assigned: ${assignedCount}
+📋 Coupon Numbers: ${couponRanges.join(", ")}
 🟢 Sold Coupons: ${summary.sold}
 🟡 Pending Coupons: ${summary.left}
 
