@@ -1399,9 +1399,7 @@ function renderEntryList() {
 
     els.entryList.innerHTML = `
     ${noTemplateBanner}
-    ${coupons.map((coupon) => {
-      const locked = session?.role === "devotee" ? "disabled" : "";
-      return `
+    ${coupons.map((coupon) => `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
           <strong>#${coupon.number}</strong>
@@ -1412,15 +1410,15 @@ function renderEntryList() {
         <div class="coupon-fields">
           <label>
             Buyer Name
-            <input data-field="buyerName" autocomplete="name" value="${escapeAttr(coupon.buyerName)}" placeholder="Name" ${locked}>
+            <input data-field="buyerName" autocomplete="name" value="${escapeAttr(coupon.buyerName)}" placeholder="Name">
           </label>
           <label>
             Contact Number
-            <input data-field="buyerContact" type="tel" autocomplete="tel" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone" ${locked}>
+            <input data-field="buyerContact" type="tel" autocomplete="tel" value="${escapeAttr(coupon.buyerContact)}" placeholder="Phone">
           </label>
           <label>
             Amount Received
-            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
+            <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0">
           </label>
           <label>
             Assigned To
@@ -1428,7 +1426,7 @@ function renderEntryList() {
           </label>
           <label class="half">
             Seva Type
-            <select data-field="description" ${locked}>
+            <select data-field="description">
               <option value="">Select Seva</option>
               <option value="Deepa Seva" ${coupon.description === "Deepa Seva" ? "selected" : ""}>Deepa Seva</option>
               <option value="Chenetha Seva" ${coupon.description === "Chenetha Seva" ? "selected" : ""}>Chenetha Seva</option>
@@ -1441,15 +1439,14 @@ function renderEntryList() {
           </label>
           <label class="half">
             Payment Mode
-            <select data-field="paymentMode" ${locked}>
+            <select data-field="paymentMode">
               <option value="cash" ${(!coupon.paymentMode || coupon.paymentMode === "cash") ? "selected" : ""}>Cash</option>
               <option value="temple_transfer" ${coupon.paymentMode === "temple_transfer" ? "selected" : ""}>Temple Transfer</option>
             </select>
           </label>
         </div>
       </article>
-    `;
-    }).join("")}
+    `).join("")}
     `;
 
     // Wire up field changes
