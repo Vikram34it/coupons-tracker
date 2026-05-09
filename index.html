@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-12-1">
+  <link rel="stylesheet" href="styles.css?v=2026-05-08-1">
 </head>
 
 <body>
@@ -47,12 +47,8 @@
       <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
     </div>
     <div class="toolbar">
-      <button id="themeToggle" class="ghost theme-btn" type="button" title="Toggle theme">
-        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      </button>
       <span id="syncBadge" class="user-badge">Local</span>
       <span id="userBadge" class="user-badge"></span>
-      <button id="pdfBtn" class="ghost" type="button" title="Generate PDF Report">PDF</button>
       <button id="csvBtn" class="ghost" type="button" title="Export spreadsheet CSV">CSV</button>
       <button id="exportBtn" class="ghost" type="button" title="Export backup">Export</button>
       <label class="ghost file-label" title="Import backup">
@@ -96,7 +92,6 @@
     </section>
 
     <nav class="tabs app-nav-row" aria-label="Views and admin sections">
-      <button class="subtab" data-admin-tab="analytics">Analytics</button>
       <button class="subtab active" data-admin-tab="dashboard">Dashboard</button>
       <button class="subtab" data-admin-tab="setup">Setup</button>
       <button class="subtab" data-admin-tab="reset">Reset</button>
@@ -105,54 +100,6 @@
     </nav>
 
     <section id="adminView" class="view active">
-      <div data-admin-section="analytics" class="analytics-section">
-        <section class="panel analytics-panel">
-          <div class="analytics-header">
-            <div>
-              <h2>📊 Analytics Overview</h2>
-              <p class="analytics-subtitle">Real-time monitoring of your coupon operations</p>
-            </div>
-            <div class="quick-filters">
-              <button type="button" class="filter-chip active" data-filter="all">All Time</button>
-              <button type="button" class="filter-chip" data-filter="today">Today</button>
-              <button type="button" class="filter-chip" data-filter="week">This Week</button>
-              <button type="button" class="filter-chip" data-filter="month">This Month</button>
-              <button type="button" class="filter-chip" data-filter="year">This Year</button>
-            </div>
-          </div>
-          <div class="stats-grid analytics-grid">
-            <article class="stat-card"><span>💰 Total Revenue</span><strong id="analyticsTotalRevenue">₹0</strong></article>
-            <article class="stat-card"><span>🎟 Sold Coupons</span><strong id="analyticsSoldCoupons">0</strong></article>
-            <article class="stat-card"><span>⏳ Pending Amount</span><strong id="analyticsPendingAmount">₹0</strong></article>
-            <article class="stat-card"><span>🙋 Active Devotees</span><strong id="analyticsActiveDevotees">0</strong></article>
-            <article class="stat-card"><span>📈 Avg Sale/Coupon</span><strong id="analyticsAvgSale">₹0</strong></article>
-            <article class="stat-card"><span>✅ Settlement Rate</span><strong id="analyticsSettlementRate">0%</strong></article>
-            <article class="stat-card"><span>🏛 Temple Transfer</span><strong id="analyticsTempleTransfer">₹0</strong></article>
-            <article class="stat-card"><span>🙏 Hundi Collected</span><strong id="analyticsHundiTotal">₹0</strong></article>
-          </div>
-          <div class="charts-container">
-            <div class="chart-panel">
-              <h3>📊 Seva Distribution</h3>
-              <div id="sevaChart" class="chart-placeholder"></div>
-            </div>
-            <div class="chart-panel">
-              <h3>📈 Sales Trend (7 Days)</h3>
-              <div id="trendChart" class="chart-placeholder"></div>
-            </div>
-          </div>
-          <div class="top-performers">
-            <div class="chart-panel">
-              <h3>🏆 Top Performing Devotees</h3>
-              <div id="topDevotees" class="top-list"></div>
-            </div>
-            <div class="chart-panel">
-              <h3>🔥 Hot Seva Types</h3>
-              <div id="topSevas" class="top-list"></div>
-            </div>
-          </div>
-        </section>
-      </div>
-
       <div data-admin-section="setup" class="setup-grid">
         <form id="devoteeForm" class="panel">
           <h2>Add Devotee</h2>
@@ -393,7 +340,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-08-1"></script>
-  <script src="app.js?v=2026-05-12-1"></script>
+  <script src="app.js?v=2026-05-08-1"></script>
 </body>
 
 </html>
