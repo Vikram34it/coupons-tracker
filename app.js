@@ -57,8 +57,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
       invitationMessage: "",
-      viewerPassword: "",
-      attendancePassword: ""
+      viewerPassword: ""
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -83,8 +82,7 @@ function loadState() {
         adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
         totalCoupons,
         invitationMessage: parsed.settings?.invitationMessage || "",
-        viewerPassword: parsed.settings?.viewerPassword || "",
-        attendancePassword: parsed.settings?.attendancePassword || ""
+        viewerPassword: parsed.settings?.viewerPassword || ""
       },
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons,
@@ -175,20 +173,15 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "pdfBtn", "importFile", "themeToggle", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney",     "templeTransferMoney",
-    "totalPresent", "totalAbsent",
-
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "pdfBtn", "importFile", "themeToggle", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "allAttendance", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
-    "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale",     "analyticsSettlementRate", "analyticsTempleTransfer", "analyticsHundiTotal", "sevaChart", "trendChart", "topDevotees", "topSevas",
-    "bulkSelectAll", "selectAllVisibleBtn", "bulkSettleBtn",
-    "attendancePasswordForm", "attendancePasswordInput",
-    "attendanceSearch", "attendanceDevoteeFilter", "attendanceStatus", "attendanceBody", "markAllPresentBtn", "markAllAbsentBtn", "attendanceSummary"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
+    "analyticsTotalRevenue", "analyticsSoldCoupons", "analyticsPendingAmount", "analyticsActiveDevotees", "analyticsAvgSale", "analyticsSettlementRate", "analyticsTempleTransfer", "analyticsHundiTotal", "sevaChart", "trendChart", "topDevotees", "topSevas"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -272,38 +265,11 @@ function renderDashboardDevoteeFilter() {
   }
 }
 
-function renderAttendanceDevoteeFilter() {
-  if (!els.attendanceDevoteeFilter) return;
-
-  const currentValue = els.attendanceDevoteeFilter.value;
-
-  const sorted = [...state.devotees].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
-
-  const options = [
-    `<option value="all">All Devotees</option>`,
-    ...sorted.map(d => `<option value="${d.id}">${escapeHtml(d.name)}</option>`)
-  ];
-
-  els.attendanceDevoteeFilter.innerHTML = options.join("");
-
-  if (currentValue) {
-    els.attendanceDevoteeFilter.value = currentValue;
-    if (els.attendanceDevoteeFilter.value !== currentValue) {
-      els.attendanceDevoteeFilter.value = "all";
-    }
-  }
-}
-
 function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       activateView(tab.dataset.view);
       document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-      if (tab.dataset.view === "attendanceView") {
-        renderAttendance();
-      }
       render();
     });
   });
@@ -326,12 +292,6 @@ function bindEvents() {
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
-  els.attendancePasswordForm.addEventListener("submit", updateAttendancePassword);
-  els.attendanceSearch.addEventListener("input", renderAttendance);
-  els.attendanceDevoteeFilter.addEventListener("change", renderAttendance);
-  els.attendanceStatus.addEventListener("change", renderAttendance);
-  els.markAllPresentBtn?.addEventListener("click", markAllPresent);
-  els.markAllAbsentBtn?.addEventListener("click", markAllAbsent);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -344,23 +304,11 @@ function bindEvents() {
   els.entryStatus.addEventListener("change", renderEntryList);
   els.allSearch.addEventListener("input", renderAllCoupons);
   els.allStatus.addEventListener("change", renderAllCoupons);
-  els.allAttendance?.addEventListener("change", renderAllCoupons);
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
   els.themeToggle?.addEventListener("click", toggleTheme);
   els.pdfBtn?.addEventListener("click", generatePdfReport);
-  els.bulkSelectAll?.addEventListener("change", () => {
-    els.allCouponsBody.querySelectorAll(".bulk-coupon-check:not(:disabled)").forEach(cb => {
-      cb.checked = els.bulkSelectAll.checked;
-    });
-  });
-  els.selectAllVisibleBtn?.addEventListener("click", () => {
-    els.allCouponsBody.querySelectorAll(".bulk-coupon-check:not(:disabled)").forEach(cb => {
-      cb.checked = true;
-    });
-  });
-  els.bulkSettleBtn?.addEventListener("click", bulkSettleSelected);
 
   document.querySelectorAll(".filter-chip").forEach(chip => {
     chip.addEventListener("click", () => {
@@ -425,16 +373,6 @@ function login(event) {
       return;
     }
     saveSession({ role: "viewer", devoteeId: "" });
-  } else if (role === "attendance") {
-    if (!state.settings.attendancePassword) {
-      showToast("Attendance password has not been set by admin yet");
-      return;
-    }
-    if (password !== state.settings.attendancePassword) {
-      showToast("Attendance password is incorrect");
-      return;
-    }
-    saveSession({ role: "attendance", devoteeId: "" });
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
@@ -510,19 +448,6 @@ function updateViewerPassword(event) {
   showToast("Viewer password set ✓");
 }
 
-function updateAttendancePassword(event) {
-  event.preventDefault();
-  const password = els.attendancePasswordInput.value.trim();
-  if (password.length < 4) {
-    showToast("Use at least 4 characters for attendance password");
-    return;
-  }
-  state.settings.attendancePassword = password;
-  els.attendancePasswordForm.reset();
-  saveState();
-  showToast("Attendance password set ✓");
-}
-
 function updateTotalCoupons(event) {
   event.preventDefault();
   const totalCoupons = positiveInteger(els.totalCouponInput.value);
@@ -595,9 +520,140 @@ function resetAllCoupons() {
   if (typed !== "RESET") {
     showToast("Reset all cancelled");
     return;
+  }
+
+  state.coupons = makeCoupons(couponTotal());
+  saveState();
+  render();
+  showToast("All coupons reset");
 }
 
+function resetCouponNumbers(numbers, message) {
+  if (!window.confirm(message)) return;
+  numbers.forEach((number) => {
+    state.coupons[number - 1] = emptyCoupon(number);
+  });
   saveState();
+  render();
+  showToast(`${numbers.length} coupon(s) reset`);
+}
+
+function selectedResetCouponNumbers() {
+  return Array.from(els.resetCouponList.querySelectorAll("[data-reset-coupon]:checked"))
+    .map((item) => Number(item.dataset.resetCoupon))
+    .filter(Boolean);
+}
+
+function selectAllResetCoupons() {
+  els.resetCouponList.querySelectorAll("[data-reset-coupon]").forEach((checkbox) => {
+    checkbox.checked = true;
+  });
+}
+
+function clearResetSelection() {
+  els.resetCouponList.querySelectorAll("[data-reset-coupon]").forEach((checkbox) => {
+    checkbox.checked = false;
+  });
+}
+
+function assignCoupons(event) {
+  event.preventDefault();
+  const devoteeId = els.assignDevotee.value;
+  const from = Number(els.assignFrom.value);
+  const to = Number(els.assignTo.value);
+  const assignedAt = els.assignDate.value || todayKey();
+
+  if (!devoteeId) {
+    showToast("Please add and select a devotee first");
+    return;
+  }
+
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
+    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  if (!assignedAt) {
+    showToast("Select an assign date");
+    return;
+  }
+
+  const blocked = state.coupons.filter((coupon) => {
+    return coupon.number >= from && coupon.number <= to && coupon.devoteeId && coupon.devoteeId !== devoteeId;
+  });
+
+  if (blocked.length) {
+    const sample = blocked.slice(0, 8).map((coupon) => coupon.number).join(", ");
+    els.assignHint.textContent = `Already assigned to another devotee: ${sample}${blocked.length > 8 ? "..." : ""}`;
+    return;
+  }
+
+  state.coupons.forEach((coupon) => {
+    if (coupon.number >= from && coupon.number <= to) {
+      coupon.devoteeId = devoteeId;
+      coupon.assignedAt = assignedAt;
+    }
+  });
+
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+
+  if (devotee && devotee.contact) {
+    const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId && c.number >= from && c.number <= to);
+    const couponNumbers = assignedCoupons.map(c => c.number).sort((a, b) => a - b);
+
+    let couponRanges = [];
+    let start = couponNumbers[0];
+    let prev = couponNumbers[0];
+    for (let i = 1; i < couponNumbers.length; i++) {
+      if (couponNumbers[i] === prev + 1) {
+        prev = couponNumbers[i];
+      } else {
+        couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+        start = couponNumbers[i];
+        prev = couponNumbers[i];
+      }
+    }
+    couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    const couponList = couponRanges.join(", ");
+
+    const message = `Hare Krishna 🙏
+
+Dear ${devotee.name},
+
+Thank you for your devotional service! 🙏
+
+You have been assigned the following coupon(s):
+
+📋 Coupon Numbers: ${couponList}
+🎟 Total Coupons: ${assignedCoupons.length}
+📅 Assigned Date: ${assignedAt}
+
+🔐 Your PIN: ${devotee.pin || "Not set"}
+
+Please start selling the coupons and update the details using the link below:
+https://vikram34it.github.io/coupons-tracker/
+
+Jai Shri Krishna! 🙏`;
+
+    const phone = devotee.contact.replace(/\D/g, "");
+    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, "_blank");
+  }
+
+  els.assignForm.reset();
+  els.assignHint.textContent = "";
+  saveState();
+  render();
+  showToast(`Assigned coupons ${from} to ${to}`);
+}
+
+function render() {
+  validateSession();
+  renderSelectors();
+  renderAllDevoteeFilter();
+  renderDashboardDevoteeFilter();
+  updateDevoteePendingDisplay();
+  applyRoleAccess();
   renderStats();
   renderDevotees();
   renderSevaSummary();
@@ -679,7 +735,6 @@ function renderSelectors() {
 
   renderLoginRole();
   renderResetCouponList();
-  renderAttendanceDevoteeFilter();
 }
 
 function validateSession() {
@@ -700,7 +755,6 @@ function validateSession() {
 function applyRoleAccess() {
   const isAdmin = session?.role === "admin";
   const isViewer = session?.role === "viewer";
-  const isAttendance = session?.role === "attendance";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
     ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
@@ -711,11 +765,9 @@ function applyRoleAccess() {
     ? "👑 Admin"
     : isViewer
       ? "📊 Monitor"
-      : isAttendance
-        ? "📋 Attendance"
-        : activeDevotee
-          ? `Devotee: ${activeDevotee.name}`
-          : "";
+      : activeDevotee
+        ? `Devotee: ${activeDevotee.name}`
+        : "";
 
   // Export / import — admin only
   els.csvBtn.classList.toggle("hidden", !isAdmin);
@@ -728,18 +780,15 @@ function applyRoleAccess() {
   if (isDevotee) els.entryStatus.value = "all";
 
   // All Coupons tab — visible to admin & viewer
-  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin && !isViewer && !isAttendance);
+  document.querySelector('[data-view="allCouponsView"]').classList.toggle("hidden", !isAdmin && !isViewer);
 
-  // Devotee Entry tab — hidden for viewer & attendance
-  document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer || isAttendance);
+  // Devotee Entry tab — hidden for viewer
+  document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
-  // Attendance tab — visible to admin & attendance role
-  document.querySelector('[data-view="attendanceView"]').classList.toggle("hidden", !isAdmin && !isAttendance);
-
-  // Admin sub-tabs: viewer & attendance see Analytics + Dashboard only
+  // Admin sub-tabs: viewer sees Analytics + Dashboard (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     const tabName = tab.dataset.adminTab;
-    if (isViewer || isAttendance) {
+    if (isViewer) {
       if (tabName === "setup" || tabName === "reset") {
         tab.classList.add("hidden");
       } else {
@@ -752,12 +801,8 @@ function applyRoleAccess() {
     }
   });
 
-  // Hide PDF button for viewer & attendance
+  // Hide PDF button for viewer
   els.pdfBtn?.classList.toggle("hidden", !isAdmin);
-
-  // Hide Mark All buttons for viewer
-  els.markAllPresentBtn?.classList.toggle("hidden", isViewer);
-  els.markAllAbsentBtn?.classList.toggle("hidden", isViewer);
 
   // Viewer: land on Analytics dashboard
   if (isViewer) {
@@ -769,18 +814,6 @@ function applyRoleAccess() {
       activeAdminTab = "analytics";
       updateAdminView();
     }
-  }
-
-  // Attendance: land on Attendance view
-  if (isAttendance) {
-    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-    document.getElementById("topbar")?.classList.remove("hidden");
-    document.querySelector('[data-view="attendanceView"]').classList.add("active");
-    document.getElementById("attendanceView")?.classList.add("active");
-    renderSelectors();
-    renderAttendanceDevoteeFilter();
-    renderAttendance();
   }
 
   // Devotee: land on devotee entry view
@@ -809,11 +842,8 @@ function renderStats() {
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
   const templeTransfer = state.coupons
-    .filter(c => c.paymentMode === "temple_transfer" && isSold(c))
+    .filter(c => c.paymentMode === "temple_transfer")
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  const totalPresent = state.coupons.filter(c => isSold(c) && c.present === true).length;
-  const totalAbsent = state.coupons.filter(c => isSold(c) && c.present === false).length;
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
@@ -822,8 +852,6 @@ function renderStats() {
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
   if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(unsettledMoney);
   if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(templeTransfer);
-  if (els.totalPresent) els.totalPresent.textContent = totalPresent.toLocaleString("en-IN");
-  if (els.totalAbsent) els.totalAbsent.textContent = totalAbsent.toLocaleString("en-IN");
 }
 
 function renderDevotees() {
@@ -1346,8 +1374,7 @@ function renderEntryList() {
   const status = els.entryStatus.value;
   let coupons = couponsForDevotee(devoteeId);
 
-  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !isSold(coupon));
-  if (activeDevoteeTab === "sold") coupons = coupons.filter((coupon) => isSold(coupon) && !coupon.settled);
+  if (activeDevoteeTab === "pending") coupons = coupons.filter((coupon) => !coupon.settled);
   if (activeDevoteeTab === "settled") coupons = coupons.filter((coupon) => coupon.settled);
   if (activeDevoteeTab === "settled") {
     const hasTemplate = Boolean(state.settings.invitationMessage);
@@ -1368,6 +1395,7 @@ function renderEntryList() {
             <th>Contact</th>
             <th>Amount</th>
             <th>Seva</th>
+            <th>Receipt</th>
             <th>Payment Mode</th>
             <th>Send Invite</th>
           </tr>
@@ -1380,15 +1408,16 @@ function renderEntryList() {
               <td>${escapeHtml(coupon.buyerContact || "-")}</td>
               <td>${formatMoney(coupon.amount)}</td>
               <td>${escapeHtml(coupon.description || "-")}</td>
+              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
               <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
               <td>
                 ${coupon.buyerContact
-                  ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                       Send
                     </button>`
-                  : `<span class="small-stat">No contact</span>`
-                }
+        : `<span class="small-stat">No contact</span>`
+      }
               </td>
             </tr>
           `).join("")}
@@ -1416,9 +1445,7 @@ function renderEntryList() {
   if (!coupons.length) {
     els.entryList.innerHTML = activeDevoteeTab === "settled"
       ? `<div class="empty">No settled coupons found.</div>`
-      : activeDevoteeTab === "sold"
-        ? `<div class="empty">No sold coupons found.</div>`
-        : `<div class="empty">No pending coupons found.</div>`;
+      : `<div class="empty">No pending coupons found.</div>`;
     return;
   }
 
@@ -1491,7 +1518,6 @@ function renderEntryList() {
 function renderAllCoupons() {
   const query = els.allSearch.value.trim().toLowerCase();
   const status = els.allStatus.value;
-  const attendance = els.allAttendance?.value || "all";
   let coupons = state.coupons;
 
   if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
@@ -1501,28 +1527,23 @@ function renderAllCoupons() {
   if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
   if (status === "sold_unsettled") {
     coupons = coupons.filter(c =>
-      c.devoteeId &&
-      isSold(c) &&
-      !c.settled &&
-      amountValue(c.amount) > 0
+      c.devoteeId &&              // must be assigned
+      isSold(c) &&               // must be sold
+      !c.settled &&              // must NOT be settled
+      amountValue(c.amount) > 0  // must have real amount
     );
   }
-
-  if (attendance === "present") coupons = coupons.filter(c => c.present);
-  if (attendance === "absent") coupons = coupons.filter(c => !c.present);
-
   const devoteeFilter = els.allDevoteeFilter?.value;
+
   if (devoteeFilter && devoteeFilter !== "all") {
     coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
-  const canMarkAttendance = session?.role === "admin" || session?.role === "viewer";
-
   els.allCouponsBody.innerHTML = coupons.map((coupon) => {
+    const isViewer = session?.role === "viewer";
     return `
     <tr>
-      <td><input type="checkbox" class="bulk-coupon-check" data-coupon-num="${coupon.number}" ${coupon.settled ? "disabled" : ""}></td>
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
       <td>${escapeHtml(coupon.assignedAt || "-")}</td>
@@ -1532,24 +1553,23 @@ function renderAllCoupons() {
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
-        <span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? "\u2713 Settled" : "Pending"}</span>
+        ${isViewer
+        ? `<span class="status ${coupon.settled ? 'settled' : 'pending'}">${coupon.settled ? "\u2713 Settled" : "Pending"}</span>`
+        : `<button class="ghost settlement-btn${coupon.settled ? ' is-settled' : ''}" type="button" data-settlement="${coupon.number}">
+              ${coupon.settled ? "\u2713 Settled" : "Mark Settled"}
+            </button>`
+      }
       </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
       <td>
-        ${(coupon.settled && coupon.buyerContact)
-        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">Send</button>`
+        ${(!isViewer && coupon.settled && coupon.buyerContact)
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+              Send
+            </button>`
         : `<span class="small-stat">\u2013</span>`
-        }
-      </td>
-      <td>
-        ${canMarkAttendance
-        ? `<span class="att-toggle">
-             <button class="att-p ${coupon.present === true ? 'active' : ''}" type="button" data-att-present="${coupon.number}" data-val="true" title="Present">P</button>
-             <button class="att-a ${coupon.present === false ? 'active' : ''}" type="button" data-att-present="${coupon.number}" data-val="false" title="Absent">A</button>
-           </span>`
-        : `<span class="status ${coupon.present === true ? 'settled' : coupon.present === false ? 'att-absent-badge' : 'pending'}">${coupon.present === true ? 'P' : coupon.present === false ? 'A' : '-'}</span>`
-        }
+      }
       </td>
     </tr>
   `;
@@ -1566,132 +1586,6 @@ function renderAllCoupons() {
       openWhatsAppForBuyer(coupon);
     });
   });
-
-  // Wire up Present/Absent buttons in All Coupons
-  els.allCouponsBody.querySelectorAll("[data-att-present]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const num = Number(btn.dataset.attPresent);
-      const coupon = state.coupons[num - 1];
-      if (!coupon) return;
-      const newVal = btn.dataset.val === "true";
-      coupon.present = newVal;
-      coupon.presentAt = newVal ? todayKey() : "";
-      saveState();
-      renderStats();
-      renderAllCoupons();
-      showToast(`Coupon #${num} marked ${newVal ? "Present" : "Absent"}`);
-    });
-  });
-}
-
-function bulkSettleSelected() {
-  if (session?.role !== "admin") {
-    showToast("Only admin can settle coupons");
-    return;
-  }
-
-  const checkboxes = els.allCouponsBody?.querySelectorAll(".bulk-coupon-check:checked") || [];
-  if (!checkboxes.length) {
-    showToast("Select coupons to settle");
-    return;
-  }
-
-  const toSettle = [];
-  checkboxes.forEach(cb => {
-    const num = Number(cb.dataset.couponNum);
-    const coupon = state.coupons[num - 1];
-    if (coupon && !coupon.settled) toSettle.push(coupon);
-  });
-
-  if (!toSettle.length) {
-    showToast("All selected coupons are already settled");
-    return;
-  }
-
-  const confirmed = window.confirm(`Mark ${toSettle.length} coupon(s) as settled?`);
-  if (!confirmed) return;
-
-  toSettle.forEach(c => {
-    c.settled = true;
-    c.settledAt = c.settledAt || todayKey();
-  });
-
-  const tableWrap = els.allCouponsBody?.closest(".table-wrap");
-  const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
-  const savedDevotee = els.allDevoteeFilter?.value || "all";
-  const savedStatus = els.allStatus?.value || "all";
-
-  saveState();
-  renderStats();
-  renderDevotees();
-  renderSevaSummary();
-  updateDevoteePendingDisplay();
-
-  if (els.allDevoteeFilter) els.allDevoteeFilter.value = savedDevotee;
-  if (els.allStatus) els.allStatus.value = savedStatus;
-  renderAllCoupons();
-
-  if (tableWrap) tableWrap.scrollTop = scrollTop;
-
-  showToast(`${toSettle.length} coupon(s) settled`);
-}
-
-function markAllPresent() {
-  if (session?.role !== "admin" && session?.role !== "attendance") {
-    showToast("Only admin or attendance can mark attendance");
-    return;
-  }
-  bulkMarkAttendance(true);
-}
-
-function markAllAbsent() {
-  if (session?.role !== "admin" && session?.role !== "attendance") {
-    showToast("Only admin or attendance can mark attendance");
-    return;
-  }
-  bulkMarkAttendance(false);
-}
-
-function bulkMarkAttendance(markPresent) {
-  const search = (els.attendanceSearch?.value || "").toLowerCase().trim();
-  const devoteeFilter = els.attendanceDevoteeFilter?.value || "all";
-  const statusFilter = els.attendanceStatus?.value || "all";
-
-  let coupons = state.coupons.filter(c => isSold(c));
-
-  if (devoteeFilter !== "all") {
-    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
-  }
-
-  if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
-  else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
-  else if (statusFilter === "unmarked") coupons = coupons.filter(c => c.present === undefined || c.present === null);
-
-  if (search) {
-    coupons = coupons.filter(c => {
-      const devotee = state.devotees.find(d => d.id === c.devoteeId);
-      return `${c.number} ${c.buyerName || ""} ${c.buyerContact || ""} ${c.description || ""} ${devotee?.name || ""}`.toLowerCase().includes(search);
-    });
-  }
-
-  if (!coupons.length) {
-    showToast("No coupons found to mark");
-    return;
-  }
-
-  const confirmed = window.confirm(`Mark ${coupons.length} coupon(s) as ${markPresent ? "Present" : "Absent"}?`);
-  if (!confirmed) return;
-
-  coupons.forEach(c => {
-    c.present = markPresent;
-    c.presentAt = markPresent ? todayKey() : "";
-  });
-
-  saveState();
-  renderStats();
-  renderAttendance();
-  renderAllCoupons();
-  showToast(`${coupons.length} coupon(s) marked ${markPresent ? "Present" : "Absent"}`);
 }
 
 function toggleSettlement(event) {
@@ -1795,9 +1689,7 @@ function emptyCoupon(number) {
     receiptNumber: "",
     paymentMode: "cash",
     settled: false,
-    settledAt: "",
-    present: false,
-    presentAt: ""
+    settledAt: ""
   };
 }
 
@@ -1817,9 +1709,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       receiptNumber: savedCoupon.receiptNumber || "",
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
-      settledAt: savedCoupon.settledAt || "",
-      present: Boolean(savedCoupon.present),
-      presentAt: savedCoupon.presentAt || ""
+      settledAt: savedCoupon.settledAt || ""
     };
   });
 }
@@ -1912,7 +1802,7 @@ function devoteeName(devoteeId) {
 }
 
 function isSold(coupon) {
-  return Boolean(coupon.buyerName || coupon.buyerContact || amountValue(coupon.amount) > 0);
+  return Boolean(coupon.buyerName || coupon.buyerContact || amountValue(coupon.amount) > 0 || coupon.description);
 }
 
 function amountValue(value) {
@@ -2048,10 +1938,7 @@ function importBackup(event) {
 
       state.settings = {
         adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
-        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS,
-        invitationMessage: imported.settings?.invitationMessage || state.settings.invitationMessage || "",
-        viewerPassword: imported.settings?.viewerPassword || state.settings.viewerPassword || "",
-        attendancePassword: imported.settings?.attendancePassword || state.settings.attendancePassword || ""
+        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
       };
       state.devotees = imported.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
@@ -2533,178 +2420,25 @@ function renderTopSevas() {
   `).join("");
 }
 
-// ================= ATTENDANCE VIEW =================
-
-function renderAttendance() {
-  const tbody = document.getElementById("attendanceBody");
-  const summaryEl = document.getElementById("attendanceSummary");
-  if (!tbody) return;
-
-  const search = (els.attendanceSearch?.value || "").toLowerCase().trim();
-  const devoteeFilter = els.attendanceDevoteeFilter?.value || "all";
-  const statusFilter = els.attendanceStatus?.value || "all";
-  const canMark = session?.role === "admin" || session?.role === "attendance";
-
-  let coupons = state.coupons.filter(c => isSold(c));
-
-  if (devoteeFilter !== "all") {
-    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
-  }
-
-  if (statusFilter === "present") coupons = coupons.filter(c => c.present === true);
-  else if (statusFilter === "absent") coupons = coupons.filter(c => c.present === false);
-  else if (statusFilter === "unmarked") coupons = coupons.filter(c => c.present === undefined || c.present === null);
-
-  if (search) {
-    coupons = coupons.filter(c => {
-      const devotee = state.devotees.find(d => d.id === c.devoteeId);
-      return `${c.number} ${c.buyerName || ""} ${c.buyerContact || ""} ${c.description || ""} ${devotee?.name || ""}`.toLowerCase().includes(search);
-    });
-  }
-
-  const totalSold = state.coupons.filter(isSold).length;
-  const totalPresent = state.coupons.filter(c => isSold(c) && c.present === true).length;
-  const totalAbsent = state.coupons.filter(c => isSold(c) && c.present === false).length;
-  const totalUnmarked = totalSold - totalPresent - totalAbsent;
-
-  if (summaryEl) {
-    summaryEl.textContent = `Total Sold: ${totalSold} | Present: ${totalPresent} | Absent: ${totalAbsent} | Unmarked: ${totalUnmarked}`;
-  }
-
-  coupons.sort((a, b) => {
-    const dateComp = (b.settledAt || b.assignedAt || "").localeCompare(a.settledAt || a.assignedAt || "");
-    if (dateComp !== 0) return dateComp;
-    return a.number - b.number;
-  });
-
-  if (!coupons.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--muted)">No sold coupons found.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = coupons.map(coupon => {
-    const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
-    const devoteeName = devotee ? devotee.name : "-";
-    const date = coupon.settledAt || coupon.assignedAt || "-";
-    const pClass = coupon.present === true ? "att-p-active" : coupon.present === false ? "att-a-active" : "att-none";
-    const attLabel = coupon.present === true ? "P" : coupon.present === false ? "A" : "-";
-
-    return `
-      <tr class="att-row-${pClass}">
-        <td><strong>#${coupon.number}</strong></td>
-        <td>${escapeHtml(coupon.buyerName || "-")}</td>
-        <td>${escapeHtml(coupon.buyerContact || "-")}</td>
-        <td>${escapeHtml(coupon.description || "-")}</td>
-        <td>${coupon.amount ? formatMoney(amountValue(coupon.amount)) : "-"}</td>
-        <td>
-          ${canMark
-            ? `<span class="att-toggle" data-att-num="${coupon.number}">
-                 <button class="att-p ${coupon.present === true ? "active" : ""}" type="button" data-att="true" title="Present">P</button>
-                 <button class="att-a ${coupon.present === false ? "active" : ""}" type="button" data-att="false" title="Absent">A</button>
-               </span>`
-            : `<span class="att-label att-label-${pClass}">${attLabel}</span>`
-          }
-        </td>
-        <td>${escapeHtml(devoteeName)}</td>
-        <td>${escapeHtml(date)}</td>
-      </tr>
-    `;
-  }).join("");
-
-  tbody.querySelectorAll("[data-att]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const wrap = btn.closest(".att-toggle");
-      const num = Number(wrap?.dataset.attNum);
-      const coupon = state.coupons[num - 1];
-      if (!coupon) return;
-
-      const newVal = btn.dataset.att === "true";
-      coupon.present = newVal;
-      coupon.presentAt = newVal ? todayKey() : "";
-
-      saveState();
-      renderStats();
-      renderAttendance();
-      renderAllCoupons();
-      showToast(`Coupon #${num} marked ${newVal ? "Present" : "Absent"}`);
-    });
-  });
-}
-
-// ================= FIREBASE SYNC =================
+// ================= FIREBASE SYNC (ADD ONLY THIS) =================
 
 let firebaseReady = false;
 let dbRef = null;
-let firebaseVersion = 0;
-let isSyncingFromFirebase = false;
 
 function updateSyncBadge(text) {
   const badge = els.syncBadge || document.getElementById("syncBadge");
   if (badge) badge.textContent = text;
 }
 
-function mergeFirebaseData(data) {
-  if (!data) return;
+function applyFirebaseData(data) {
+  if (data.settings) state.settings = data.settings;
+  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
+  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
-  if (data.settings) {
-    state.settings = { ...state.settings, ...data.settings };
-  }
-  if (Array.isArray(data.devotees)) {
-    const incomingIds = new Set(data.devotees.map(d => d.id));
-    const localIds = new Set(state.devotees.map(d => d.id));
-
-    const mergedDevotees = [...state.devotees];
-    data.devotees.forEach(incoming => {
-      if (localIds.has(incoming.id)) {
-        const idx = mergedDevotees.findIndex(d => d.id === incoming.id);
-        if (idx >= 0) {
-          mergedDevotees[idx] = { ...mergedDevotees[idx], ...incoming };
-        }
-      } else {
-        mergedDevotees.push(normalizeDevotee(incoming));
-      }
-    });
-    state.devotees = mergedDevotees;
-  }
-  if (Array.isArray(data.coupons)) {
-    const totalCoupons = couponTotal();
-    const mergedCoupons = [...state.coupons];
-    data.coupons.forEach((incoming, idx) => {
-      if (idx < totalCoupons) {
-        const local = mergedCoupons[idx];
-        const hasLocalData = hasCouponData(local);
-        const hasIncomingData = hasCouponData(incoming);
-
-        if (hasIncomingData) {
-          if (hasLocalData) {
-            const incomingSettledAt = incoming.settledAt || "";
-            const localSettledAt = local.settledAt || "";
-            if (incomingSettledAt >= localSettledAt) {
-              mergedCoupons[idx] = { ...local, ...incoming };
-            }
-          } else {
-            mergedCoupons[idx] = { ...local, ...incoming };
-          }
-        }
-      }
-    });
-    state.coupons = mergedCoupons;
-  }
-  if (Array.isArray(data.hundi)) {
-    const mergedHundi = [...state.hundi];
-    data.hundi.forEach(incoming => {
-      const idx = mergedHundi.findIndex(h => h.id === incoming.id);
-      if (idx >= 0) {
-        mergedHundi[idx] = { ...mergedHundi[idx], ...incoming };
-      } else {
-        mergedHundi.push({ settled: false, ...incoming });
-      }
-    });
-    state.hundi = mergedHundi;
-  }
-
+  // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  renderSelectors();
+  renderSelectors();   // 🔥 force sorted dropdown refresh
   render();
 }
 
@@ -2712,7 +2446,7 @@ function applyPendingFirebaseData() {
   if (!pendingFirebaseData) return;
   const data = pendingFirebaseData;
   pendingFirebaseData = null;
-  mergeFirebaseData(data);
+  applyFirebaseData(data);
 }
 
 function updateAdminView() {
@@ -2732,83 +2466,9 @@ function updateAdminView() {
   }
 }
 
-function syncToFirebase() {
-  if (!firebaseReady || !dbRef || isSyncingFromFirebase) return;
-
-  firebaseVersion++;
-  const version = firebaseVersion;
-
-  dbRef.transaction((current) => {
-    if (current === null) return state;
-
-    const merged = JSON.parse(JSON.stringify(current));
-
-    merged.settings = { ...current.settings, ...state.settings };
-
-    if (Array.isArray(merged.devotees)) {
-      const incomingIds = new Set(merged.devotees.map(d => d.id));
-      state.devotees.forEach(local => {
-        if (incomingIds.has(local.id)) {
-          const idx = merged.devotees.findIndex(d => d.id === local.id);
-          if (idx >= 0) {
-            merged.devotees[idx] = { ...merged.devotees[idx], ...local };
-          }
-        } else {
-          merged.devotees.push(local);
-        }
-      });
-    } else {
-      merged.devotees = state.devotees;
-    }
-
-    if (Array.isArray(merged.coupons)) {
-      state.coupons.forEach((local, idx) => {
-        if (idx < merged.coupons.length) {
-          const remote = merged.coupons[idx];
-          const hasLocalData = hasCouponData(local);
-          const hasRemoteData = hasCouponData(remote);
-
-          if (hasLocalData && !hasRemoteData) {
-            merged.coupons[idx] = local;
-          } else if (hasLocalData && hasRemoteData) {
-            const remoteSettledAt = remote.settledAt || "";
-            const localSettledAt = local.settledAt || "";
-            merged.coupons[idx] = localSettledAt >= remoteSettledAt ? local : remote;
-          }
-        } else {
-          merged.coupons.push(local);
-        }
-      });
-    } else {
-      merged.coupons = state.coupons;
-    }
-
-    if (Array.isArray(merged.hundi)) {
-      state.hundi.forEach(local => {
-        const idx = merged.hundi.findIndex(h => h.id === local.id);
-        if (idx >= 0) {
-          merged.hundi[idx] = { ...merged.hundi[idx], ...local };
-        } else {
-          merged.hundi.push(local);
-        }
-      });
-    } else {
-      merged.hundi = state.hundi;
-    }
-
-    return merged;
-  }).then((result) => {
-    if (!result.committed) {
-      firebaseVersion = version;
-    }
-  }).catch((err) => {
-    console.error("Firebase sync error:", err);
-    firebaseVersion = version;
-  });
-}
-
 function initFirebaseSync() {
   try {
+    // Check Firebase availability
     if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
       updateSyncBadge("Local");
       return;
@@ -2816,10 +2476,12 @@ function initFirebaseSync() {
 
     updateSyncBadge("Connecting...");
 
+    // Initialize Firebase (only once)
     if (!firebase.apps.length) {
       firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
     }
 
+    // Anonymous login
     firebase.auth().signInAnonymously()
       .then(() => {
         firebaseReady = true;
@@ -2828,23 +2490,29 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
+        // 🔥 Listen to realtime updates
         dbRef.on("value", (snapshot) => {
-          if (!snapshot.exists()) {
-            dbRef.set(state);
-            return;
-          }
+          if (!snapshot.exists()) return;
 
+          // 🚫 Don't re-render while typing
           if (isEditing) {
             pendingFirebaseData = snapshot.val();
             return;
           }
 
-          isSyncingFromFirebase = true;
-          mergeFirebaseData(snapshot.val());
-          isSyncingFromFirebase = false;
+          const data = snapshot.val();
+
+          applyFirebaseData(data);
         });
 
         updateSyncBadge("Realtime");
+
+        // First-time push if DB empty
+        dbRef.once("value").then((snap) => {
+          if (!snap.exists()) {
+            dbRef.set(state);
+          }
+        });
       })
       .catch((err) => {
         console.error("Firebase Auth Error:", err);
@@ -2857,17 +2525,13 @@ function initFirebaseSync() {
   }
 }
 
-const _origSaveState = saveState;
-let _isSaving = false;
-function saveState() {
-  if (_isSaving) return;
-  _isSaving = true;
-  try {
-    _origSaveState();
-    if (firebaseReady && !isSyncingFromFirebase) {
-      syncToFirebase();
-    }
-  } finally {
-    _isSaving = false;
+// 🔥 Override saveState for Firebase sync
+const _localSaveState = saveState;
+
+saveState = function () {
+  _localSaveState();
+
+  if (firebaseReady && dbRef) {
+    dbRef.set(state);
   }
-}
+};

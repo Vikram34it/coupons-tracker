@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <script>document.write('<link rel="stylesheet" href="styles.css?v=' + new Date().toISOString().slice(0,10).replace(/-/g,"") + '">');</script>
+  <link rel="stylesheet" href="styles.css?v=2026-05-12-1">
 </head>
 
 <body>
@@ -25,7 +25,6 @@
         <select id="loginRole">
           <option value="admin">Admin</option>
           <option value="viewer">Viewer</option>
-          <option value="attendance">Attendance</option>
           <option value="devotee" selected>Devotee</option>
         </select>
       </label>
@@ -94,14 +93,6 @@
         <span>Temple Transfer</span>
         <strong id="templeTransferMoney">₹0</strong>
       </article>
-      <article>
-        <span>Present</span>
-        <strong id="totalPresent">0</strong>
-      </article>
-      <article>
-        <span>Absent</span>
-        <strong id="totalAbsent">0</strong>
-      </article>
     </section>
 
     <nav class="tabs app-nav-row" aria-label="Views and admin sections">
@@ -111,7 +102,6 @@
       <button class="subtab" data-admin-tab="reset">Reset</button>
       <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
       <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
-      <button class="tab" type="button" data-view="attendanceView">Attendance</button>
     </nav>
 
     <section id="adminView" class="view active">
@@ -235,16 +225,6 @@
           <button type="submit">Set Viewer Password</button>
         </form>
 
-        <form id="attendancePasswordForm" class="panel">
-          <h2>Attendance Password</h2>
-          <p class="hint" style="margin-bottom:8px">Attendance role can view all settled coupons with buyer, devotee, and attendance status. Cannot edit.</p>
-          <label>
-            New Password
-            <input id="attendancePasswordInput" type="password" minlength="4" required placeholder="Minimum 4 characters">
-          </label>
-          <button type="submit">Set Attendance Password</button>
-        </form>
-
         <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
           <h2>📲 WhatsApp Invitation Template</h2>
           <p class="hint" style="margin-bottom:12px">Write the message devotees will send to their buyers. Use
@@ -342,7 +322,6 @@
         <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
         <nav class="subtabs" aria-label="Devotee coupon views">
           <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
-          <button class="subtab" type="button" data-devotee-tab="sold">Sold Coupons</button>
           <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
           <button class="subtab" type="button" data-devotee-tab="hundi">Hundi</button>
           <button class="subtab" type="button" data-devotee-tab="dashboard">Dashboard</button>
@@ -379,81 +358,30 @@
               <option value="unsettled">Settlement Pending</option>
               <option value="settled">Settled</option>
             </select>
-            <select id="allAttendance">
-              <option value="all">All Attendance</option>
-              <option value="present">Present</option>
-              <option value="absent">Not Marked</option>
-            </select>
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
-            <button id="selectAllVisibleBtn" class="ghost" type="button" title="Select all visible coupons" style="min-height:32px;padding:0 12px;font-size:12px;">Select All</button>
-            <button id="bulkSettleBtn" class="danger" type="button" title="Settle all selected coupons" style="min-height:32px;padding:0 12px;font-size:12px;">Settle Selected</button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style="width:36px"><input type="checkbox" id="bulkSelectAll" title="Select all"></th>
                 <th>Coupon</th>
                 <th>Assigned To</th>
                 <th>Assigned Date</th>
                 <th>Buyer</th>
                 <th>Contact</th>
                 <th>Amount</th>
-
+                <th>Receipt No</th>
                 <th>Payment Mode</th>
                 <th>Settlement</th>
                 <th>Settled Date</th>
                 <th>Description</th>
                 <th>Send Invite</th>
-                <th>Attendance</th>
               </tr>
             </thead>
             <tbody id="allCouponsBody"></tbody>
-          </table>
-        </div>
-      </section>
-    </section>
-
-    <section id="attendanceView" class="view">
-      <section class="panel">
-        <div class="section-head">
-          <div>
-            <h2>Attendance Tracker</h2>
-            <p class="hint" id="attendanceSummary">All sold coupons with P (Present) or A (Absent) marking.</p>
-          </div>
-          <div class="entry-controls compact">
-            <input id="attendanceSearch" type="search" placeholder="Search buyer, devotee, seva">
-            <select id="attendanceDevoteeFilter">
-              <option value="all">All Devotees</option>
-            </select>
-            <select id="attendanceStatus">
-              <option value="all">All</option>
-              <option value="present">P - Present</option>
-              <option value="absent">A - Absent</option>
-              <option value="unmarked">Unmarked</option>
-            </select>
-            <button id="markAllPresentBtn" class="ghost" type="button" title="Mark all visible as Present" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All P</button>
-            <button id="markAllAbsentBtn" class="ghost" type="button" title="Mark all visible as Absent" style="min-height:32px;padding:0 12px;font-size:12px;">Mark All A</button>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Coupon #</th>
-                <th>Buyer Name</th>
-                <th>Contact</th>
-                <th>Seva Type</th>
-                <th>Amount</th>
-                <th>Att</th>
-                <th>Devotee</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody id="attendanceBody"></tbody>
           </table>
         </div>
       </section>
@@ -464,7 +392,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-  <script>var _v="20260510";document.write('<scr'+'ipt src="firebase-config.js?v='+_v+'"><\/scr'+'ipt>');document.write('<scr'+'ipt src="app.js?v='+_v+'"><\/scr'+'ipt>');</script>
+  <script src="firebase-config.js?v=2026-05-08-1"></script>
+  <script src="app.js?v=2026-05-12-1"></script>
 </body>
 
 </html>

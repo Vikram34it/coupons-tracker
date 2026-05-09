@@ -309,7 +309,7 @@ main {
 }
 
 .top-stats {
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .compact-stats {
@@ -799,34 +799,6 @@ textarea {
 }
 
 .settlement-btn.is-settled:hover {
-  background: var(--ok);
-  color: #fff;
-}
-
-.present-btn {
-  min-height: 28px;
-  padding: 0 10px;
-  white-space: nowrap;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--surface-elevated);
-  border: 1px solid var(--line-dark);
-  color: var(--ink-secondary);
-}
-
-.present-btn:hover {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
-
-.present-btn.is-present {
-  background: var(--ok-light);
-  color: var(--ok);
-  border-color: rgba(16, 185, 129, 0.3);
-}
-
-.present-btn.is-present:hover {
   background: var(--ok);
   color: #fff;
 }
@@ -1614,107 +1586,6 @@ tr:hover td {
   align-items: center;
   justify-content: center;
   margin-right: 10px;
-}
-
-.top-item-rank.gold {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #fff;
-}
-
-.top-item-rank.silver {
-  background: linear-gradient(135deg, #9ca3af, #6b7280);
-  color: #fff;
-}
-
-.top-item-rank.bronze {
-  background: linear-gradient(135deg, #b45309, #92400e);
-  color: #fff;
-}
-
-.att-toggle {
-  display: inline-flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.att-p,
-.att-a {
-  border: 1px solid var(--line-dark);
-  border-radius: 4px;
-  background: var(--surface-elevated);
-  color: var(--ink-secondary);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  width: 30px;
-  height: 26px;
-  padding: 0;
-  transition: all var(--transition);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: unset;
-}
-
-.att-p:hover,
-.att-a:hover {
-  border-color: var(--ink);
-  background: var(--surface);
-}
-
-.att-p.active {
-  background: var(--ok);
-  border-color: var(--ok);
-  color: #fff;
-}
-
-.att-a.active {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.att-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 26px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.att-label.att-label-att-p-active {
-  background: var(--ok-light);
-  color: var(--ok);
-}
-
-.att-label.att-label-att-a-active {
-  background: var(--danger-light);
-  color: var(--danger);
-}
-
-.status.att-absent-badge {
-  background: var(--danger-light);
-  color: var(--danger);
-}
-
-.att-label.att-label-att-none {
-  background: var(--surface-elevated);
-  color: var(--muted);
-}
-
-tr.att-row-att-p-active td {
-  background: rgba(16, 185, 129, 0.04);
-}
-
-tr.att-row-att-a-active td {
-  background: rgba(239, 68, 68, 0.04);
-}
-
-tr.att-row-att-none td {
-  background: rgba(245, 158, 11, 0.04);
 }
 
 .top-item-name {
