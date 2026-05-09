@@ -1606,9 +1606,7 @@ function bulkSettleSelected() {
     return c && !c.settled;
   });
 
-  console.log("Unsettled coupons:", unsettled);
-
-if (!unsettled.length) {
+  if (!unsettled.length) {
     showToast("All selected coupons are already settled");
     return;
   }
@@ -1626,13 +1624,24 @@ if (!unsettled.length) {
     }
   });
 
-  console.log("After settle, state.coupons sample:", state.coupons.slice(0, 5));
   saveState();
+
+  const tableWrap = els.allCouponsBody.closest(".table-wrap");
+  const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
+  const savedDevoteeFilter = els.allDevoteeFilter ? els.allDevoteeFilter.value : "all";
+  const savedStatus = els.allStatus ? els.allStatus.value : "all";
+
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
+
+  if (els.allDevoteeFilter) els.allDevoteeFilter.value = savedDevoteeFilter;
+  if (els.allStatus) els.allStatus.value = savedStatus;
   renderAllCoupons();
+
+  if (tableWrap) tableWrap.scrollTop = scrollTop;
+
   showToast(`${unsettled.length} coupon(s) settled`);
 }
 
