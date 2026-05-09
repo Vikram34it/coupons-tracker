@@ -381,7 +381,7 @@ function logout() {
 
 function renderLoginRole() {
   const isDevotee = els.loginRole.value === "devotee";
-  els.loginDevoteeLabel.classList.toggle("hidden", !isDevotee);
+  if (els.loginDevoteeLabel) els.loginDevoteeLabel.classList.toggle("hidden", !isDevotee);
 }
 
 function addDevotee(event) {
@@ -2033,14 +2033,20 @@ function updateSyncBadge(text) {
 }
 
 function applyFirebaseData(data) {
-  if (data.settings) state.settings = data.settings;
-  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (!data) return;
+
+  if (data.settings) state.settings = { ...state.settings, ...data.settings };
+  if (Array.isArray(data.devotees)) {
+    state.devotees = data.devotees.map(d => {
+      const existing = state.devotees.find(e => e.id === d.id);
+      return normalizeDevotee(existing ? { ...existing, ...d } : d);
+    });
+  }
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
   if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
-  // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  renderSelectors();   // 🔥 force sorted dropdown refresh
+  renderSelectors();
   render();
 }
 
@@ -2119,11 +2125,19 @@ function initFirebaseSync() {
 
 // 🔥 Override saveState for Firebase sync
 const _localSaveState = saveState;
+let _isSyncingLocal = false;
 
 saveState = function () {
-  _localSaveState();
-
-  if (firebaseReady && dbRef) {
-    dbRef.set(state);
+  if (_isSyncingLocal) return;
+  _isSyncingLocal = true;
+  try {
+    _localSaveState();
+    if (firebaseReady && dbRef) {
+      dbRef.set(state);
+    }
+  } catch (e) {
+    console.error("saveState error:", e);
+  } finally {
+    _isSyncingLocal = false;
   }
 };
