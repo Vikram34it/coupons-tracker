@@ -595,141 +595,9 @@ function resetAllCoupons() {
   if (typed !== "RESET") {
     showToast("Reset all cancelled");
     return;
-  }
+}
 
-  state.coupons = makeCoupons(couponTotal());
   saveState();
-  render();
-  showToast("All coupons reset");
-}
-
-function resetCouponNumbers(numbers, message) {
-  if (!window.confirm(message)) return;
-  numbers.forEach((number) => {
-    state.coupons[number - 1] = emptyCoupon(number);
-  });
-  saveState();
-  render();
-  showToast(`${numbers.length} coupon(s) reset`);
-}
-
-function selectedResetCouponNumbers() {
-  return Array.from(els.resetCouponList.querySelectorAll("[data-reset-coupon]:checked"))
-    .map((item) => Number(item.dataset.resetCoupon))
-    .filter(Boolean);
-}
-
-function selectAllResetCoupons() {
-  els.resetCouponList.querySelectorAll("[data-reset-coupon]").forEach((checkbox) => {
-    checkbox.checked = true;
-  });
-}
-
-function clearResetSelection() {
-  els.resetCouponList.querySelectorAll("[data-reset-coupon]").forEach((checkbox) => {
-    checkbox.checked = false;
-  });
-}
-
-function assignCoupons(event) {
-  event.preventDefault();
-  const devoteeId = els.assignDevotee.value;
-  const from = Number(els.assignFrom.value);
-  const to = Number(els.assignTo.value);
-  const assignedAt = els.assignDate.value || todayKey();
-
-  if (!devoteeId) {
-    showToast("Please add and select a devotee first");
-    return;
-  }
-
-  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
-    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  if (!assignedAt) {
-    showToast("Select an assign date");
-    return;
-  }
-
-  const blocked = state.coupons.filter((coupon) => {
-    return coupon.number >= from && coupon.number <= to && coupon.devoteeId && coupon.devoteeId !== devoteeId;
-  });
-
-  if (blocked.length) {
-    const sample = blocked.slice(0, 8).map((coupon) => coupon.number).join(", ");
-    els.assignHint.textContent = `Already assigned to another devotee: ${sample}${blocked.length > 8 ? "..." : ""}`;
-    return;
-  }
-
-  state.coupons.forEach((coupon) => {
-    if (coupon.number >= from && coupon.number <= to) {
-      coupon.devoteeId = devoteeId;
-      coupon.assignedAt = assignedAt;
-    }
-  });
-
-  const devotee = state.devotees.find(d => d.id === devoteeId);
-
-  if (devotee && devotee.contact) {
-    const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId && c.number >= from && c.number <= to);
-    const couponNumbers = assignedCoupons.map(c => c.number).sort((a, b) => a - b);
-
-    let couponRanges = [];
-    let start = couponNumbers[0];
-    let prev = couponNumbers[0];
-    for (let i = 1; i < couponNumbers.length; i++) {
-      if (couponNumbers[i] === prev + 1) {
-        prev = couponNumbers[i];
-      } else {
-        couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
-        start = couponNumbers[i];
-        prev = couponNumbers[i];
-      }
-    }
-    couponRanges.push(start === prev ? `${start}` : `${start}-${prev}`);
-    const couponList = couponRanges.join(", ");
-
-    const message = `Hare Krishna 🙏
-
-Dear ${devotee.name},
-
-Thank you for your devotional service! 🙏
-
-You have been assigned the following coupon(s):
-
-📋 Coupon Numbers: ${couponList}
-🎟 Total Coupons: ${assignedCoupons.length}
-📅 Assigned Date: ${assignedAt}
-
-🔐 Your PIN: ${devotee.pin || "Not set"}
-
-Please start selling the coupons and update the details using the link below:
-https://vikram34it.github.io/coupons-tracker/
-
-Jai Shri Krishna! 🙏`;
-
-    const phone = devotee.contact.replace(/\D/g, "");
-    const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
-  }
-
-  els.assignForm.reset();
-  els.assignHint.textContent = "";
-  saveState();
-  render();
-  showToast(`Assigned coupons ${from} to ${to}`);
-}
-
-function render() {
-  validateSession();
-  renderSelectors();
-  renderAllDevoteeFilter();
-  renderDashboardDevoteeFilter();
-  renderAttendanceDevoteeFilter();
-  updateDevoteePendingDisplay();
-  applyRoleAccess();
   renderStats();
   renderDevotees();
   renderSevaSummary();
@@ -1717,7 +1585,6 @@ function renderAllCoupons() {
 }
 
 function bulkSettleSelected() {
-  console.log("bulkSettleSelected called", { role: session?.role });
   if (session?.role !== "admin") {
     showToast("Only admin can settle coupons");
     return;
@@ -1728,8 +1595,6 @@ function bulkSettleSelected() {
         .map(cb => Number(cb.dataset.couponNum))
         .filter(Boolean)
     : [];
-
-  console.log("Selected coupons:", selected);
 
   if (!selected.length) {
     showToast("Select coupons to settle");
@@ -1743,7 +1608,7 @@ function bulkSettleSelected() {
 
   console.log("Unsettled coupons:", unsettled);
 
-  if (!unsettled.length) {
+if (!unsettled.length) {
     showToast("All selected coupons are already settled");
     return;
   }
@@ -1768,7 +1633,6 @@ function bulkSettleSelected() {
   renderSevaSummary();
   updateDevoteePendingDisplay();
   renderAllCoupons();
-  console.log("After renderAllCoupons, checkboxes:", els.allCouponsBody.querySelectorAll(".bulk-coupon-check:checked").length);
   showToast(`${unsettled.length} coupon(s) settled`);
 }
 
@@ -2994,9 +2858,16 @@ function initFirebaseSync() {
 }
 
 const _origSaveState = saveState;
+let _isSaving = false;
 function saveState() {
-  _origSaveState();
-  if (firebaseReady && !isSyncingFromFirebase) {
-    syncToFirebase();
+  if (_isSaving) return;
+  _isSaving = true;
+  try {
+    _origSaveState();
+    if (firebaseReady && !isSyncingFromFirebase) {
+      syncToFirebase();
+    }
+  } finally {
+    _isSaving = false;
   }
 }
