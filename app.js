@@ -179,7 +179,8 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
+    "bulkSelectAll", "bulkSettleBtn"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -308,6 +309,14 @@ function bindEvents() {
     renderAllCoupons();
     updateDevoteePendingDisplay();
   });
+
+  els.bulkSelectAll?.addEventListener("change", () => {
+    els.allCouponsBody?.querySelectorAll(".bulk-cb:not(:disabled)").forEach(cb => {
+      cb.checked = els.bulkSelectAll.checked;
+    });
+  });
+
+  els.bulkSettleBtn?.addEventListener("click", bulkSettleSelected);
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -1456,6 +1465,7 @@ function renderAllCoupons() {
     const isViewer = session?.role === "viewer";
     return `
     <tr>
+      <td><input type="checkbox" class="bulk-cb" data-num="${coupon.number}" ${coupon.settled ? "disabled" : ""}></td>
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
       <td>${escapeHtml(coupon.assignedAt || "-")}</td>
@@ -1553,6 +1563,58 @@ function toggleSettlement(event) {
       ? `✓ Coupon ${coupon.number} settled`
       : `Coupon ${coupon.number} marked pending`
   );
+}
+
+function bulkSettleSelected() {
+  if (session?.role !== "admin") {
+    showToast("Only admin can settle coupons");
+    return;
+  }
+
+  const checkboxes = els.allCouponsBody?.querySelectorAll(".bulk-cb:checked") || [];
+  if (!checkboxes.length) {
+    showToast("Select coupons to settle");
+    return;
+  }
+
+  const toSettle = [];
+  checkboxes.forEach(cb => {
+    const num = Number(cb.dataset.num);
+    const coupon = state.coupons[num - 1];
+    if (coupon && !coupon.settled) toSettle.push(coupon);
+  });
+
+  if (!toSettle.length) {
+    showToast("All selected coupons are already settled");
+    return;
+  }
+
+  const confirmed = window.confirm(`Mark ${toSettle.length} coupon(s) as settled?`);
+  if (!confirmed) return;
+
+  toSettle.forEach(c => {
+    c.settled = true;
+    c.settledAt = c.settledAt || todayKey();
+  });
+
+  const tableWrap = els.allCouponsBody?.closest(".table-wrap");
+  const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
+  const savedDevotee = els.allDevoteeFilter?.value || "all";
+  const savedStatus = els.allStatus?.value || "all";
+
+  saveState();
+  renderStats();
+  renderDevotees();
+  renderSevaSummary();
+  updateDevoteePendingDisplay();
+
+  if (els.allDevoteeFilter) els.allDevoteeFilter.value = savedDevotee;
+  if (els.allStatus) els.allStatus.value = savedStatus;
+  renderAllCoupons();
+
+  if (tableWrap) tableWrap.scrollTop = scrollTop;
+
+  showToast(`${toSettle.length} coupon(s) settled`);
 }
 
 function updateCouponField(event) {
