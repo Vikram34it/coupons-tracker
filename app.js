@@ -1717,6 +1717,7 @@ function renderAllCoupons() {
 }
 
 function bulkSettleSelected() {
+  console.log("bulkSettleSelected called", { role: session?.role });
   if (session?.role !== "admin") {
     showToast("Only admin can settle coupons");
     return;
@@ -1728,6 +1729,8 @@ function bulkSettleSelected() {
         .filter(Boolean)
     : [];
 
+  console.log("Selected coupons:", selected);
+
   if (!selected.length) {
     showToast("Select coupons to settle");
     return;
@@ -1737,6 +1740,8 @@ function bulkSettleSelected() {
     const c = state.coupons[n - 1];
     return c && !c.settled;
   });
+
+  console.log("Unsettled coupons:", unsettled);
 
   if (!unsettled.length) {
     showToast("All selected coupons are already settled");
@@ -1756,12 +1761,14 @@ function bulkSettleSelected() {
     }
   });
 
+  console.log("After settle, state.coupons sample:", state.coupons.slice(0, 5));
   saveState();
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
   renderAllCoupons();
+  console.log("After renderAllCoupons, checkboxes:", els.allCouponsBody.querySelectorAll(".bulk-coupon-check:checked").length);
   showToast(`${unsettled.length} coupon(s) settled`);
 }
 
