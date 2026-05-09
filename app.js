@@ -1454,6 +1454,21 @@ function renderEntryList() {
       field.addEventListener("change", updateCouponField);
     });
 
+    // ✅ Update status when moving between coupon cards
+    els.entryList.querySelectorAll(".coupon-card").forEach(card => {
+      card.addEventListener("focusout", (e) => {
+        if (!card.contains(document.activeElement)) {
+          const couponNum = Number(card.dataset.couponNumber);
+          const coupon = state.coupons[couponNum - 1];
+          const statusBadge = card.querySelector(".coupon-number .status");
+          if (statusBadge && isSold(coupon)) {
+            statusBadge.className = "status sold";
+            statusBadge.textContent = "Sold";
+          }
+        }
+      });
+    });
+
     // Wire up settle button for admin
     els.entryList.querySelectorAll("[data-settle-coupon]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -1544,11 +1559,26 @@ function renderEntryList() {
     `;
   }).join("");
 
-  els.entryList.querySelectorAll("[data-field]").forEach((field) => {
-    field.addEventListener("change", updateCouponField);
-  });
+els.entryList.querySelectorAll("[data-field]").forEach((field) => {
+      field.addEventListener("change", updateCouponField);
+    });
 
-  // ✅ Buyer contact 10-digit validation on blur
+    // ✅ Update status when moving between coupon cards
+    els.entryList.querySelectorAll(".coupon-card").forEach(card => {
+      card.addEventListener("focusout", (e) => {
+        if (!card.contains(document.activeElement)) {
+          const couponNum = Number(card.dataset.couponNumber);
+          const coupon = state.coupons[couponNum - 1];
+          const statusBadge = card.querySelector(".coupon-number .status");
+          if (statusBadge && isSold(coupon)) {
+            statusBadge.className = "status sold";
+            statusBadge.textContent = "Sold";
+          }
+        }
+      });
+    });
+
+    // ✅ Buyer contact 10-digit validation on blur
   els.entryList.querySelectorAll("[data-field='buyerContact']").forEach((input) => {
     input.addEventListener("blur", () => {
       const val = input.value.replace(/\D/g, "");
