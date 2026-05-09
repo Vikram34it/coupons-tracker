@@ -1590,59 +1590,50 @@ function bulkSettleSelected() {
     return;
   }
 
-  const selected = els.allCouponsBody
-    ? Array.from(els.allCouponsBody.querySelectorAll(".bulk-coupon-check:checked"))
-        .map(cb => Number(cb.dataset.couponNum))
-        .filter(Boolean)
-    : [];
-
-  if (!selected.length) {
+  const checkboxes = els.allCouponsBody?.querySelectorAll(".bulk-coupon-check:checked") || [];
+  if (!checkboxes.length) {
     showToast("Select coupons to settle");
     return;
   }
 
-  const unsettled = selected.filter(n => {
-    const c = state.coupons[n - 1];
-    return c && !c.settled;
+  const toSettle = [];
+  checkboxes.forEach(cb => {
+    const num = Number(cb.dataset.couponNum);
+    const coupon = state.coupons[num - 1];
+    if (coupon && !coupon.settled) toSettle.push(coupon);
   });
 
-  if (!unsettled.length) {
+  if (!toSettle.length) {
     showToast("All selected coupons are already settled");
     return;
   }
 
-  const confirmed = window.confirm(
-    `Mark ${unsettled.length} coupon(s) as settled?`
-  );
+  const confirmed = window.confirm(`Mark ${toSettle.length} coupon(s) as settled?`);
   if (!confirmed) return;
 
-  unsettled.forEach(n => {
-    const c = state.coupons[n - 1];
-    if (c) {
-      c.settled = true;
-      c.settledAt = c.settledAt || todayKey();
-    }
+  toSettle.forEach(c => {
+    c.settled = true;
+    c.settledAt = c.settledAt || todayKey();
   });
 
-  saveState();
-
-  const tableWrap = els.allCouponsBody.closest(".table-wrap");
+  const tableWrap = els.allCouponsBody?.closest(".table-wrap");
   const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
-  const savedDevoteeFilter = els.allDevoteeFilter ? els.allDevoteeFilter.value : "all";
-  const savedStatus = els.allStatus ? els.allStatus.value : "all";
+  const savedDevotee = els.allDevoteeFilter?.value || "all";
+  const savedStatus = els.allStatus?.value || "all";
 
+  saveState();
   renderStats();
   renderDevotees();
   renderSevaSummary();
   updateDevoteePendingDisplay();
 
-  if (els.allDevoteeFilter) els.allDevoteeFilter.value = savedDevoteeFilter;
+  if (els.allDevoteeFilter) els.allDevoteeFilter.value = savedDevotee;
   if (els.allStatus) els.allStatus.value = savedStatus;
   renderAllCoupons();
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
-  showToast(`${unsettled.length} coupon(s) settled`);
+  showToast(`${toSettle.length} coupon(s) settled`);
 }
 
 function markAllPresent() {
