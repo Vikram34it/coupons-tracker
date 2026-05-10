@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-08-1">
+  <script>var _v='2026-05-10-2';document.write('<link rel="stylesheet" href="styles.css?v='+_v+'">');</script>
 </head>
 
 <body>
@@ -268,19 +268,17 @@
         </div>
         <section id="devoteeStats" class="stats-grid compact-stats" aria-label="Devotee summary"></section>
         <nav class="subtabs" aria-label="Devotee coupon views">
-          <button class="subtab active" type="button" data-devotee-tab="pending">Pending Coupons</button>
-          <button class="subtab" type="button" data-devotee-tab="settled">Settled Coupons</button>
+          <button class="subtab active" type="button" data-devotee-tab="pending">Pending</button>
+          <button class="subtab" type="button" data-devotee-tab="sold">Sold</button>
+          <button class="subtab" type="button" data-devotee-tab="settled">Settled</button>
           <button class="subtab" type="button" data-devotee-tab="hundi">Hundi</button>
           <button class="subtab" type="button" data-devotee-tab="dashboard">Dashboard</button>
         </nav>
         <div class="entry-controls">
           <input id="entrySearch" type="search" placeholder="Search coupon, buyer, phone, description">
           <select id="entryStatus">
-            <option value="all">All assigned coupons</option>
-            <option value="unsold">Pending only</option>
-            <option value="sold">Sold only</option>
+            <option value="all">All</option>
             <option value="unsettled">Settlement pending</option>
-            <option value="settled">Settled only</option>
           </select>
         </div>
         <div id="entryList" class="coupon-editor"></div>
@@ -308,12 +306,14 @@
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
+            <button id="bulkSettleBtn" class="danger" type="button" title="Settle all selected coupons" style="min-height:32px;padding:0 12px;font-size:12px;">Settle Selected</button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th style="width:36px"><input type="checkbox" id="bulkSelectAll" title="Select all"></th>
                 <th>Coupon</th>
                 <th>Assigned To</th>
                 <th>Assigned Date</th>
@@ -339,8 +339,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-  <script src="firebase-config.js?v=2026-05-08-1"></script>
-  <script src="app.js?v=2026-05-08-1"></script>
+  <script src="firebase-config.js?v=2026-05-10-2"></script>
+  <script src="app.js?v=2026-05-10-2"></script>
 </body>
 
 </html>
