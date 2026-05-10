@@ -792,7 +792,8 @@ function applyRoleAccess() {
   // Export / import — admin only
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
-  els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
+  // Import visible to admin and viewer
+  els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin && !isViewer);
 
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
