@@ -25,17 +25,15 @@ window.addEventListener("load", () => {
 
   document.addEventListener("focusout", (e) => {
     if (e.target.matches("input, textarea, select")) {
-      // ✅ IMMEDIATELY save any pending field changes
       const field = e.target;
-      if (field.matches("[data-field]") && field.dataset.couponNumber === undefined) {
-        // For card fields, trigger save manually on blur
-        const card = field.closest("[data-coupon-number]");
-        if (card) {
-          const couponNum = Number(card.dataset.couponNumber);
-          const coupon = state.coupons[couponNum - 1];
-          if (coupon && field.dataset.field) {
-            coupon[field.dataset.field] = field.value.trimStart();
-          }
+      const card = field.closest("[data-coupon-number]");
+
+      // ✅ Save coupon card field changes immediately
+      if (card && field.matches("[data-field]")) {
+        const couponNum = Number(card.dataset.couponNumber);
+        const coupon = state.coupons[couponNum - 1];
+        if (coupon && field.dataset.field) {
+          coupon[field.dataset.field] = field.value.trimStart();
         }
       }
 
@@ -52,9 +50,12 @@ window.addEventListener("load", () => {
         clearTimeout(saveTimer);
         saveState();
 
-        // ✅ Only now apply Firebase update
-        isEditing = false;
-        applyPendingFirebaseData();
+        // ✅ Only apply Firebase pending data when coming FROM a coupon card
+        // This prevents regular form dropdowns (like assign form) from being reset
+        if (card) {
+          isEditing = false;
+          applyPendingFirebaseData();
+        }
 
       }, 100); // small delay is KEY
     }
