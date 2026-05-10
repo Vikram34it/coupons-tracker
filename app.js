@@ -2145,31 +2145,188 @@ function importBackup(event) {
   const reader = new FileReader();
   reader.addEventListener("load", () => {
     try {
-      const imported = JSON.parse(reader.result);
-      if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) {
-        throw new Error("Invalid backup");
+      const content = reader.result.trim();
+      const isJson = file.name.toLowerCase().endsWith(".json") || content.startsWith("{");
+
+      if (isJson) {
+        // JSON import
+        const imported = JSON.parse(content);
+        if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) {
+          throw new Error("Invalid backup");
+        }
+
+        state.settings = {
+          adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
+          totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
+        };
+        state.devotees = imported.devotees.map(normalizeDevotee);
+        state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
+        state.hundi = Array.isArray(imported.hundi)
+          ? imported.hundi.map(h => ({ settled: false, ...h }))
+          : [];
+
+        saveState();
+        render();
+        showToast("JSON backup imported");
+      } else {
+        // CSV import
+        const result = parseCSVImport(content);
+        if (!result.success) {
+          showToast(result.message);
+          return;
+        }
+
+        // Merge data
+        if (result.settings) {
+          state.settings = { ...state.settings, ...result.settings };
+        }
+        if (result.devotees.length) {
+          result.devotees.forEach(d => {
+            const existing = state.devotees.find(e => e.id === d.id);
+            if (existing) {
+              Object.assign(existing, d);
+            } else {
+              state.devotees.push(d);
+            }
+          });
+        }
+        if (result.coupons.length) {
+          result.coupons.forEach(c => {
+            const idx = c.number - 1;
+            if (idx >= 0 && idx < state.coupons.length) {
+              state.coupons[idx] = { ...state.coupons[idx], ...c };
+            }
+          });
+        }
+
+        saveState();
+        render();
+        showToast(`CSV imported: ${result.coupons.length} coupons, ${result.devotees.length} devotees`);
       }
-
-      state.settings = {
-        adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
-        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
-      };
-      state.devotees = imported.devotees.map(normalizeDevotee);
-      state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
-      state.hundi = Array.isArray(imported.hundi)
-        ? imported.hundi.map(h => ({ settled: false, ...h }))
-        : [];
-
-      saveState();
-      render();
-      showToast("Backup imported");
-    } catch {
-      showToast("Could not import this backup file");
+    } catch (err) {
+      console.error("Import error:", err);
+      showToast("Could not import this file. Check format.");
     } finally {
       event.target.value = "";
     }
   });
   reader.readAsText(file);
+}
+
+function parseCSVImport(content) {
+  const lines = content.split(/\r?\n/).filter(line => line.trim());
+  if (lines.length < 2) {
+    return { success: false, message: "CSV file is empty or invalid" };
+  }
+
+  // Auto-detect format based on headers
+  const header = lines[0].toLowerCase();
+  let devotees = [];
+  let coupons = [];
+  let settings = {};
+
+  if (header.includes("coupon") && header.includes("buyer")) {
+    // Coupon data format: Coupon, Buyer Name, Contact, Amount, Seva, Assigned To
+    coupons = parseCouponCSV(lines);
+  } else if (header.includes("name") && (header.includes("pin") || header.includes("password"))) {
+    // Devotee format: Name, Contact, PIN
+    devotees = parseDevoteeCSV(lines);
+  } else if (header.includes("name") && header.includes("contact")) {
+    // Check if it's devotees or mixed format
+    if (header.includes("assigned") || header.includes("amount")) {
+      // Mixed format - try both
+      const couponResult = parseCouponCSV(lines);
+      const devoteeResult = parseDevoteeCSV(lines);
+      coupons = couponResult;
+      devotees = devoteeResult;
+    } else {
+      devotees = parseDevoteeCSV(lines);
+    }
+  } else {
+    // Try to parse as coupon list
+    coupons = parseCouponCSV(lines);
+  }
+
+  return { success: true, devotees, coupons, settings };
+}
+
+function parseDevoteeCSV(lines) {
+  const devotees = [];
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+
+  const nameIdx = headers.findIndex(h => h.includes("name"));
+  const contactIdx = headers.findIndex(h => h.includes("contact") || h.includes("phone") || h.includes("mobile"));
+  const pinIdx = headers.findIndex(h => h.includes("pin") || h.includes("password") || h.includes("pass"));
+
+  if (nameIdx === -1) return devotees;
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (!cols[nameIdx]) continue;
+
+    devotees.push({
+      id: newId(),
+      name: cols[nameIdx].trim(),
+      contact: contactIdx >= 0 ? cols[contactIdx].replace(/\D/g, "") : "",
+      pin: pinIdx >= 0 ? cols[pinIdx].trim() : ""
+    });
+  }
+  return devotees;
+}
+
+function parseCouponCSV(lines) {
+  const coupons = [];
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+
+  const numIdx = headers.findIndex(h => h.includes("coupon") || h.includes("number") || h.includes("#"));
+  const buyerIdx = headers.findIndex(h => h.includes("buyer") || h.includes("name"));
+  const contactIdx = headers.findIndex(h => h.includes("contact") || h.includes("phone") || h.includes("mobile"));
+  const amountIdx = headers.findIndex(h => h.includes("amount") || h.includes("price") || h.includes("₹"));
+  const descIdx = headers.findIndex(h => h.includes("seva") || h.includes("description") || h.includes("type"));
+  const settledIdx = headers.findIndex(h => h.includes("settle") || h.includes("status"));
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const num = numIdx >= 0 ? parseInt(cols[numIdx]) : i;
+
+    if (!num || num < 1) continue;
+
+    const amount = amountIdx >= 0 ? parseFloat(cols[amountIdx].replace(/[^0-9.]/g, "")) : 0;
+    const isSettled = settledIdx >= 0 ? cols[settledIdx].toLowerCase().includes("settle") : false;
+
+    if (buyerIdx >= 0 && cols[buyerIdx].trim()) {
+      coupons.push({
+        number: num,
+        buyerName: cols[buyerIdx].trim(),
+        buyerContact: contactIdx >= 0 ? cols[contactIdx].replace(/\D/g, "") : "",
+        amount: amount || "",
+        description: descIdx >= 0 ? cols[descIdx].trim() : "",
+        settled: isSettled,
+        settledAt: isSettled ? todayKey() : ""
+      });
+    }
+  }
+  return coupons;
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current);
+  return result;
 }
 
 // ═══════════════════════════════════════════════
