@@ -620,12 +620,16 @@ https://vikram34it.github.io/coupons-tracker/
 Thank you for your service 🙏`;
 
     const phone = devotee.contact.replace(/\D/g, "");
-    if (phone.length === 10) {
-      const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+    const validPhone = phone.length === 10 || (phone.length === 12 && phone.startsWith("91"));
+    if (validPhone) {
+      const phoneToUse = phone.length === 10 ? phone : phone.slice(-10);
+      const url = `https://wa.me/91${phoneToUse}?text=${encodeURIComponent(message)}`;
       const sendWA = window.confirm(`Coupons assigned! Send WhatsApp notification to ${devotee.name}?`);
       if (sendWA) {
         window.open(url, "_blank");
       }
+    } else {
+      showToast("Invalid phone number - please update contact in devotee details");
     }
   }
 
@@ -1105,13 +1109,15 @@ https://vikram34it.github.io/coupons-tracker/
         const phone = (devotee.contact || "")
           .replace(/\D/g, "");
 
-        if (!phone) {
-          showToast("No contact number for this devotee");
+        const validPhone = phone.length === 10 || (phone.length === 12 && phone.startsWith("91"));
+        if (!validPhone) {
+          showToast("Invalid phone number - please update contact in devotee details");
           return;
         }
 
+        const phoneToUse = phone.length === 10 ? phone : phone.slice(-10);
         const url =
-          `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+          `https://wa.me/91${phoneToUse}?text=${encodeURIComponent(message)}`;
 
         window.open(url, "_blank");
 
