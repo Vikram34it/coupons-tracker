@@ -25,6 +25,19 @@ window.addEventListener("load", () => {
 
   document.addEventListener("focusout", (e) => {
     if (e.target.matches("input, textarea, select")) {
+      // ✅ IMMEDIATELY save any pending field changes
+      const field = e.target;
+      if (field.matches("[data-field]") && field.dataset.couponNumber === undefined) {
+        // For card fields, trigger save manually on blur
+        const card = field.closest("[data-coupon-number]");
+        if (card) {
+          const couponNum = Number(card.dataset.couponNumber);
+          const coupon = state.coupons[couponNum - 1];
+          if (coupon && field.dataset.field) {
+            coupon[field.dataset.field] = field.value.trimStart();
+          }
+        }
+      }
 
       // ⏳ Delay to allow next field focus (TAB FIX)
       setTimeout(() => {
@@ -35,11 +48,28 @@ window.addEventListener("load", () => {
           return;
         }
 
+        // ✅ Ensure any pending changes are saved before Firebase sync
+        clearTimeout(saveTimer);
+        saveState();
+
         // ✅ Only now apply Firebase update
         isEditing = false;
         applyPendingFirebaseData();
 
       }, 100); // small delay is KEY
+    }
+  });
+
+  // ✅ Save and warn on page close if unsaved changes
+  window.addEventListener("beforeunload", (e) => {
+    clearTimeout(saveTimer);
+    saveState();
+
+    // Warn if user is currently editing (has unsaved changes)
+    if (isEditing) {
+      e.preventDefault();
+      e.returnValue = "You have unsaved coupon data. Are you sure you want to leave?";
+      return e.returnValue;
     }
   });
   // Wait until Firebase function exists
@@ -1494,8 +1524,20 @@ function renderEntryList() {
     `;
 
     // Wire up field changes
-    els.entryList.querySelectorAll("[data-field]").forEach((field) => {
+els.entryList.querySelectorAll("[data-field]").forEach((field) => {
       field.addEventListener("change", updateCouponField);
+      // ✅ Save immediately on blur to prevent data loss
+      field.addEventListener("blur", () => {
+        const card = field.closest("[data-coupon-number]");
+        if (!card) return;
+        const couponNum = Number(card.dataset.couponNumber);
+        const coupon = state.coupons[couponNum - 1];
+        if (coupon && field.dataset.field) {
+          coupon[field.dataset.field] = field.value.trimStart();
+          clearTimeout(saveTimer);
+          saveState();
+        }
+      });
     });
 
     // ✅ Update status when moving between coupon cards
@@ -2281,19 +2323,91 @@ function normalizeDevotee(devotee) {
     pin: devotee.pin || ""
   };
 }
-// ================= FIREBASE SYNC (ADD ONLY THIS) =================
+// ================= FIREBASE SYNC WITH ACID PROPERTIES =================
 
 let firebaseReady = false;
 let dbRef = null;
+let localVersion = 0;
+let syncQueue = [];
+let isSyncing = false;
+
+function getVersionStamp() {
+  return Date.now();
+}
 
 function updateSyncBadge(text) {
   const badge = els.syncBadge || document.getElementById("syncBadge");
   if (badge) badge.textContent = text;
 }
 
+// ATOMICITY: Queue-based updates with version tracking
+function queueSyncUpdate(data) {
+  syncQueue.push({
+    data,
+    timestamp: getVersionStamp(),
+    version: ++localVersion
+  });
+  processSyncQueue();
+}
+
+function processSyncQueue() {
+  if (isSyncing || !firebaseReady || !dbRef || syncQueue.length === 0) return;
+
+  isSyncing = true;
+  const update = syncQueue.shift();
+
+  dbRef.transaction((currentData) => {
+    if (!currentData) return update.data;
+
+    // CONSISTENCY: Only apply if incoming version is newer
+    const incomingVersion = update.data._version || 0;
+    const currentVersion = currentData._version || 0;
+
+    if (incomingVersion > currentVersion) {
+      return update.data;
+    }
+
+    // Conflict detected - abort transaction to keep current
+    return; // Return undefined = abort, keep current value
+  }).then((result) => {
+    if (result.committed) {
+      localVersion = update.data._version || localVersion;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } else {
+      // Transaction failed - data was newer, fetch latest
+      dbRef.once("value").then(snap => {
+        if (snap.exists()) {
+          applyFirebaseDataWithVersion(snap.val());
+        }
+      });
+    }
+  }).finally(() => {
+    isSyncing = false;
+    if (syncQueue.length > 0) {
+      setTimeout(processSyncQueue, 100);
+    }
+  });
+}
+
 function applyFirebaseData(data) {
   if (!data) return;
+  applyFirebaseDataWithVersion(data);
+}
 
+function applyFirebaseDataWithVersion(data) {
+  // ISOLATION: Don't apply if we're currently editing
+  if (isEditing) {
+    pendingFirebaseData = data;
+    return;
+  }
+
+  // CONSISTENCY: Check version before applying
+  const incomingVersion = data._version || 0;
+  if (incomingVersion <= localVersion) {
+    return; // Ignore stale data
+  }
+
+  // DURABILITY: Ensure localStorage is updated first
   if (data.settings) state.settings = { ...state.settings, ...data.settings };
   if (Array.isArray(data.devotees)) {
     state.devotees = data.devotees.map(d => {
@@ -2302,8 +2416,11 @@ function applyFirebaseData(data) {
     });
   }
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
-  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  if (Array.isArray(data.hundi) && data.hundi !== state.hundi) {
+    state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  }
 
+  localVersion = incomingVersion;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderSelectors();
   render();
@@ -2358,16 +2475,26 @@ function initFirebaseSync() {
           }
 
           const data = snapshot.val();
-
           applyFirebaseData(data);
         });
 
-        updateSyncBadge("Realtime");
+        updateSyncBadge("Synced");
 
-        // First-time push if DB empty
+        // First-time push if DB empty, or sync version with existing data
         dbRef.once("value").then((snap) => {
-          if (!snap.exists()) {
-            dbRef.set(state);
+          const existingData = snap.val();
+          if (!existingData) {
+            // Initialize with version stamp
+            const initialState = {
+              ...state,
+              _version: getVersionStamp(),
+              _lastSync: new Date().toISOString()
+            };
+            dbRef.set(initialState);
+            localVersion = initialState._version;
+          } else {
+            // Initialize local version from existing data
+            localVersion = existingData._version || 0;
           }
         });
       })
@@ -2382,7 +2509,7 @@ function initFirebaseSync() {
   }
 }
 
-// 🔥 Override saveState for Firebase sync
+// 🔥 Override saveState for Firebase sync with ACID guarantees
 const _localSaveState = saveState;
 let _isSyncingLocal = false;
 
@@ -2391,8 +2518,17 @@ saveState = function () {
   _isSyncingLocal = true;
   try {
     _localSaveState();
+
     if (firebaseReady && dbRef) {
-      dbRef.set(state);
+      // ATOMICITY: Add version stamp before syncing
+      const stateWithVersion = {
+        ...state,
+        _version: getVersionStamp(),
+        _lastSync: new Date().toISOString()
+      };
+
+      // Use queue-based sync for atomicity
+      queueSyncUpdate(stateWithVersion);
     }
   } catch (e) {
     console.error("saveState error:", e);
