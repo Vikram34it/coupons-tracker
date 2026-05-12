@@ -2,8 +2,57 @@ const DEFAULT_TOTAL_COUPONS = 3000;
 const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "hare krishna";
+const IDB_NAME = "coupon-seva-tracker-idb";
+const IDB_STORE = "appState";
+const IDB_KEY = "state";
 
-const state = loadState();
+let db = null;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(IDB_NAME, 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = (e) => {
+      const database = e.target.result;
+      if (!database.objectStoreNames.contains(IDB_STORE)) {
+        database.createObjectStore(IDB_STORE);
+      }
+    };
+  });
+}
+
+async function idbGet() {
+  try {
+    const database = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = database.transaction(IDB_STORE, "readonly");
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(IDB_KEY);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function idbPut(data) {
+  try {
+    const database = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = database.transaction(IDB_STORE, "readwrite");
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.put(data, IDB_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+  }
+}
+
+const state = defaultState();
+let firebaseRestoreDone = false;
 let session = loadSession();
 let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
@@ -11,12 +60,35 @@ let isEditing = false;
 let pendingFirebaseData = null;
 let saveTimer = null;
 const els = {};
+let idbInitialized = false;
 
-window.addEventListener("load", () => {
+window.addEventListener("load", async () => {
   cacheElements();
   bindEvents();
-  renderSelectors(); // ✅ ADD THIS
+  renderSelectors();
   render();
+
+  idbGet().then(idbData => {
+    if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
+      const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
+      state.settings = {
+        adminPassword: idbData.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons,
+        invitationMessage: idbData.settings?.invitationMessage || "",
+        viewerPassword: idbData.settings?.viewerPassword || ""
+      };
+      state.devotees = idbData.devotees.map(normalizeDevotee);
+      state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
+      state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+      state._version = idbData._version || 0;
+      localVersion = state._version;
+      renderSelectors();
+      render();
+      idbInitialized = true;
+    } else {
+      idbInitialized = true;
+    }
+  });
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
       isEditing = true;
@@ -34,6 +106,7 @@ window.addEventListener("load", () => {
         const coupon = state.coupons[couponNum - 1];
         if (coupon && field.dataset.field) {
           coupon[field.dataset.field] = field.value.trimStart();
+          coupon._updated = ts();
         }
       }
 
@@ -124,7 +197,10 @@ function loadState() {
 }
 
 function saveState() {
+  state._version = getVersionStamp();
+  state._lastSync = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  idbPut(JSON.parse(JSON.stringify(state)));
 }
 
 function loadSession() {
@@ -439,7 +515,8 @@ function addDevotee(event) {
     id: newId(),
     name,
     contact,
-    pin: password
+    pin: password,
+    _updated: ts()
   });
 
   els.devoteeForm.reset();
@@ -622,6 +699,7 @@ function assignCoupons(event) {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
       coupon.assignedAt = assignedAt;
+      coupon._updated = ts();
       assignedCoupons.push(coupon.number);
     }
   });
@@ -1085,6 +1163,7 @@ function renderDevotees() {
         }
 
         devotee.pin = password.trim();
+        devotee._updated = ts();
 
         saveState();
         renderDevotees();
@@ -1183,6 +1262,7 @@ https://vikram34it.github.io/coupons-tracker/
         }
 
         devotee.contact = cleaned;
+        devotee._updated = ts();
 
         saveState();
         render();
@@ -1316,6 +1396,7 @@ function renderEntryList() {
         const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
         if (!hundi) return;
         hundi.settled = !hundi.settled;
+        hundi._updated = ts();
         saveState();
         renderEntryList();
         renderStats();
@@ -1339,7 +1420,8 @@ function renderEntryList() {
         devoteeId,
         amount,
         date,
-        settled: false
+        settled: false,
+        _updated: ts()
       });
 
       saveState();
@@ -1447,6 +1529,7 @@ function renderEntryList() {
         if (!coupon) return;
         coupon.settled = false;
         coupon.settledAt = "";
+        coupon._updated = ts();
         saveState();
         renderEntryList();
         renderStats();
@@ -1564,6 +1647,7 @@ els.entryList.querySelectorAll("[data-field]").forEach((field) => {
         if (!coupon) return;
         coupon.settled = true;
         coupon.settledAt = todayKey();
+        coupon._updated = ts();
         saveState();
         renderEntryList();
         renderStats();
@@ -1774,10 +1858,8 @@ function toggleSettlement(event) {
   }
 
   coupon.settled = !coupon.settled;
-
-  coupon.settledAt = coupon.settled
-    ? todayKey()
-    : "";
+  coupon.settledAt = coupon.settled ? todayKey() : "";
+  coupon._updated = ts();
 
   saveState();
 
@@ -1836,6 +1918,7 @@ function bulkSettleSelected() {
   toSettle.forEach(c => {
     c.settled = true;
     c.settledAt = c.settledAt || todayKey();
+    c._updated = ts();
   });
 
   const tableWrap = els.allCouponsBody?.closest(".table-wrap");
@@ -1870,6 +1953,7 @@ function updateCouponField(event) {
   }
 
   coupon[field.dataset.field] = field.value.trimStart();
+  coupon._updated = ts();
 
   // 🔥 DELAY SAVE (KEY FIX)
   clearTimeout(saveTimer);
@@ -1904,7 +1988,8 @@ function emptyCoupon(number) {
     receiptNumber: "",
     paymentMode: "cash",
     settled: false,
-    settledAt: ""
+    settledAt: "",
+    _updated: ts()
   };
 }
 
@@ -1924,7 +2009,8 @@ function normalizeCoupons(coupons, totalCoupons) {
       receiptNumber: savedCoupon.receiptNumber || "",
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
-      settledAt: savedCoupon.settledAt || ""
+      settledAt: savedCoupon.settledAt || "",
+      _updated: savedCoupon._updated || ts()
     };
   });
 }
@@ -2479,7 +2565,8 @@ function normalizeDevotee(devotee) {
     id: devotee.id,
     name: devotee.name || "",
     contact: devotee.contact || "",
-    pin: devotee.pin || ""
+    pin: devotee.pin || "",
+    _updated: devotee._updated || ts()
   };
 }
 // ================= FIREBASE SYNC WITH ACID PROPERTIES =================
@@ -2492,6 +2579,10 @@ let isSyncing = false;
 
 function getVersionStamp() {
   return Date.now();
+}
+
+function ts() {
+  return new Date().toISOString();
 }
 
 function updateSyncBadge(text) {
@@ -2581,6 +2672,7 @@ function applyFirebaseDataWithVersion(data) {
 
   localVersion = incomingVersion;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  idbPut(JSON.parse(JSON.stringify(state)));
   renderSelectors();
   render();
 }
@@ -2601,20 +2693,35 @@ function updateAdminView() {
 
 function initFirebaseSync() {
   try {
-    // Check Firebase availability
     if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
+      idbGet().then(idbData => {
+        if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
+          const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
+          state.settings = {
+            adminPassword: idbData.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+            totalCoupons,
+            invitationMessage: idbData.settings?.invitationMessage || "",
+            viewerPassword: idbData.settings?.viewerPassword || ""
+          };
+          state.devotees = idbData.devotees.map(normalizeDevotee);
+          state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
+          state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+          state._version = idbData._version || 0;
+          localVersion = state._version;
+          renderSelectors();
+          render();
+        }
+      });
       updateSyncBadge("Local");
       return;
     }
 
     updateSyncBadge("Connecting...");
 
-    // Initialize Firebase (only once)
     if (!firebase.apps.length) {
       firebase.initializeApp(window.COUPON_TRACKER_FIREBASE.config);
     }
 
-    // Anonymous login
     firebase.auth().signInAnonymously()
       .then(() => {
         firebaseReady = true;
@@ -2623,38 +2730,72 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
-        // 🔥 Listen to realtime updates
-        dbRef.on("value", (snapshot) => {
-          if (!snapshot.exists()) return;
-
-          // 🚫 Don't re-render while typing
-          if (isEditing) {
-            pendingFirebaseData = snapshot.val();
-            return;
-          }
-
-          const data = snapshot.val();
-          applyFirebaseData(data);
-        });
-
-        updateSyncBadge("Synced");
-
-        // First-time push if DB empty, or sync version with existing data
         dbRef.once("value").then((snap) => {
           const existingData = snap.val();
-          if (!existingData) {
-            // Initialize with version stamp
+
+          if (existingData && Array.isArray(existingData.devotees) && Array.isArray(existingData.coupons)) {
+            const freshVersion = existingData._version || 0;
+
+            state.settings = { ...state.settings, ...existingData.settings };
+            state.devotees = existingData.devotees.map(d => {
+              const existing = state.devotees.find(e => e.id === d.id);
+              return normalizeDevotee(existing ? { ...existing, ...d } : d);
+            });
+            state.coupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons);
+            state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi : [];
+            localVersion = freshVersion;
+            saveState();
+
+            dbRef.on("value", (snapshot) => {
+              if (!snapshot.exists()) return;
+              if (isEditing) {
+                pendingFirebaseData = snapshot.val();
+                return;
+              }
+              applyFirebaseData(snapshot.val());
+            });
+          } else {
+            dbRef.on("value", (snapshot) => {
+              if (!snapshot.exists()) return;
+              if (isEditing) {
+                pendingFirebaseData = snapshot.val();
+                return;
+              }
+              applyFirebaseData(snapshot.val());
+            });
+
             const initialState = {
               ...state,
               _version: getVersionStamp(),
               _lastSync: new Date().toISOString()
             };
             dbRef.set(initialState);
-            localVersion = initialState._version;
-          } else {
-            // Initialize local version from existing data
-            localVersion = existingData._version || 0;
           }
+
+          updateSyncBadge("Synced");
+          renderSelectors();
+          render();
+        }).catch((err) => {
+          console.error("Firebase Read Error:", err);
+          idbGet().then(idbData => {
+            if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
+              const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
+              state.settings = {
+                adminPassword: idbData.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+                totalCoupons,
+                invitationMessage: idbData.settings?.invitationMessage || "",
+                viewerPassword: idbData.settings?.viewerPassword || ""
+              };
+              state.devotees = idbData.devotees.map(normalizeDevotee);
+              state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
+              state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+              state._version = idbData._version || 0;
+              localVersion = state._version;
+              renderSelectors();
+              render();
+            }
+          });
+          updateSyncBadge("Local");
         });
       })
       .catch((err) => {
