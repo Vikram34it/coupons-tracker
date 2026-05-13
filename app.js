@@ -237,7 +237,7 @@ function renderSevaSummary() {
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
-  (state.hundi || []).filter(h => h.settled).forEach(h => {
+  (state.hundi || []).filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period)).forEach(h => {
     const seva = "Hundi Donation";
 
     if (!sevaMap[seva]) {
@@ -915,15 +915,16 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
-  const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
-  const sold = state.coupons.filter(isSold).length;
-  const settled = state.coupons.filter((coupon) => coupon.settled).length;
+  const period = settlementPeriod();
+  const assigned = state.coupons.filter((coupon) => coupon.devoteeId && inSettlementPeriod(coupon, period)).length;
+  const sold = state.coupons.filter(isSold).filter(c => inSettlementPeriod(c, period)).length;
+  const settled = state.coupons.filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period)).length;
 
   // Only settled coupons + hundi count as received
   const settledMoney = state.coupons
-    .filter(c => c.settled)
+    .filter(c => c.settled && inSettlementPeriod(c, period))
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
-  const hundiMoney = (state.hundi || []).filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
+  const hundiMoney = (state.hundi || []).filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period)).reduce((sum, h) => sum + h.amount, 0);
 
   // Unsettled = sold but not yet settled
   const unsettledMoney = state.coupons
