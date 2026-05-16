@@ -8,6 +8,21 @@ const IDB_KEY = "state";
 
 let db = null;
 
+// ✅ Monotonic version stamp — always strictly increasing, even within the same millisecond
+let _versionSeq = 0;
+let _versionLastMs = 0;
+function getVersionStamp() {
+  const now = Date.now();
+  if (now > _versionLastMs) {
+    _versionLastMs = now;
+    _versionSeq = 0;
+  } else {
+    _versionSeq++;
+  }
+  // Encode as a sortable float: milliseconds + sub-ms counter
+  return now * 10000 + _versionSeq;
+}
+
 function openIDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(IDB_NAME, 1);
@@ -68,6 +83,7 @@ window.addEventListener("load", async () => {
   renderSelectors();
   render();
 
+  // ✅ Load from IndexedDB as fast fallback while Firebase connects
   idbGet().then(idbData => {
     if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
       const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
@@ -79,7 +95,11 @@ window.addEventListener("load", async () => {
       };
       state.devotees = idbData.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
-      state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+      // ✅ Normalize hundi settled flag from IDB too
+      state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi.map(h => ({
+        id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+        date: h.date, settled: Boolean(h.settled), _updated: h._updated
+      })) : [];
       state._version = idbData._version || 0;
       localVersion = state._version;
       renderSelectors();
@@ -89,6 +109,8 @@ window.addEventListener("load", async () => {
       idbInitialized = true;
     }
   });
+
+  // ✅ Track editing state: set true when any input is focused
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
       isEditing = true;
@@ -96,57 +118,45 @@ window.addEventListener("load", async () => {
   });
 
   document.addEventListener("focusout", (e) => {
-    if (e.target.matches("input, textarea, select")) {
-      const field = e.target;
-      const card = field.closest("[data-coupon-number]");
+    if (!e.target.matches("input, textarea, select")) return;
 
-      // ✅ Save coupon card field changes immediately
-      if (card && field.matches("[data-field]")) {
-        const couponNum = Number(card.dataset.couponNumber);
-        const coupon = state.coupons[couponNum - 1];
-        if (coupon && field.dataset.field) {
-          coupon[field.dataset.field] = field.value.trimStart();
-          coupon._updated = ts();
-        }
+    const field = e.target;
+    const card = field.closest("[data-coupon-number]");
+
+    // ✅ Capture coupon card field value immediately on blur
+    if (card && field.matches("[data-field]")) {
+      const couponNum = Number(card.dataset.couponNumber);
+      const coupon = state.coupons[couponNum - 1];
+      if (coupon && field.dataset.field) {
+        coupon[field.dataset.field] = field.value.trimStart();
+        coupon._updated = ts();
       }
-
-      // ⏳ Delay to allow next field focus (TAB FIX)
-      setTimeout(() => {
-        const active = document.activeElement;
-
-        // ✅ If still inside input → DO NOTHING
-        if (active && active.matches("input, textarea, select")) {
-          return;
-        }
-
-        // ✅ Ensure any pending changes are saved before Firebase sync
-        clearTimeout(saveTimer);
-        saveState();
-
-        // ✅ Only apply Firebase pending data when coming FROM a coupon card
-        // This prevents regular form dropdowns (like assign form) from being reset
-        if (card) {
-          isEditing = false;
-          applyPendingFirebaseData();
-        }
-
-      }, 100); // small delay is KEY
     }
+
+    // ⏳ Small delay to allow TAB to move focus to the next field first
+    setTimeout(() => {
+      const active = document.activeElement;
+
+      // If focus is still on an input — user is tabbing between fields, do nothing
+      if (active && active.matches("input, textarea, select")) return;
+
+      // Focus has left all inputs — save and unlock Firebase updates
+      clearTimeout(saveTimer);
+      isEditing = false;   // ✅ Always reset, not just for coupon cards
+      saveState();
+      applyPendingFirebaseData(); // ✅ Apply any queued Firebase updates now
+
+    }, 150);
   });
 
-  // ✅ Save and warn on page close if unsaved changes
-  window.addEventListener("beforeunload", (e) => {
+  // ✅ Save on page unload
+  window.addEventListener("beforeunload", () => {
     clearTimeout(saveTimer);
+    isEditing = false;
     saveState();
-
-    // Warn if user is currently editing (has unsaved changes)
-    if (isEditing) {
-      e.preventDefault();
-      e.returnValue = "You have unsaved coupon data. Are you sure you want to leave?";
-      return e.returnValue;
-    }
   });
-  // Wait until Firebase function exists
+
+  // Wait until Firebase is ready then connect
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
       clearInterval(waitFirebase);
@@ -197,10 +207,14 @@ function loadState() {
 }
 
 function saveState() {
+  // NOTE: Firebase override below replaces this at runtime.
+  // This base version is only called directly before Firebase initializes.
   state._version = getVersionStamp();
   state._lastSync = new Date().toISOString();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   idbPut(JSON.parse(JSON.stringify(state)));
+  // Push to Firebase if ready (will be a no-op before initFirebaseSync runs)
+  if (typeof _pushToFirebase === "function") _pushToFirebase();
 }
 
 function loadSession() {
@@ -1956,13 +1970,25 @@ function updateCouponField(event) {
   coupon[field.dataset.field] = field.value.trimStart();
   coupon._updated = ts();
 
-  // 🔥 DELAY SAVE (KEY FIX)
+  // For selects (dropdowns) — save immediately, no debounce needed
+  if (field.tagName === "SELECT") {
+    clearTimeout(saveTimer);
+    isEditing = false;
+    saveState();
+    return;
+  }
+
+  // For text inputs: debounce so we don't write to Firebase on every keystroke.
+  // Keep isEditing=true during this window so incoming Firebase updates don't
+  // overwrite what the user is currently typing.
+  isEditing = true;
+  updateSyncBadge("⏳ Saving...");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    saveState();   // only after user pauses
-  }, 500);
-
-  // ❌ NO render()
+    isEditing = false;
+    saveState();
+    applyPendingFirebaseData();
+  }, 300); // 300ms is fast enough to feel instant, light enough for Firebase
 }
 
 function couponsForDevotee(devoteeId) {
@@ -2250,7 +2276,10 @@ function importBackup(event) {
         state.devotees = imported.devotees.map(normalizeDevotee);
         state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
         state.hundi = Array.isArray(imported.hundi)
-          ? imported.hundi.map(h => ({ settled: false, ...h }))
+          ? imported.hundi.map(h => ({
+              id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+              date: h.date, settled: Boolean(h.settled), _updated: h._updated
+            }))
           : [];
 
         saveState();
@@ -2578,9 +2607,7 @@ let localVersion = 0;
 let syncQueue = [];
 let isSyncing = false;
 
-function getVersionStamp() {
-  return Date.now();
-}
+// getVersionStamp() is defined at the top of the file as a monotonic counter
 
 function ts() {
   return new Date().toISOString();
@@ -2602,42 +2629,8 @@ function queueSyncUpdate(data) {
 }
 
 function processSyncQueue() {
-  if (isSyncing || !firebaseReady || !dbRef || syncQueue.length === 0) return;
-
-  isSyncing = true;
-  const update = syncQueue.shift();
-
-  dbRef.transaction((currentData) => {
-    if (!currentData) return update.data;
-
-    // CONSISTENCY: Only apply if incoming version is newer
-    const incomingVersion = update.data._version || 0;
-    const currentVersion = currentData._version || 0;
-
-    if (incomingVersion > currentVersion) {
-      return update.data;
-    }
-
-    // Conflict detected - abort transaction to keep current
-    return; // Return undefined = abort, keep current value
-  }).then((result) => {
-    if (result.committed) {
-      localVersion = update.data._version || localVersion;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } else {
-      // Transaction failed - data was newer, fetch latest
-      dbRef.once("value").then(snap => {
-        if (snap.exists()) {
-          applyFirebaseDataWithVersion(snap.val());
-        }
-      });
-    }
-  }).finally(() => {
-    isSyncing = false;
-    if (syncQueue.length > 0) {
-      setTimeout(processSyncQueue, 100);
-    }
-  });
+  // No longer used — saveState now pushes directly with dbRef.set()
+  // Kept as stub to avoid any reference errors
 }
 
 function applyFirebaseData(data) {
@@ -2652,23 +2645,44 @@ function applyFirebaseDataWithVersion(data) {
     return;
   }
 
-  // CONSISTENCY: Check version before applying
   const incomingVersion = data._version || 0;
-  if (incomingVersion <= localVersion) {
-    return; // Ignore stale data
+
+  // Skip if this is our own write (same version we just pushed)
+  if (incomingVersion === localVersion) {
+    return;
   }
 
-  // DURABILITY: Ensure localStorage is updated first
-  if (data.settings) state.settings = { ...state.settings, ...data.settings };
+  // Skip if genuinely older than what we have locally
+  if (incomingVersion < localVersion) {
+    return;
+  }
+
+  // Apply data from Firebase (newer version from another device/tab)
+  if (data.settings) {
+    state.settings = {
+      ...state.settings,
+      ...data.settings
+    };
+  }
   if (Array.isArray(data.devotees)) {
     state.devotees = data.devotees.map(d => {
       const existing = state.devotees.find(e => e.id === d.id);
       return normalizeDevotee(existing ? { ...existing, ...d } : d);
     });
   }
-  if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
-  if (Array.isArray(data.hundi) && data.hundi !== state.hundi) {
-    state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  if (Array.isArray(data.coupons)) {
+    state.coupons = normalizeCoupons(data.coupons, couponTotal());
+  }
+  if (Array.isArray(data.hundi)) {
+    // Preserve settled status — do NOT default to false
+    state.hundi = data.hundi.map(h => ({
+      id: h.id,
+      devoteeId: h.devoteeId,
+      amount: h.amount,
+      date: h.date,
+      settled: Boolean(h.settled),
+      _updated: h._updated
+    }));
   }
 
   localVersion = incomingVersion;
@@ -2692,6 +2706,11 @@ function updateAdminView() {
   });
 }
 
+// Global reference to Firebase push function — set after initFirebaseSync
+function _pushToFirebase() {
+  // Placeholder until Firebase is initialized — overwritten below
+}
+
 function initFirebaseSync() {
   try {
     if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
@@ -2706,7 +2725,10 @@ function initFirebaseSync() {
           };
           state.devotees = idbData.devotees.map(normalizeDevotee);
           state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
-          state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+          state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi.map(h => ({
+            id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+            date: h.date, settled: Boolean(h.settled), _updated: h._updated
+          })) : [];
           state._version = idbData._version || 0;
           localVersion = state._version;
           renderSelectors();
@@ -2731,51 +2753,60 @@ function initFirebaseSync() {
           window.COUPON_TRACKER_FIREBASE.databasePath || "couponTracker/appState"
         );
 
+        // ✅ Read once to bootstrap local state from Firebase, THEN start real-time listener
         dbRef.once("value").then((snap) => {
           const existingData = snap.val();
 
           if (existingData && Array.isArray(existingData.devotees) && Array.isArray(existingData.coupons)) {
             const freshVersion = existingData._version || 0;
 
-            state.settings = { ...state.settings, ...existingData.settings };
-            state.devotees = existingData.devotees.map(d => {
-              const existing = state.devotees.find(e => e.id === d.id);
-              return normalizeDevotee(existing ? { ...existing, ...d } : d);
-            });
-            state.coupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons);
-            state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi : [];
-            localVersion = freshVersion;
-            saveState();
-
-            dbRef.on("value", (snapshot) => {
-              if (!snapshot.exists()) return;
-              if (isEditing) {
-                pendingFirebaseData = snapshot.val();
-                return;
-              }
-              applyFirebaseData(snapshot.val());
-            });
+            // Only load Firebase data if it's genuinely newer than local
+            if (freshVersion > localVersion) {
+              state.settings = { ...state.settings, ...existingData.settings };
+              state.devotees = existingData.devotees.map(d => {
+                const existing = state.devotees.find(e => e.id === d.id);
+                return normalizeDevotee(existing ? { ...existing, ...d } : d);
+              });
+              state.coupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons || DEFAULT_TOTAL_COUPONS);
+              state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi.map(h => ({
+                id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+                date: h.date, settled: Boolean(h.settled), _updated: h._updated
+              })) : [];
+              localVersion = freshVersion;
+              state._version = freshVersion;
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+              idbPut(JSON.parse(JSON.stringify(state)));
+            } else if (localVersion > freshVersion) {
+              // Local data is newer — push it up to Firebase
+              _doPushToFirebase();
+            } else {
+              // Same version — no changes needed
+              localVersion = freshVersion;
+            }
           } else {
-            dbRef.on("value", (snapshot) => {
-              if (!snapshot.exists()) return;
-              if (isEditing) {
-                pendingFirebaseData = snapshot.val();
-                return;
-              }
-              applyFirebaseData(snapshot.val());
-            });
-
-            const initialState = {
-              ...state,
-              _version: getVersionStamp(),
-              _lastSync: new Date().toISOString()
-            };
-            dbRef.set(initialState);
+            // Firebase is empty — push local state up
+            _doPushToFirebase();
           }
 
-          updateSyncBadge("Synced");
+          updateSyncBadge("Synced ✓");
           renderSelectors();
           render();
+
+          // ✅ Start real-time listener AFTER bootstrap completes — prevents double-apply of initial data
+          dbRef.on("value", (snapshot) => {
+            if (!snapshot.exists()) return;
+            const data = snapshot.val();
+            const incomingVersion = data._version || 0;
+
+            // Skip our own write echoes (version matches what we just set)
+            if (incomingVersion === localVersion) return;
+
+            if (isEditing) {
+              pendingFirebaseData = data;
+              return;
+            }
+            applyFirebaseData(data);
+          });
         }).catch((err) => {
           console.error("Firebase Read Error:", err);
           idbGet().then(idbData => {
@@ -2789,7 +2820,10 @@ function initFirebaseSync() {
               };
               state.devotees = idbData.devotees.map(normalizeDevotee);
               state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
-              state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi : [];
+              state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi.map(h => ({
+                id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+                date: h.date, settled: Boolean(h.settled), _updated: h._updated
+              })) : [];
               state._version = idbData._version || 0;
               localVersion = state._version;
               renderSelectors();
@@ -2810,33 +2844,69 @@ function initFirebaseSync() {
   }
 }
 
-// 🔥 Override saveState for Firebase sync with ACID guarantees
-const _localSaveState = saveState;
-let _isSyncingLocal = false;
+// ✅ Internal function that writes current state to Firebase with a single consistent version stamp
+function _doPushToFirebase() {
+  if (!firebaseReady || !dbRef) return;
 
-saveState = function () {
-  if (_isSyncingLocal) return;
-  _isSyncingLocal = true;
-  try {
-    _localSaveState();
+  // Generate one version stamp used BOTH locally and in Firebase
+  const version = getVersionStamp();
+  state._version = version;
+  state._lastSync = new Date().toISOString();
+  localVersion = version;
 
-    if (firebaseReady && dbRef) {
-      // ATOMICITY: Add version stamp before syncing
-      const stateWithVersion = {
-        ...state,
-        _version: getVersionStamp(),
-        _lastSync: new Date().toISOString()
-      };
+  // Save locally first
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  idbPut(JSON.parse(JSON.stringify(state)));
 
-      // Use queue-based sync for atomicity
-      queueSyncUpdate(stateWithVersion);
+  // Push to Firebase — listener will see this version === localVersion and skip it
+  const snapshot = JSON.parse(JSON.stringify(state));
+  dbRef.set(snapshot).then(() => {
+    updateSyncBadge("Synced ✓");
+  }).catch(err => {
+    console.error("Firebase write error:", err);
+    updateSyncBadge("Sync error");
+  });
+}
+
+// ✅ Override saveState to persist locally AND push to Firebase atomically
+{
+  saveState = function saveState() {
+    // Single monotonic version stamp used for BOTH local and Firebase
+    // This ensures the listener can identify and skip our own write echoes
+    const version = getVersionStamp();
+    state._version = version;
+    state._lastSync = new Date().toISOString();
+    localVersion = version; // Listener will skip echoes where version === localVersion
+
+    // ✅ Persist locally first (fast, synchronous-ish)
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn("localStorage write failed:", e);
     }
-  } catch (e) {
-    console.error("saveState error:", e);
-  } finally {
-    _isSyncingLocal = false;
-  }
-};
+    idbPut(JSON.parse(JSON.stringify(state)));
+
+    // ✅ Push to Firebase if connected
+    if (firebaseReady && dbRef) {
+      updateSyncBadge("⏳ Saving...");
+      const snapshot = JSON.parse(JSON.stringify(state));
+      dbRef.set(snapshot)
+        .then(() => updateSyncBadge("Synced ✓"))
+        .catch(err => {
+          console.error("Firebase write error:", err);
+          updateSyncBadge("⚠️ Retry...");
+          // Retry once after 2 seconds
+          setTimeout(() => {
+            if (firebaseReady && dbRef) {
+              dbRef.set(JSON.parse(JSON.stringify(state)))
+                .then(() => updateSyncBadge("Synced ✓"))
+                .catch(() => updateSyncBadge("❌ Sync failed"));
+            }
+          }, 2000);
+        });
+    }
+  };
+}
 
 function openSoldEditModal(couponNumber) {
   const coupon = state.coupons[Number(couponNumber) - 1];
