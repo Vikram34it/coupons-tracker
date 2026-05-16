@@ -60,39 +60,11 @@
   </header>
 
   <main>
-    <section class="stats-grid top-stats" aria-label="Coupon summary">
-      <article>
-        <span>Total Coupons</span>
-        <strong id="totalCoupons">0</strong>
-      </article>
-      <article>
-        <span>Assigned</span>
-        <strong id="assignedCoupons">0</strong>
-      </article>
-      <article>
-        <span>Sold</span>
-        <strong id="soldCoupons">0</strong>
-      </article>
-      <article>
-        <span>Settled Amount</span>
-        <strong id="moneyReceived">₹0</strong>
-      </article>
-      <article>
-        <span>Unsettled Amount</span>
-        <strong id="unsettledMoney">₹0</strong>
-      </article>
-      <article>
-        <span>Settled Coupons</span>
-        <strong id="settledCoupons">0</strong>
-      </article>
-      <article>
-        <span>Temple Transfer</span>
-        <strong id="templeTransferMoney">₹0</strong>
-      </article>
-    </section>
+    <!-- Stats grid is now inside the Statistics admin tab -->
 
     <nav class="tabs app-nav-row" aria-label="Views and admin sections">
       <button class="subtab active" data-admin-tab="dashboard">Dashboard</button>
+      <button class="subtab" data-admin-tab="statistics">Statistics</button>
       <button class="subtab" data-admin-tab="setup">Setup</button>
       <button class="subtab" data-admin-tab="reset">Reset</button>
       <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
@@ -248,11 +220,47 @@
               <input id="settledToDate" type="date" title="Settled to date">
             </div>
           </div>
-          <section class="panel">
+          <div id="devoteeList" class="devotee-list"></div>
+        </section>
+      </div>
+
+      <div data-admin-section="statistics">
+        <section class="panel">
+          <h2>Statistics</h2>
+          <section class="stats-grid top-stats" aria-label="Coupon summary">
+            <article>
+              <span>Total Coupons</span>
+              <strong id="totalCoupons">0</strong>
+            </article>
+            <article>
+              <span>Assigned</span>
+              <strong id="assignedCoupons">0</strong>
+            </article>
+            <article>
+              <span>Sold</span>
+              <strong id="soldCoupons">0</strong>
+            </article>
+            <article>
+              <span>Settled Amount</span>
+              <strong id="moneyReceived">₹0</strong>
+            </article>
+            <article>
+              <span>Unsettled Amount</span>
+              <strong id="unsettledMoney">₹0</strong>
+            </article>
+            <article>
+              <span>Settled Coupons</span>
+              <strong id="settledCoupons">0</strong>
+            </article>
+            <article>
+              <span>Temple Transfer</span>
+              <strong id="templeTransferMoney">₹0</strong>
+            </article>
+          </section>
+          <section class="panel" style="margin-top: 16px">
             <h3>Seva-wise Summary</h3>
             <div id="sevaSummary"></div>
           </section>
-          <div id="devoteeList" class="devotee-list"></div>
         </section>
       </div>
     </section>

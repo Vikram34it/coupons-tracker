@@ -773,17 +773,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   updateAdminView();
-  loadInvitationTemplate(); // ✅ populate textarea from saved state
-
-  const topStats = document.querySelector(".stats-grid");
-
-  if (topStats) {
-    if (session?.role === "devotee") {
-      topStats.style.display = "none";
-    } else {
-      topStats.style.display = "grid";
-    }
-  }
+  loadInvitationTemplate();
 }
 
 function renderSelectors() {
@@ -898,10 +888,10 @@ function applyRoleAccess() {
   // Devotee Entry tab — hidden for viewer
   document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
 
-  // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
+  // Admin sub-tabs: viewer sees Dashboard + Statistics only (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
     if (isViewer) {
-      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard");
+      tab.classList.toggle("hidden", tab.dataset.adminTab !== "dashboard" && tab.dataset.adminTab !== "statistics");
     } else {
       tab.classList.toggle("hidden", !isAdmin);
     }
