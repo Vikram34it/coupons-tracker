@@ -226,7 +226,9 @@
 
       <div data-admin-section="statistics">
         <section class="panel">
-          <h2>Statistics</h2>
+          <h2>📊 Statistics</h2>
+
+          <!-- Row 1: Key stat cards -->
           <section class="stats-grid top-stats" aria-label="Coupon summary">
             <article>
               <span>Total Coupons</span>
@@ -257,10 +259,49 @@
               <strong id="templeTransferMoney">₹0</strong>
             </article>
           </section>
-          <section class="panel" style="margin-top: 16px">
-            <h3>Seva-wise Summary</h3>
+
+          <!-- Row 2: Progress + Payment Breakdown -->
+          <div class="stat-row-2col" style="margin-top:16px">
+            <section class="panel stat-inner-panel">
+              <h3>🎯 Overall Progress</h3>
+              <div id="statProgress"></div>
+            </section>
+            <section class="panel stat-inner-panel">
+              <h3>💳 Payment Mode Breakdown</h3>
+              <div id="statPaymentMode"></div>
+            </section>
+          </div>
+
+          <!-- Row 3: Top Performers -->
+          <div class="stat-row-2col" style="margin-top:16px">
+            <section class="panel stat-inner-panel">
+              <h3>🏆 Top Performers by Amount</h3>
+              <div id="statTopByAmount"></div>
+            </section>
+            <section class="panel stat-inner-panel">
+              <h3>🎟️ Top Performers by Coupons Sold</h3>
+              <div id="statTopBySold"></div>
+            </section>
+          </div>
+
+          <!-- Row 4: Daily Activity + Pending Devotees -->
+          <div class="stat-row-2col" style="margin-top:16px">
+            <section class="panel stat-inner-panel">
+              <h3>📅 Daily Settlement Activity (Last 14 Days)</h3>
+              <div id="statDailyActivity"></div>
+            </section>
+            <section class="panel stat-inner-panel">
+              <h3>⚠️ Devotees with Pending Amount</h3>
+              <div id="statPendingDevotees"></div>
+            </section>
+          </div>
+
+          <!-- Row 5: Seva Summary -->
+          <section class="panel stat-inner-panel" style="margin-top:16px">
+            <h3>🙏 Seva-wise Collection Summary</h3>
             <div id="sevaSummary"></div>
           </section>
+
         </section>
       </div>
     </section>

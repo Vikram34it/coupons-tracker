@@ -242,27 +242,20 @@ function renderSevaSummary() {
     .filter(c => c.settled && inSettlementPeriod(c, period))
     .forEach(coupon => {
       const seva = coupon.description || "Others";
-
-      if (!sevaMap[seva]) {
-        sevaMap[seva] = { count: 0, amount: 0 };
-      }
-
+      if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
       sevaMap[seva].count += 1;
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
   (state.hundi || []).filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period)).forEach(h => {
     const seva = "Hundi Donation";
-
-    if (!sevaMap[seva]) {
-      sevaMap[seva] = { count: 0, amount: 0 };
-    }
-
+    if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
     sevaMap[seva].count += 1;
     sevaMap[seva].amount += h.amount;
   });
+
   const rows = Object.entries(sevaMap)
-    .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
+    .sort((a, b) => b[1].amount - a[1].amount)
     .map(([seva, data]) => `
       <tr>
         <td>${escapeHtml(seva)}</td>
@@ -290,6 +283,246 @@ function renderSevaSummary() {
   `;
 }
 
+// ======================================================
+// 📊 STATISTICS TAB — all sub-render functions
+// ======================================================
+
+function renderStatisticsTab() {
+  renderStatProgress();
+  renderStatPaymentMode();
+  renderStatTopPerformers();
+  renderStatDailyActivity();
+  renderStatPendingDevotees();
+}
+
+// 🎯 Overall Progress Bars
+function renderStatProgress() {
+  const el = els.statProgress;
+  if (!el) return;
+
+  const total = couponTotal();
+  const assigned = state.coupons.filter(c => c.devoteeId).length;
+  const sold = state.coupons.filter(isSold).length;
+  const settled = state.coupons.filter(c => c.settled).length;
+
+  const pAssigned = total ? Math.round((assigned / total) * 100) : 0;
+  const pSold     = assigned ? Math.round((sold / assigned) * 100) : 0;
+  const pSettled  = sold ? Math.round((settled / sold) * 100) : 0;
+
+  const bar = (pct, color) =>
+    `<div class="stat-progress-bar-bg">
+       <div class="stat-progress-bar-fill" style="width:${pct}%;background:${color}"></div>
+     </div>`;
+
+  el.innerHTML = `
+    <div class="stat-progress-item">
+      <div class="stat-progress-label">
+        <span>Coupons Assigned</span>
+        <span>${assigned.toLocaleString("en-IN")} / ${total.toLocaleString("en-IN")} — ${pAssigned}%</span>
+      </div>
+      ${bar(pAssigned, "var(--primary)")}
+    </div>
+    <div class="stat-progress-item">
+      <div class="stat-progress-label">
+        <span>Assigned → Sold</span>
+        <span>${sold.toLocaleString("en-IN")} / ${assigned.toLocaleString("en-IN")} — ${pSold}%</span>
+      </div>
+      ${bar(pSold, "var(--accent)")}
+    </div>
+    <div class="stat-progress-item">
+      <div class="stat-progress-label">
+        <span>Sold → Settled</span>
+        <span>${settled.toLocaleString("en-IN")} / ${sold.toLocaleString("en-IN")} — ${pSettled}%</span>
+      </div>
+      ${bar(pSettled, "var(--ok)")}
+    </div>
+    <div class="stat-progress-item">
+      <div class="stat-progress-label">
+        <span>Unsettled Coupons</span>
+        <span>${(sold - settled).toLocaleString("en-IN")} remaining</span>
+      </div>
+      ${bar(sold ? Math.round(((sold - settled) / sold) * 100) : 0, "var(--danger)")}
+    </div>
+  `;
+}
+
+// 💳 Payment Mode Breakdown
+function renderStatPaymentMode() {
+  const el = els.statPaymentMode;
+  if (!el) return;
+
+  const allSold = state.coupons.filter(isSold);
+  const cash    = allSold.filter(c => !c.paymentMode || c.paymentMode === "cash");
+  const temple  = allSold.filter(c => c.paymentMode === "temple_transfer");
+
+  const cashAmt   = cash.reduce((s, c) => s + amountValue(c.amount), 0);
+  const templeAmt = temple.reduce((s, c) => s + amountValue(c.amount), 0);
+  const total     = cashAmt + templeAmt;
+
+  const cashPct   = total ? Math.round((cashAmt   / total) * 100) : 0;
+  const templePct = total ? Math.round((templeAmt / total) * 100) : 0;
+
+  const row = (label, count, amt, pct, color) => `
+    <div class="stat-payment-row">
+      <div style="flex:1">
+        <div class="stat-payment-label">${label}</div>
+        <div class="stat-payment-count">${count} coupons</div>
+        <div class="stat-progress-bar-bg" style="margin-top:6px;height:6px">
+          <div class="stat-progress-bar-fill" style="width:${pct}%;background:${color};height:6px"></div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="stat-payment-amount">${formatMoney(amt)}</div>
+        <div class="stat-payment-pct">${pct}%</div>
+      </div>
+    </div>`;
+
+  el.innerHTML = total
+    ? row("Cash", cash.length, cashAmt, cashPct, "var(--primary)")
+    + row("Temple Transfer", temple.length, templeAmt, templePct, "var(--accent)")
+    : `<div class="stat-empty">No sold coupons yet</div>`;
+}
+
+// 🏆 Top Performers
+function renderStatTopPerformers() {
+  const byAmt  = els.statTopByAmount;
+  const bySold = els.statTopBySold;
+  if (!byAmt || !bySold) return;
+
+  // Build per-devotee stats
+  const devoteeStats = state.devotees.map(d => {
+    const coupons = state.coupons.filter(c => c.devoteeId === d.id);
+    const sold    = coupons.filter(isSold);
+    const settled = sold.filter(c => c.settled);
+    const totalAmt = settled.reduce((s, c) => s + amountValue(c.amount), 0)
+                   + (state.hundi || []).filter(h => h.devoteeId === d.id && h.settled).reduce((s, h) => s + h.amount, 0);
+    return { name: d.name, sold: sold.length, settledAmt: totalAmt };
+  });
+
+  const rankClass = i => i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+  const medal     = i => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : String(i + 1);
+
+  const makeList = (sorted, valueKey, formatter) => {
+    if (!sorted.length || sorted[0][valueKey] === 0)
+      return `<div class="stat-empty">No data yet</div>`;
+    const max = sorted[0][valueKey];
+    return sorted.slice(0, 5).map((d, i) => `
+      <div class="stat-performer-row">
+        <div class="stat-rank ${rankClass(i)}">${medal(i)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="stat-performer-name">${escapeHtml(d.name)}</div>
+          <div class="stat-performer-bar-bg">
+            <div class="stat-performer-bar-fill" style="width:${max ? Math.round((d[valueKey]/max)*100) : 0}%"></div>
+          </div>
+        </div>
+        <div class="stat-performer-value">${formatter(d[valueKey])}</div>
+      </div>`).join("");
+  };
+
+  byAmt.innerHTML  = makeList(
+    [...devoteeStats].sort((a, b) => b.settledAmt - a.settledAmt),
+    "settledAmt", formatMoney
+  );
+  bySold.innerHTML = makeList(
+    [...devoteeStats].sort((a, b) => b.sold - a.sold),
+    "sold", v => `${v} coupons`
+  );
+}
+
+// 📅 Daily Settlement Activity — last 14 days
+function renderStatDailyActivity() {
+  const el = els.statDailyActivity;
+  if (!el) return;
+
+  const today = todayKey();
+  // Build a map of the last 14 days
+  const days = [];
+  for (let i = 0; i < 14; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    days.push(key);
+  }
+
+  const dayMap = {};
+  days.forEach(k => { dayMap[k] = { count: 0, amount: 0 }; });
+
+  state.coupons.filter(c => c.settled && c.settledAt && dayMap[c.settledAt]).forEach(c => {
+    dayMap[c.settledAt].count++;
+    dayMap[c.settledAt].amount += amountValue(c.amount);
+  });
+  (state.hundi || []).filter(h => h.settled && h.date && dayMap[h.date]).forEach(h => {
+    dayMap[h.date].count++;
+    dayMap[h.date].amount += h.amount;
+  });
+
+  const hasAny = Object.values(dayMap).some(v => v.count > 0);
+  if (!hasAny) {
+    el.innerHTML = `<div class="stat-empty">No settlements in the last 14 days</div>`;
+    return;
+  }
+
+  const maxAmt = Math.max(...Object.values(dayMap).map(v => v.amount));
+
+  const formatDay = k => {
+    const [y, m, d] = k.split("-");
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${d} ${months[Number(m)-1]}`;
+  };
+
+  const rows = days.map(k => {
+    const { count, amount } = dayMap[k];
+    const pct = maxAmt ? Math.round((amount / maxAmt) * 100) : 0;
+    const isToday = k === today;
+    return `
+      <tr class="${isToday ? "stat-today-row" : ""}">
+        <td>${formatDay(k)}${isToday ? " <span class='small-stat'>(today)</span>" : ""}</td>
+        <td>${count || "–"}</td>
+        <td>${amount ? formatMoney(amount) : "–"}</td>
+        <td class="stat-daily-bar-cell">
+          <div class="stat-daily-bar-bg">
+            <div class="stat-daily-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </td>
+      </tr>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div style="overflow:auto;max-height:320px">
+      <table class="stat-daily-table">
+        <thead><tr><th>Date</th><th>Count</th><th>Amount</th><th>Bar</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ⚠️ Devotees with Pending Amount
+function renderStatPendingDevotees() {
+  const el = els.statPendingDevotees;
+  if (!el) return;
+
+  const pending = state.devotees.map(d => {
+    const amt = state.coupons
+      .filter(c => c.devoteeId === d.id && isSold(c) && !c.settled && amountValue(c.amount) > 0)
+      .reduce((s, c) => s + amountValue(c.amount), 0)
+    + (state.hundi || [])
+      .filter(h => h.devoteeId === d.id && !h.settled)
+      .reduce((s, h) => s + h.amount, 0);
+    return { name: d.name, pending: amt };
+  }).filter(d => d.pending > 0).sort((a, b) => b.pending - a.pending);
+
+  if (!pending.length) {
+    el.innerHTML = `<div class="stat-empty">🎉 All devotees are fully settled!</div>`;
+    return;
+  }
+
+  el.innerHTML = pending.slice(0, 10).map(d => `
+    <div class="stat-pending-row">
+      <div class="stat-pending-name">${escapeHtml(d.name)}</div>
+      <div class="stat-pending-amount">${formatMoney(d.pending)}</div>
+    </div>`).join("");
+}
+
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
@@ -301,7 +534,8 @@ function cacheElements() {
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast",
-    "bulkSelectAll", "bulkSettleBtn"
+    "bulkSelectAll", "bulkSettleBtn",
+    "statProgress", "statPaymentMode", "statTopByAmount", "statTopBySold", "statDailyActivity", "statPendingDevotees"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -769,6 +1003,7 @@ function render() {
   renderStats();
   renderDevotees();
   renderSevaSummary();
+  renderStatisticsTab();
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
@@ -2694,6 +2929,8 @@ function updateAdminView() {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
+  // Re-render statistics whenever that tab becomes active
+  if (activeAdminTab === "statistics") renderStatisticsTab();
 }
 
 // Global reference to Firebase push function — set after initFirebaseSync
