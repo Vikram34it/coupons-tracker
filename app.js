@@ -11,6 +11,7 @@ let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
 let saveTimer = null;
+let firebaseHasLoaded = false;
 const els = {};
 
 window.addEventListener("load", () => {
