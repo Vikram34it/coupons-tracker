@@ -2,6 +2,7 @@ const DEFAULT_TOTAL_COUPONS = 3000;
 const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "hare krishna";
+const APP_URL = "https://vikram34it.github.io/coupons-tracker/";
 
 const state = loadState();
 let session = loadSession();
@@ -64,6 +65,15 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   };
 }
 
+function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS) {
+  return {
+    adminPassword: settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
+    totalCoupons: positiveInteger(settings.totalCoupons) || fallbackTotal || DEFAULT_TOTAL_COUPONS,
+    invitationMessage: settings.invitationMessage || "",
+    viewerPassword: settings.viewerPassword || ""
+  };
+}
+
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -77,12 +87,7 @@ function loadState() {
     const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
 
     return {
-      settings: {
-        adminPassword: parsed.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
-        totalCoupons,
-        invitationMessage: parsed.settings?.invitationMessage || "",
-        viewerPassword: parsed.settings?.viewerPassword || ""
-      },
+      settings: normalizeSettings(parsed.settings, totalCoupons),
       devotees: parsed.devotees.map(normalizeDevotee),
       coupons,
       hundi: Array.isArray(parsed.hundi) ? parsed.hundi.map(h => ({ settled: false, ...h })) : []
@@ -174,7 +179,7 @@ function cacheElements() {
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
@@ -387,9 +392,13 @@ function renderLoginRole() {
 function addDevotee(event) {
   event.preventDefault();
   const name = els.devoteeName.value.trim();
-  const contact = els.devoteeContact.value.trim();
+  const contact = cleanIndianMobile(els.devoteeContact.value);
   const password = els.devoteePassword.value.trim();
   if (!name) return;
+  if (els.devoteeContact.value.trim() && !contact) {
+    showToast("Enter valid 10-digit mobile number");
+    return;
+  }
   if (password.length < 4) {
     showToast("Use at least 4 characters for devotee password");
     return;
@@ -549,6 +558,7 @@ function assignCoupons(event) {
   const from = Number(els.assignFrom.value);
   const to = Number(els.assignTo.value);
   const assignedAt = els.assignDate.value || todayKey();
+  const sendWhatsApp = Boolean(els.assignSendWhatsapp?.checked);
 
   if (!devoteeId) {
     showToast("Please add and select a devotee first");
@@ -575,6 +585,8 @@ function assignCoupons(event) {
     return;
   }
 
+  const devotee = state.devotees.find((item) => item.id === devoteeId);
+
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
@@ -583,10 +595,15 @@ function assignCoupons(event) {
   });
 
   els.assignForm.reset();
+  els.assignDate.value = todayKey();
   els.assignHint.textContent = "";
   saveState();
   render();
   showToast(`Assigned coupons ${from} to ${to}`);
+
+  if (sendWhatsApp) {
+    openWhatsAppForDevoteeAssignment(devotee, from, to, assignedAt);
+  }
 }
 
 function render() {
@@ -638,7 +655,11 @@ function renderSelectors() {
   els.loginDevotee.innerHTML = empty + options;
 
   // ✅ ASSIGN DROPDOWN
+  const currentAssignValue = els.assignDevotee.value;
   els.assignDevotee.innerHTML = empty + options;
+  if (state.devotees.some((devotee) => devotee.id === currentAssignValue)) {
+    els.assignDevotee.value = currentAssignValue;
+  }
 
   // ✅ RESET DROPDOWN
   const currentResetValue = els.resetDevotee.value;
@@ -1063,8 +1084,11 @@ https://vikram34it.github.io/coupons-tracker/
           return;
         }
 
-        const url =
-          `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+        const url = buildWhatsAppUrl(phone, message);
+        if (!url) {
+          showToast("Enter valid contact number for this devotee");
+          return;
+        }
 
         window.open(url, "_blank");
 
@@ -1090,9 +1114,9 @@ https://vikram34it.github.io/coupons-tracker/
 
         if (newContact === null) return;
 
-        const cleaned = newContact.replace(/\D/g, "");
+        const cleaned = cleanIndianMobile(newContact);
 
-        if (cleaned.length !== 10) {
+        if (!cleaned) {
           showToast("Enter valid 10-digit mobile number");
           return;
         }
@@ -1382,6 +1406,10 @@ function renderEntryList() {
           <label>
             Amount Received
             <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
+          </label>
+          <label>
+            Receipt No
+            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt number" ${locked}>
           </label>
           <label>
             Assigned To
@@ -1848,10 +1876,11 @@ function importBackup(event) {
         throw new Error("Invalid backup");
       }
 
-      state.settings = {
-        adminPassword: imported.settings?.adminPassword || state.settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
-        totalCoupons: positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS
-      };
+      const importedTotalCoupons = positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS;
+      state.settings = normalizeSettings(
+        { ...state.settings, ...imported.settings, totalCoupons: importedTotalCoupons },
+        importedTotalCoupons
+      );
       state.devotees = imported.devotees.map(normalizeDevotee);
       state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
       state.hundi = Array.isArray(imported.hundi)
@@ -1896,8 +1925,8 @@ function saveInvitationTemplate(event) {
 }
 
 function loadInvitationTemplate() {
-  if (els.invitationMessageInput && state.settings.invitationMessage) {
-    els.invitationMessageInput.value = state.settings.invitationMessage;
+  if (els.invitationMessageInput) {
+    els.invitationMessageInput.value = state.settings.invitationMessage || "";
   }
 }
 
@@ -1912,6 +1941,107 @@ function buildInvitationMessage(coupon) {
     .replace(/{devotee}/g, devotee ? devotee.name : "");
 }
 
+function whatsappPhone(rawPhone) {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 11 && digits.startsWith("0")) return `91${digits.slice(1)}`;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  return digits.length >= 10 ? digits : "";
+}
+
+function cleanIndianMobile(rawPhone) {
+  const digits = String(rawPhone || "").replace(/\D/g, "");
+  if (digits.length === 10) return digits;
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  return "";
+}
+
+function buildWhatsAppUrl(rawPhone, message) {
+  const phone = whatsappPhone(rawPhone);
+  return phone ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}` : "";
+}
+
+function appLink() {
+  return APP_URL;
+}
+
+function buildDevoteeSummaryMessage(devotee) {
+  const period = settlementPeriod();
+  const summary = devoteeSummary(devotee.id, period);
+  const assigned = couponsForDevotee(devotee.id).length;
+
+  return `Hare Krishna
+
+${devotee.name},
+
+Here is your seva summary:
+
+PIN: ${devotee.pin || "Not set"}
+
+Coupons Assigned: ${assigned}
+Sold Coupons: ${summary.sold}
+Pending Coupons: ${summary.left}
+
+Amount Settled: ${formatMoney(summary.settledAmount)}
+Amount Pending: ${formatMoney(summary.pendingAmount)}
+
+Please continue your seva enthusiastically.
+
+Use the following link to update your coupons:
+${appLink()}`;
+}
+
+function buildAssignmentMessage(devotee, from, to, assignedAt) {
+  const count = to - from + 1;
+  const range = from === to ? `Coupon ${from}` : `Coupons ${from} to ${to}`;
+  const totalAssigned = couponsForDevotee(devotee.id).length;
+
+  return `Hare Krishna
+
+${devotee.name},
+
+${range} (${count} total) have been assigned to you on ${assignedAt}.
+
+Your login PIN: ${devotee.pin || "Not set"}
+Total coupons assigned to you: ${totalAssigned}
+
+Please update collection details in Coupon Seva Tracker:
+${appLink()}`;
+}
+
+function openWhatsAppForDevoteeSummary(devotee) {
+  if (!devotee?.contact) {
+    showToast("No contact number for this devotee");
+    return;
+  }
+
+  const url = buildWhatsAppUrl(devotee.contact, buildDevoteeSummaryMessage(devotee));
+  if (!url) {
+    showToast("Enter valid contact number for this devotee");
+    return;
+  }
+
+  window.open(url, "_blank");
+}
+
+function openWhatsAppForDevoteeAssignment(devotee, from, to, assignedAt) {
+  if (!devotee) return;
+  if (!devotee.contact) {
+    showToast("Coupons assigned, but this devotee has no contact number");
+    return;
+  }
+
+  const url = buildWhatsAppUrl(devotee.contact, buildAssignmentMessage(devotee, from, to, assignedAt));
+  if (!url) {
+    showToast("Coupons assigned, but devotee contact number is not valid");
+    return;
+  }
+
+  window.open(url, "_blank");
+}
+
 function openWhatsAppForBuyer(coupon) {
   if (!coupon.buyerContact) {
     showToast("No contact number for this buyer");
@@ -1922,8 +2052,11 @@ function openWhatsAppForBuyer(coupon) {
     return;
   }
   const message = buildInvitationMessage(coupon);
-  const phone = coupon.buyerContact.replace(/\D/g, "");
-  const url = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
+  const url = buildWhatsAppUrl(coupon.buyerContact, message);
+  if (!url) {
+    showToast("Enter valid contact number for this buyer");
+    return;
+  }
   window.open(url, "_blank");
 }
 
@@ -2033,7 +2166,15 @@ function updateSyncBadge(text) {
 }
 
 function applyFirebaseData(data) {
-  if (data.settings) state.settings = data.settings;
+  if (data.settings) {
+    const remoteTotalCoupons = positiveInteger(data.settings?.totalCoupons) ||
+      (Array.isArray(data.coupons) ? data.coupons.length : state.coupons.length) ||
+      DEFAULT_TOTAL_COUPONS;
+    state.settings = normalizeSettings(
+      { ...state.settings, ...data.settings, totalCoupons: remoteTotalCoupons },
+      remoteTotalCoupons
+    );
+  }
   if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
   if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
   if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));

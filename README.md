@@ -9,6 +9,7 @@ This is a browser app for tracking coupon assignment, sale, and settlement.
 - Lets admin set the total number of coupons.
 - Adds devotees with name, contact number, and admin-set password.
 - Assigns coupon ranges to each devotee.
+- Optionally opens a WhatsApp message to the devotee immediately after coupon assignment.
 - Records the date when coupons are assigned.
 - Lets admin reset one coupon by number, selected coupons for a devotee, all coupons assigned to one devotee, or all coupons in the app.
 - Shows every devotee's assigned coupon numbers.

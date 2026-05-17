@@ -508,6 +508,18 @@ textarea::placeholder {
   color: var(--muted);
 }
 
+.checkbox-line {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  margin: 2px 0 12px;
+}
+
+.checkbox-line input {
+  min-height: 18px;
+  width: 18px;
+}
+
 textarea {
   min-height: 100px;
   resize: vertical;

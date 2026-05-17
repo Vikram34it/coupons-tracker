@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-08-1">
+  <link rel="stylesheet" href="styles.css?v=2026-05-17-1">
 </head>
 
 <body>
@@ -137,6 +137,10 @@
           <label>
             Assign Date
             <input id="assignDate" type="date" required>
+          </label>
+          <label class="checkbox-line">
+            <input id="assignSendWhatsapp" type="checkbox">
+            Send WhatsApp message after assigning
           </label>
           <button type="submit">Assign Range</button>
           <p id="assignHint" class="hint"></p>
@@ -339,8 +343,8 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
-  <script src="firebase-config.js?v=2026-05-08-1"></script>
-  <script src="app.js?v=2026-05-08-1"></script>
+  <script src="firebase-config.js?v=2026-05-17-1"></script>
+  <script src="app.js?v=2026-05-17-1"></script>
 </body>
 
 </html>
