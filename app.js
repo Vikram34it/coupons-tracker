@@ -1675,6 +1675,14 @@ function renderEntryList() {
 
     return;
   }
+
+  // 📤 Upload Excel tab
+  if (activeDevoteeTab === "upload") {
+    els.devoteeStats.innerHTML = "";
+    renderExcelUploadTab();
+    return;
+  }
+
   const devoteeId = els.entryDevotee.value;
 
   // 🔥 Only render stats in Dashboard tab

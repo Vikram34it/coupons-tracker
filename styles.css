@@ -1533,3 +1533,84 @@ tr:hover td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ================= EXCEL UPLOAD PANEL ================= */
+.excel-upload-panel {
+  max-width: 860px;
+}
+
+.excel-upload-panel h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.excel-step-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.excel-step {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  background: var(--surface-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: box-shadow var(--transition);
+}
+
+.excel-step:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary);
+}
+
+.excel-step-num {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.excel-format-box {
+  background: var(--surface-elevated);
+  border: 1px solid var(--line-dark);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.excel-errors {
+  background: var(--warning-light);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--warning);
+  margin-bottom: 14px;
+  line-height: 1.7;
+}
+
+.excel-errors ul {
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+
+@media (max-width: 680px) {
+  .excel-step-row {
+    grid-template-columns: 1fr;
+  }
+}
