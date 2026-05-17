@@ -1408,10 +1408,10 @@ function renderEntryList() {
             Amount Received
             <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-          <label>
-            Receipt No
-            <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt number" ${locked}>
-          </label>
+    //      <label>
+    //        Receipt No
+    //       <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt number" ${locked}>
+    //      </label>
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
