@@ -87,34 +87,7 @@ window.addEventListener("load", async () => {
   renderSelectors();
   render();
 
-  // ✅ Load from IndexedDB as fast fallback while Firebase connects
-  idbGet().then(idbData => {
-    if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
-      const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
-      state.settings = {
-        adminPassword: idbData.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
-        totalCoupons,
-        invitationMessage: idbData.settings?.invitationMessage || "",
-        viewerPassword: idbData.settings?.viewerPassword || ""
-      };
-      state.devotees = idbData.devotees.map(normalizeDevotee);
-      state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
-      // ✅ Normalize hundi settled flag from IDB too
-      state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi.map(h => ({
-        id: h.id, devoteeId: h.devoteeId, amount: h.amount,
-        date: h.date, settled: Boolean(h.settled), _updated: h._updated
-      })) : [];
-      state._version = idbData._version || 0;
-      localVersion = state._version;
-      renderSelectors();
-      render();
-      idbInitialized = true;
-    } else {
-      idbInitialized = true;
-    }
-  });
-
-  // ✅ Track editing state: set true when any input is focused
+  // ✅ Track editing state
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
       isEditing = true;
@@ -127,7 +100,7 @@ window.addEventListener("load", async () => {
     const field = e.target;
     const card = field.closest("[data-coupon-number]");
 
-    // ✅ Capture coupon card field value immediately on blur
+    // Capture coupon card field value immediately on blur
     if (card && field.matches("[data-field]")) {
       const couponNum = Number(card.dataset.couponNumber);
       const coupon = state.coupons[couponNum - 1];
@@ -137,36 +110,58 @@ window.addEventListener("load", async () => {
       }
     }
 
-    // ⏳ Small delay to allow TAB to move focus to the next field first
     setTimeout(() => {
       const active = document.activeElement;
-
-      // If focus is still on an input — user is tabbing between fields, do nothing
       if (active && active.matches("input, textarea, select")) return;
 
-      // Focus has left all inputs — save and unlock Firebase updates
       clearTimeout(saveTimer);
-      isEditing = false;   // ✅ Always reset, not just for coupon cards
+      isEditing = false;
       saveState();
-      applyPendingFirebaseData(); // ✅ Apply any queued Firebase updates now
-
+      applyPendingFirebaseData();
     }, 150);
   });
 
-  // ✅ Save on page unload
+  // Save on page unload
   window.addEventListener("beforeunload", () => {
     clearTimeout(saveTimer);
     isEditing = false;
     saveState();
   });
 
-  // Wait until Firebase is ready then connect
-  const waitFirebase = setInterval(() => {
-    if (typeof initFirebaseSync === "function") {
-      clearInterval(waitFirebase);
-      initFirebaseSync();
+  // ✅ FIX: Load IDB FIRST, then start Firebase.
+  // Previously Firebase was started after a fixed 200ms timer, which often
+  // fired BEFORE the IDB async load completed. This meant localVersion=0
+  // and state._lastSync="" when Firebase compared versions, so Firebase
+  // always "won" and overwrote local sold/settled data with stale data.
+  try {
+    const idbData = await idbGet();
+    if (idbData && Array.isArray(idbData.devotees) && Array.isArray(idbData.coupons)) {
+      const totalCoupons = positiveInteger(idbData.settings?.totalCoupons) || idbData.coupons.length || DEFAULT_TOTAL_COUPONS;
+      state.settings = {
+        adminPassword: idbData.settings?.adminPassword || DEFAULT_ADMIN_PASSWORD,
+        totalCoupons,
+        invitationMessage: idbData.settings?.invitationMessage || "",
+        viewerPassword: idbData.settings?.viewerPassword || ""
+      };
+      state.devotees = idbData.devotees.map(normalizeDevotee);
+      state.coupons = normalizeCoupons(idbData.coupons, totalCoupons);
+      state.hundi = Array.isArray(idbData.hundi) ? idbData.hundi.map(h => ({
+        id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+        date: h.date, settled: Boolean(h.settled), _updated: h._updated
+      })) : [];
+      state._version = idbData._version || 0;
+      state._lastSync = idbData._lastSync || "";
+      localVersion = state._version;
+      renderSelectors();
+      render();
     }
-  }, 200);
+  } catch (e) {
+    console.warn("IDB load failed:", e);
+  }
+  idbInitialized = true;
+
+  // ✅ Now start Firebase AFTER IDB is loaded — localVersion and _lastSync are correct
+  initFirebaseSync();
 });
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
@@ -2883,28 +2878,24 @@ function applyFirebaseDataWithVersion(data) {
   }
 
   const incomingVersion = data._version || 0;
-
-  // Skip if this is our own write (same version we just pushed)
-  if (incomingVersion === localVersion) {
-    return;
-  }
-
-  // ✅ Use _lastSync ISO timestamp as primary ordering when versions differ.
-  // Old code used now*10000 which exceeded MAX_SAFE_INTEGER, corrupting Firebase
-  // version numbers. ISO timestamps always compare correctly with string >.
   const incomingSync = data._lastSync || "";
   const localSync = state._lastSync || "";
-  if (incomingSync && localSync && incomingSync < localSync) {
-    // Incoming data is older than what we have locally — skip it
+
+  // Skip if this is our own write echo (exact same version)
+  if (incomingVersion && incomingVersion === localVersion) {
     return;
   }
 
-  // Apply data from Firebase (newer data from another device/tab)
+  // ✅ Use _lastSync ISO timestamp as primary ordering.
+  // If incoming is strictly older than local, skip it entirely.
+  // If both are equal or incoming is newer, do a field-level merge below.
+  if (incomingSync && localSync && incomingSync < localSync) {
+    return; // Incoming is older — skip
+  }
+
+  // Apply settings and devotees (whole-document level — these rarely conflict)
   if (data.settings) {
-    state.settings = {
-      ...state.settings,
-      ...data.settings
-    };
+    state.settings = { ...state.settings, ...data.settings };
   }
   if (Array.isArray(data.devotees)) {
     state.devotees = data.devotees.map(d => {
@@ -2912,41 +2903,55 @@ function applyFirebaseDataWithVersion(data) {
       return normalizeDevotee(existing ? { ...existing, ...d } : d);
     });
   }
+
   if (Array.isArray(data.coupons)) {
-    // ✅ DEFENSIVE MERGE: never un-settle a coupon that is already settled locally.
-    // This prevents stale Firebase data from reverting settled coupons to pending.
+    // ✅ PER-COUPON MERGE: use _updated timestamps to keep the most recent version.
+    // Previously the entire coupons array was replaced wholesale, meaning any
+    // sold coupon data (buyer name, amount, contact) entered locally would be
+    // wiped if Firebase had a stale version of that coupon.
     const incomingCoupons = normalizeCoupons(data.coupons, couponTotal());
     state.coupons = incomingCoupons.map((incoming, idx) => {
       const local = state.coupons[idx];
-      if (local && local.settled && !incoming.settled) {
-        // Preserve local settled state
+      if (!local) return incoming;
+
+      const localUpdated = local._updated || "";
+      const incomingUpdated = incoming._updated || "";
+
+      // Local coupon is newer — keep local data entirely
+      if (localUpdated && incomingUpdated && localUpdated > incomingUpdated) {
+        return local;
+      }
+
+      // ✅ SAFETY: never un-settle a coupon that is settled locally,
+      // even if incoming data is newer (protects against clock skew)
+      if (local.settled && !incoming.settled) {
         return { ...incoming, settled: true, settledAt: local.settledAt };
       }
+
       return incoming;
     });
   }
+
   if (Array.isArray(data.hundi)) {
-    // ✅ DEFENSIVE MERGE: never un-settle hundi entries that are locally settled.
+    // Per-hundi merge: never un-settle a locally settled hundi entry
     state.hundi = data.hundi.map(h => {
-      const localHundi = (state.hundi || []).find(lh => lh.id === h.id);
+      const localH = (state.hundi || []).find(lh => lh.id === h.id);
       return {
-        id: h.id,
-        devoteeId: h.devoteeId,
-        amount: h.amount,
-        date: h.date,
-        settled: Boolean(h.settled) || Boolean(localHundi?.settled),
+        id: h.id, devoteeId: h.devoteeId, amount: h.amount, date: h.date,
+        settled: Boolean(h.settled) || Boolean(localH?.settled),
         _updated: h._updated
       };
     });
   }
 
   localVersion = incomingVersion;
-  state._lastSync = incomingSync || state._lastSync;
+  state._lastSync = incomingSync || localSync;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   idbPut(JSON.parse(JSON.stringify(state)));
   renderSelectors();
   render();
 }
+
 
 function applyPendingFirebaseData() {
   if (!pendingFirebaseData) return;
@@ -3020,11 +3025,20 @@ function initFirebaseSync() {
             const freshSync = existingData._lastSync || "";
             const localSync = state._lastSync || "";
 
-            // ✅ Use ISO _lastSync strings as primary ordering (safe, always correct).
-            // Fall back to version only when both syncs are missing.
-            const firebaseIsNewer = freshSync && localSync
-              ? freshSync > localSync
-              : freshVersion > localVersion;
+            // ✅ Use ISO _lastSync strings as primary ordering.
+            // "newer" means the remote was saved AFTER the local snapshot.
+            // If both have the same timestamp, local wins (we just loaded it from IDB).
+            // If only one side has a timestamp, that side wins.
+            let firebaseIsNewer;
+            if (freshSync && localSync) {
+              firebaseIsNewer = freshSync > localSync;   // Both have timestamps — compare directly
+            } else if (freshSync && !localSync) {
+              firebaseIsNewer = true;                    // Only Firebase has a timestamp — Firebase wins
+            } else if (!freshSync && localSync) {
+              firebaseIsNewer = false;                   // Only local has a timestamp — local wins
+            } else {
+              firebaseIsNewer = freshVersion > localVersion; // Neither has timestamp — use version
+            }
 
             if (firebaseIsNewer) {
               state.settings = { ...state.settings, ...existingData.settings };
@@ -3032,11 +3046,19 @@ function initFirebaseSync() {
                 const existing = state.devotees.find(e => e.id === d.id);
                 return normalizeDevotee(existing ? { ...existing, ...d } : d);
               });
-              // ✅ DEFENSIVE MERGE: preserve any locally settled coupons
+              // ✅ PER-COUPON MERGE: keep whichever version of each coupon is newer.
+              // This means sold-but-unsettled coupon data (buyer name, amount) is
+              // preserved even when Firebase has a slightly older version.
               const incomingCoupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons || DEFAULT_TOTAL_COUPONS);
               state.coupons = incomingCoupons.map((incoming, idx) => {
                 const local = state.coupons[idx];
-                if (local && local.settled && !incoming.settled) {
+                if (!local) return incoming;
+                const localUpdated = local._updated || "";
+                const incomingUpdated = incoming._updated || "";
+                // If local coupon is newer, keep local
+                if (localUpdated && incomingUpdated && localUpdated > incomingUpdated) return local;
+                // Never un-settle a locally settled coupon
+                if (local.settled && !incoming.settled) {
                   return { ...incoming, settled: true, settledAt: local.settledAt };
                 }
                 return incoming;
@@ -3044,8 +3066,7 @@ function initFirebaseSync() {
               state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi.map(h => {
                 const localH = (state.hundi || []).find(lh => lh.id === h.id);
                 return {
-                  id: h.id, devoteeId: h.devoteeId, amount: h.amount,
-                  date: h.date,
+                  id: h.id, devoteeId: h.devoteeId, amount: h.amount, date: h.date,
                   settled: Boolean(h.settled) || Boolean(localH?.settled),
                   _updated: h._updated
                 };
@@ -3061,6 +3082,7 @@ function initFirebaseSync() {
               _doPushToFirebase();
             }
           } else {
+
             // Firebase is empty — push local state up
             _doPushToFirebase();
           }
