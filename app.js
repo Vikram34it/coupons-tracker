@@ -9,18 +9,22 @@ const IDB_KEY = "state";
 let db = null;
 
 // ✅ Monotonic version stamp — always strictly increasing, even within the same millisecond
+// NOTE: We keep this within Number.MAX_SAFE_INTEGER (9007199254740991) by using
+// Date.now() directly (≈1.7e13) plus a fractional sequence (0.0001 increments).
+// Previously used now * 10000 which exceeded MAX_SAFE_INTEGER, causing Firebase
+// to corrupt the stored number and break version comparisons (settling data lost).
 let _versionSeq = 0;
 let _versionLastMs = 0;
 function getVersionStamp() {
-  const now = Date.now();
+  const now = Date.now(); // ~1.7e13 — safely within MAX_SAFE_INTEGER
   if (now > _versionLastMs) {
     _versionLastMs = now;
     _versionSeq = 0;
   } else {
     _versionSeq++;
   }
-  // Encode as a sortable float: milliseconds + sub-ms counter
-  return now * 10000 + _versionSeq;
+  // Use fractional part for sub-ms ordering — stays within safe integer range
+  return now + _versionSeq * 0.0001;
 }
 
 function openIDB() {
@@ -2877,12 +2881,17 @@ function applyFirebaseDataWithVersion(data) {
     return;
   }
 
-  // Skip if genuinely older than what we have locally
-  if (incomingVersion < localVersion) {
+  // ✅ Use _lastSync ISO timestamp as primary ordering when versions differ.
+  // Old code used now*10000 which exceeded MAX_SAFE_INTEGER, corrupting Firebase
+  // version numbers. ISO timestamps always compare correctly with string >.
+  const incomingSync = data._lastSync || "";
+  const localSync = state._lastSync || "";
+  if (incomingSync && localSync && incomingSync < localSync) {
+    // Incoming data is older than what we have locally — skip it
     return;
   }
 
-  // Apply data from Firebase (newer version from another device/tab)
+  // Apply data from Firebase (newer data from another device/tab)
   if (data.settings) {
     state.settings = {
       ...state.settings,
@@ -2896,21 +2905,35 @@ function applyFirebaseDataWithVersion(data) {
     });
   }
   if (Array.isArray(data.coupons)) {
-    state.coupons = normalizeCoupons(data.coupons, couponTotal());
+    // ✅ DEFENSIVE MERGE: never un-settle a coupon that is already settled locally.
+    // This prevents stale Firebase data from reverting settled coupons to pending.
+    const incomingCoupons = normalizeCoupons(data.coupons, couponTotal());
+    state.coupons = incomingCoupons.map((incoming, idx) => {
+      const local = state.coupons[idx];
+      if (local && local.settled && !incoming.settled) {
+        // Preserve local settled state
+        return { ...incoming, settled: true, settledAt: local.settledAt };
+      }
+      return incoming;
+    });
   }
   if (Array.isArray(data.hundi)) {
-    // Preserve settled status — do NOT default to false
-    state.hundi = data.hundi.map(h => ({
-      id: h.id,
-      devoteeId: h.devoteeId,
-      amount: h.amount,
-      date: h.date,
-      settled: Boolean(h.settled),
-      _updated: h._updated
-    }));
+    // ✅ DEFENSIVE MERGE: never un-settle hundi entries that are locally settled.
+    state.hundi = data.hundi.map(h => {
+      const localHundi = (state.hundi || []).find(lh => lh.id === h.id);
+      return {
+        id: h.id,
+        devoteeId: h.devoteeId,
+        amount: h.amount,
+        date: h.date,
+        settled: Boolean(h.settled) || Boolean(localHundi?.settled),
+        _updated: h._updated
+      };
+    });
   }
 
   localVersion = incomingVersion;
+  state._lastSync = incomingSync || state._lastSync;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   idbPut(JSON.parse(JSON.stringify(state)));
   renderSelectors();
@@ -2986,29 +3009,48 @@ function initFirebaseSync() {
 
           if (existingData && Array.isArray(existingData.devotees) && Array.isArray(existingData.coupons)) {
             const freshVersion = existingData._version || 0;
+            const freshSync = existingData._lastSync || "";
+            const localSync = state._lastSync || "";
 
-            // Only load Firebase data if it's genuinely newer than local
-            if (freshVersion > localVersion) {
+            // ✅ Use ISO _lastSync strings as primary ordering (safe, always correct).
+            // Fall back to version only when both syncs are missing.
+            const firebaseIsNewer = freshSync && localSync
+              ? freshSync > localSync
+              : freshVersion > localVersion;
+
+            if (firebaseIsNewer) {
               state.settings = { ...state.settings, ...existingData.settings };
               state.devotees = existingData.devotees.map(d => {
                 const existing = state.devotees.find(e => e.id === d.id);
                 return normalizeDevotee(existing ? { ...existing, ...d } : d);
               });
-              state.coupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons || DEFAULT_TOTAL_COUPONS);
-              state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi.map(h => ({
-                id: h.id, devoteeId: h.devoteeId, amount: h.amount,
-                date: h.date, settled: Boolean(h.settled), _updated: h._updated
-              })) : [];
+              // ✅ DEFENSIVE MERGE: preserve any locally settled coupons
+              const incomingCoupons = normalizeCoupons(existingData.coupons, state.settings.totalCoupons || DEFAULT_TOTAL_COUPONS);
+              state.coupons = incomingCoupons.map((incoming, idx) => {
+                const local = state.coupons[idx];
+                if (local && local.settled && !incoming.settled) {
+                  return { ...incoming, settled: true, settledAt: local.settledAt };
+                }
+                return incoming;
+              });
+              state.hundi = Array.isArray(existingData.hundi) ? existingData.hundi.map(h => {
+                const localH = (state.hundi || []).find(lh => lh.id === h.id);
+                return {
+                  id: h.id, devoteeId: h.devoteeId, amount: h.amount,
+                  date: h.date,
+                  settled: Boolean(h.settled) || Boolean(localH?.settled),
+                  _updated: h._updated
+                };
+              }) : [];
               localVersion = freshVersion;
               state._version = freshVersion;
+              state._lastSync = freshSync || state._lastSync;
               localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
               idbPut(JSON.parse(JSON.stringify(state)));
-            } else if (localVersion > freshVersion) {
-              // Local data is newer — push it up to Firebase
-              _doPushToFirebase();
             } else {
-              // Same version — no changes needed
-              localVersion = freshVersion;
+              // Local data is same age or newer — push it to Firebase to update it
+              localVersion = Math.max(localVersion, freshVersion);
+              _doPushToFirebase();
             }
           } else {
             // Firebase is empty — push local state up
