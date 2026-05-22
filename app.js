@@ -1599,13 +1599,16 @@ function updateCouponField(event) {
 
   coupon[field.dataset.field] = field.value.trimStart();
 
-  // 🔥 DELAY SAVE — extended to 1200ms so user can tab through fields
-  //    Also mark a pending save so Firebase echoes are ignored until we push.
+  // 🔥 DELAY SAVE — extended to 1500ms so user can tab through fields
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    saveState();   // only after user pauses
+    saveState();
     saveTimer = null;
-  }, 1200);
+    // ✅ After save completes, apply any queued remote data if it's now safe
+    if (pendingFirebaseData && !isEditing && !suppressFirebaseEcho) {
+      applyPendingFirebaseData();
+    }
+  }, 1500);
 
   // ❌ NO render()
 }
@@ -2192,6 +2195,8 @@ function applyFirebaseData(data) {
 
 function applyPendingFirebaseData() {
   if (!pendingFirebaseData) return;
+  // 🛑 Never apply while user has unsaved edits in flight
+  if (isEditing || saveTimer !== null || suppressFirebaseEcho) return;
   const data = pendingFirebaseData;
   pendingFirebaseData = null;
   applyFirebaseData(data);
@@ -2232,19 +2237,14 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
 
-          // 🚫 Suppress our own echo — ignore updates right after we wrote
-          if (suppressFirebaseEcho) {
-            return;
-          }
-
-          // 🚫 Don't apply remote data while user is typing or has unsaved changes
-          if (isEditing || saveTimer !== null) {
+          // 🚫 Always queue the latest data first so we don't lose admin changes
+          //    even during echo suppression
+          if (isEditing || saveTimer !== null || suppressFirebaseEcho) {
             pendingFirebaseData = snapshot.val();
             return;
           }
 
           const data = snapshot.val();
-
           applyFirebaseData(data);
         });
 
