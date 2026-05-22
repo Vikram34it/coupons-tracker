@@ -12,6 +12,8 @@ let isEditing = false;
 let pendingFirebaseData = null;
 let saveTimer = null;
 let firebaseHasLoaded = false;
+let suppressFirebaseEcho = false;  // 🔥 Prevents our own writes from echoing back
+let suppressEchoTimer = null;      // Timer handle to clear suppression
 const els = {};
 
 window.addEventListener("load", () => {
@@ -1597,11 +1599,13 @@ function updateCouponField(event) {
 
   coupon[field.dataset.field] = field.value.trimStart();
 
-  // 🔥 DELAY SAVE (KEY FIX)
+  // 🔥 DELAY SAVE — extended to 1200ms so user can tab through fields
+  //    Also mark a pending save so Firebase echoes are ignored until we push.
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveState();   // only after user pauses
-  }, 500);
+    saveTimer = null;
+  }, 1200);
 
   // ❌ NO render()
 }
@@ -2228,8 +2232,13 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
 
-          // 🚫 Don't re-render while typing
-          if (isEditing) {
+          // 🚫 Suppress our own echo — ignore updates right after we wrote
+          if (suppressFirebaseEcho) {
+            return;
+          }
+
+          // 🚫 Don't apply remote data while user is typing or has unsaved changes
+          if (isEditing || saveTimer !== null) {
             pendingFirebaseData = snapshot.val();
             return;
           }
@@ -2266,6 +2275,18 @@ saveState = function () {
   _localSaveState();
 
   if (firebaseReady && dbRef) {
+    // 🛡️ Suppress the echo that Firebase will send back to this same listener
+    //    for up to 5 seconds after our write, preventing rollback of user edits.
+    suppressFirebaseEcho = true;
+    clearTimeout(suppressEchoTimer);
+    suppressEchoTimer = setTimeout(() => {
+      suppressFirebaseEcho = false;
+      // Apply any queued remote update that arrived while we were suppressing
+      if (pendingFirebaseData && !isEditing && saveTimer === null) {
+        applyPendingFirebaseData();
+      }
+    }, 5000);
+
     dbRef.set(state);
   }
 };
