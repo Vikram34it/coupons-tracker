@@ -1599,6 +1599,14 @@ function updateCouponField(event) {
 
   coupon[field.dataset.field] = field.value.trimStart();
 
+  // ✅ Update the Sold/Pending badge on this card immediately (no full re-render)
+  const soldBadge = card.querySelector(\".coupon-number .status:first-of-type\");
+  if (soldBadge) {
+    const sold = isSold(coupon);
+    soldBadge.textContent = sold ? "Sold" : "Pending";
+    soldBadge.className = `status ${sold ? "sold" : "pending"}`;
+  }
+
   // 🔥 DELAY SAVE — extended to 1500ms so user can tab through fields
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
