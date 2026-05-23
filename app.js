@@ -206,7 +206,7 @@ function updateDevoteePendingDisplay() {
 
   const pendingAmount = state.coupons
     .filter(c =>
-      c.devoteeId === devoteeId &&
+      c.devoteeId && String(c.devoteeId) === String(devoteeId) &&
       !c.settled &&
       amountValue(c.amount) > 0   // ✅ THIS IS KEY
     )
@@ -369,7 +369,7 @@ function login(event) {
     }
     saveSession({ role: "viewer", devoteeId: "" });
   } else {
-    const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
+    const devotee = state.devotees.find((item) => String(item.id) === String(els.loginDevotee.value));
     if (!devotee || password !== devotee.pin) {
       showToast("Devotee password is incorrect");
       return;
@@ -588,7 +588,7 @@ function assignCoupons(event) {
     return;
   }
 
-  const devotee = state.devotees.find((item) => item.id === devoteeId);
+  const devotee = state.devotees.find((item) => String(item.id) === String(devoteeId));
 
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
@@ -660,7 +660,7 @@ function renderSelectors() {
   // ✅ ASSIGN DROPDOWN
   const currentAssignValue = els.assignDevotee.value;
   els.assignDevotee.innerHTML = empty + options;
-  if (state.devotees.some((devotee) => devotee.id === currentAssignValue)) {
+  if (state.devotees.some((devotee) => String(devotee.id) === String(currentAssignValue))) {
     els.assignDevotee.value = currentAssignValue;
   }
 
@@ -671,7 +671,7 @@ function renderSelectors() {
 
   if (
     state.devotees.some(
-      (devotee) => devotee.id === currentResetValue
+      (devotee) => String(devotee.id) === String(currentResetValue)
     )
   ) {
     els.resetDevotee.value = currentResetValue;
@@ -688,7 +688,7 @@ function renderSelectors() {
 
   } else if (
     state.devotees.some(
-      (devotee) => devotee.id === currentEntryValue
+      (devotee) => String(devotee.id) === String(currentEntryValue)
     )
   ) {
 
@@ -709,7 +709,7 @@ function validateSession() {
     return;
   }
 
-  if (session.role === "devotee" && !state.devotees.some((devotee) => devotee.id === session.devoteeId)) {
+  if (session.role === "devotee" && !state.devotees.some((devotee) => String(devotee.id) === String(session.devoteeId))) {
     saveSession(null);
     document.body.classList.remove("logged-in");
     return;
@@ -723,7 +723,7 @@ function applyRoleAccess() {
   const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
-    ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
+    ? state.devotees.find((devotee) => String(devotee.id) === String(session.devoteeId))
     : null;
 
   // Badge label
@@ -827,14 +827,14 @@ function renderDevotees() {
 
   // ✅ FILTER DEVOTEES — by name/contact search
   let devotees = state.devotees.filter((devotee) => {
-    if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
+    if (selectedDevotee !== "all" && String(devotee.id) !== String(selectedDevotee)) return false;
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
   // ✅ FILTER BY STATUS
   if (statusFilter !== "all") {
     devotees = devotees.filter((devotee) => {
-      const assigned = state.coupons.filter(c => c.devoteeId === devotee.id);
+      const assigned = state.coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devotee.id));
       const sold = assigned.filter(isSold);
       const settled = assigned.filter(c => c.settled);
       const pending = sold.filter(c => !c.settled);
@@ -1013,7 +1013,7 @@ function renderDevotees() {
       button.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          (item) => item.id === button.dataset.setPassword
+          (item) => String(item.id) === String(button.dataset.setPassword)
         );
 
         if (!devotee) return;
@@ -1046,7 +1046,7 @@ function renderDevotees() {
       btn.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          d => d.id === btn.dataset.sendWhatsapp
+          d => String(d.id) === String(btn.dataset.sendWhatsapp)
         );
 
         if (!devotee) return;
@@ -1105,7 +1105,7 @@ https://vikram34it.github.io/coupons-tracker/
       btn.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          d => d.id === btn.dataset.updateContact
+          d => String(d.id) === String(btn.dataset.updateContact)
         );
 
         if (!devotee) return;
@@ -1145,10 +1145,10 @@ https://vikram34it.github.io/coupons-tracker/
 }
 
 function deleteDevotee(devoteeId) {
-  const devotee = state.devotees.find(d => d.id === devoteeId);
+  const devotee = state.devotees.find(d => String(d.id) === String(devoteeId));
   if (!devotee) return;
 
-  const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId);
+  const assignedCoupons = state.coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devoteeId));
 
   if (assignedCoupons.length > 0) {
     const confirmDelete = confirm(
@@ -1158,11 +1158,11 @@ function deleteDevotee(devoteeId) {
   }
 
   // Remove devotee
-  state.devotees = state.devotees.filter(d => d.id !== devoteeId);
+  state.devotees = state.devotees.filter(d => String(d.id) !== String(devoteeId));
 
   // Unassign coupons
   state.coupons.forEach(c => {
-    if (c.devoteeId === devoteeId) {
+    if (c.devoteeId && String(c.devoteeId) === String(devoteeId)) {
       c.devoteeId = "";
       c.assignedAt = "";
     }
@@ -1208,7 +1208,7 @@ function renderEntryList() {
     const devoteeId = els.entryDevotee.value;
 
     const entries = (state.hundi || [])
-      .filter(h => h.devoteeId === devoteeId)
+      .filter(h => h.devoteeId && String(h.devoteeId) === String(devoteeId))
       .sort((a, b) => b.date.localeCompare(a.date));
 
     els.entryList.innerHTML = `
@@ -1479,7 +1479,7 @@ function renderAllCoupons() {
   const devoteeFilter = els.allDevoteeFilter?.value;
 
   if (devoteeFilter && devoteeFilter !== "all") {
-    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
+    coupons = coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devoteeFilter));
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
@@ -1592,7 +1592,7 @@ function updateCouponField(event) {
   const card = field.closest("[data-coupon-number]");
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
 
-  if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
+  if (session?.role === "devotee" && (!coupon.devoteeId || String(coupon.devoteeId) !== String(session.devoteeId))) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
@@ -1622,7 +1622,8 @@ function updateCouponField(event) {
 }
 
 function couponsForDevotee(devoteeId) {
-  return state.coupons.filter((coupon) => coupon.devoteeId === devoteeId);
+  if (!devoteeId) return [];
+  return state.coupons.filter((coupon) => coupon.devoteeId && String(coupon.devoteeId) === String(devoteeId));
 }
 
 function couponTotal() {
@@ -1719,7 +1720,7 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const periodSettled = settled.filter((coupon) => inSettlementPeriod(coupon, period));
   // ✅ HUNDI CALCULATION
   const hundiEntries = (state.hundi || [])
-    .filter(h => h.devoteeId === devoteeId);
+    .filter(h => h.devoteeId && String(h.devoteeId) === String(devoteeId));
 
   const hundiAmount = hundiEntries.filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
   const hundiPendingAmount = hundiEntries.filter(h => !h.settled).reduce((sum, h) => sum + h.amount, 0);
@@ -1753,7 +1754,8 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
 }
 
 function devoteeName(devoteeId) {
-  const devotee = state.devotees.find((item) => item.id === devoteeId);
+  if (!devoteeId) return "";
+  const devotee = state.devotees.find((item) => String(item.id) === String(devoteeId));
   return devotee ? devotee.name : "";
 }
 
@@ -1855,7 +1857,7 @@ function exportBackup() {
 function exportCsv() {
   const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
   const rows = state.coupons.map((coupon) => {
-    const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
+    const devotee = state.devotees.find((item) => coupon.devoteeId && String(item.id) === String(coupon.devoteeId));
     return [
       coupon.number,
       devotee ? devotee.name : "",
@@ -1947,7 +1949,7 @@ function loadInvitationTemplate() {
 }
 
 function buildInvitationMessage(coupon) {
-  const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
+  const devotee = state.devotees.find(d => coupon.devoteeId && String(d.id) === String(coupon.devoteeId));
   const template = state.settings.invitationMessage || "";
   return template
     .replace(/{name}/g, coupon.buyerName || "Devotee")
