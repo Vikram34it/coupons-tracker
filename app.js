@@ -10,10 +10,9 @@ let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let isEditing = false;
 let pendingFirebaseData = null;
+const pendingLocalCouponNumbers = new Set();
 let saveTimer = null;
 let firebaseHasLoaded = false;
-let suppressFirebaseEcho = false;  // 🔥 Prevents our own writes from echoing back
-let suppressEchoTimer = null;      // Timer handle to clear suppression
 const els = {};
 
 window.addEventListener("load", () => {
@@ -77,34 +76,23 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
   };
 }
 
-// Helper: Firebase may return arrays as objects ({0:{…},1:{…}}).
-// Also filters out null/undefined entries (Firebase leaves nulls for deleted items).
-function toArray(val) {
-  if (Array.isArray(val)) return val.filter(item => item != null);
-  if (val && typeof val === "object") return Object.values(val).filter(item => item != null);
-  return null;
-}
-
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return defaultState();
     const parsed = JSON.parse(saved);
-    const devotees = toArray(parsed.devotees);
-    const coupons = toArray(parsed.coupons);
-    if (!devotees || !coupons) {
+    if (!Array.isArray(parsed.devotees) || !Array.isArray(parsed.coupons)) {
       return defaultState();
     }
 
-    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || coupons.length || DEFAULT_TOTAL_COUPONS;
-    const normalizedCoupons = normalizeCoupons(coupons, totalCoupons);
-    const hundi = toArray(parsed.hundi);
+    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || parsed.coupons.length || DEFAULT_TOTAL_COUPONS;
+    const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
 
     return {
       settings: normalizeSettings(parsed.settings, totalCoupons),
-      devotees: devotees.map(normalizeDevotee).filter(d => d && d.id),
-      coupons: normalizedCoupons,
-      hundi: hundi ? hundi.map(h => ({ settled: false, ...h })) : []
+      devotees: parsed.devotees.map(normalizeDevotee),
+      coupons,
+      hundi: Array.isArray(parsed.hundi) ? parsed.hundi.map(h => ({ settled: false, ...h })) : []
     };
   } catch {
     return defaultState();
@@ -113,6 +101,34 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function queueStateSave(delay = 500) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    saveQueuedLocalEdits();
+  }, delay);
+}
+
+function flushQueuedStateSave() {
+  if (!saveTimer) return false;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  saveQueuedLocalEdits();
+  return true;
+}
+
+function saveQueuedLocalEdits() {
+  if (pendingFirebaseData) {
+    const data = pendingFirebaseData;
+    const preserveCouponNumbers = new Set(pendingLocalCouponNumbers);
+    pendingFirebaseData = null;
+    applyFirebaseData(data, { preserveCouponNumbers, skipRender: true });
+  }
+
+  pendingLocalCouponNumbers.clear();
+  saveState();
 }
 
 function loadSession() {
@@ -217,7 +233,7 @@ function updateDevoteePendingDisplay() {
 
   const pendingAmount = state.coupons
     .filter(c =>
-      c.devoteeId && String(c.devoteeId) === String(devoteeId) &&
+      c.devoteeId === devoteeId &&
       !c.settled &&
       amountValue(c.amount) > 0   // ✅ THIS IS KEY
     )
@@ -380,7 +396,7 @@ function login(event) {
     }
     saveSession({ role: "viewer", devoteeId: "" });
   } else {
-    const devotee = state.devotees.find((item) => String(item.id) === String(els.loginDevotee.value));
+    const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
     if (!devotee || password !== devotee.pin) {
       showToast("Devotee password is incorrect");
       return;
@@ -599,7 +615,7 @@ function assignCoupons(event) {
     return;
   }
 
-  const devotee = state.devotees.find((item) => String(item.id) === String(devoteeId));
+  const devotee = state.devotees.find((item) => item.id === devoteeId);
 
   state.coupons.forEach((coupon) => {
     if (coupon.number >= from && coupon.number <= to) {
@@ -649,17 +665,18 @@ function render() {
 
 function renderSelectors() {
 
-  // ✅ SORT DEVOTEES ASCENDING (filter out any bad entries)
-  const sortedDevotees = [...state.devotees]
-    .filter(d => d && d.name)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  console.log("[renderSelectors] devotees count:", state.devotees.length, "sorted:", sortedDevotees.length);
+  // ✅ SORT DEVOTEES ASCENDING
+  const sortedDevotees = [...state.devotees].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   // ✅ CREATE OPTIONS
   const options = sortedDevotees
     .map((devotee) =>
-      `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
+      `<option value="${escapeAttr(devotee.id)}">
+        ${escapeHtml(devotee.name)}
+      </option>`
+    )
     .join("");
 
   const empty = '<option value="">Select devotee</option>';
@@ -670,7 +687,7 @@ function renderSelectors() {
   // ✅ ASSIGN DROPDOWN
   const currentAssignValue = els.assignDevotee.value;
   els.assignDevotee.innerHTML = empty + options;
-  if (state.devotees.some((devotee) => String(devotee.id) === String(currentAssignValue))) {
+  if (state.devotees.some((devotee) => devotee.id === currentAssignValue)) {
     els.assignDevotee.value = currentAssignValue;
   }
 
@@ -681,7 +698,7 @@ function renderSelectors() {
 
   if (
     state.devotees.some(
-      (devotee) => String(devotee.id) === String(currentResetValue)
+      (devotee) => devotee.id === currentResetValue
     )
   ) {
     els.resetDevotee.value = currentResetValue;
@@ -698,7 +715,7 @@ function renderSelectors() {
 
   } else if (
     state.devotees.some(
-      (devotee) => String(devotee.id) === String(currentEntryValue)
+      (devotee) => devotee.id === currentEntryValue
     )
   ) {
 
@@ -719,7 +736,7 @@ function validateSession() {
     return;
   }
 
-  if (session.role === "devotee" && !state.devotees.some((devotee) => String(devotee.id) === String(session.devoteeId))) {
+  if (session.role === "devotee" && !state.devotees.some((devotee) => devotee.id === session.devoteeId)) {
     saveSession(null);
     document.body.classList.remove("logged-in");
     return;
@@ -733,7 +750,7 @@ function applyRoleAccess() {
   const isViewer = session?.role === "viewer";
   const isDevotee = session?.role === "devotee";
   const activeDevotee = isDevotee
-    ? state.devotees.find((devotee) => String(devotee.id) === String(session.devoteeId))
+    ? state.devotees.find((devotee) => devotee.id === session.devoteeId)
     : null;
 
   // Badge label
@@ -837,14 +854,14 @@ function renderDevotees() {
 
   // ✅ FILTER DEVOTEES — by name/contact search
   let devotees = state.devotees.filter((devotee) => {
-    if (selectedDevotee !== "all" && String(devotee.id) !== String(selectedDevotee)) return false;
+    if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
   // ✅ FILTER BY STATUS
   if (statusFilter !== "all") {
     devotees = devotees.filter((devotee) => {
-      const assigned = state.coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devotee.id));
+      const assigned = state.coupons.filter(c => c.devoteeId === devotee.id);
       const sold = assigned.filter(isSold);
       const settled = assigned.filter(c => c.settled);
       const pending = sold.filter(c => !c.settled);
@@ -1023,7 +1040,7 @@ function renderDevotees() {
       button.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          (item) => String(item.id) === String(button.dataset.setPassword)
+          (item) => item.id === button.dataset.setPassword
         );
 
         if (!devotee) return;
@@ -1056,7 +1073,7 @@ function renderDevotees() {
       btn.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          d => String(d.id) === String(btn.dataset.sendWhatsapp)
+          d => d.id === btn.dataset.sendWhatsapp
         );
 
         if (!devotee) return;
@@ -1115,7 +1132,7 @@ https://vikram34it.github.io/coupons-tracker/
       btn.addEventListener("click", () => {
 
         const devotee = state.devotees.find(
-          d => String(d.id) === String(btn.dataset.updateContact)
+          d => d.id === btn.dataset.updateContact
         );
 
         if (!devotee) return;
@@ -1155,10 +1172,10 @@ https://vikram34it.github.io/coupons-tracker/
 }
 
 function deleteDevotee(devoteeId) {
-  const devotee = state.devotees.find(d => String(d.id) === String(devoteeId));
+  const devotee = state.devotees.find(d => d.id === devoteeId);
   if (!devotee) return;
 
-  const assignedCoupons = state.coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devoteeId));
+  const assignedCoupons = state.coupons.filter(c => c.devoteeId === devoteeId);
 
   if (assignedCoupons.length > 0) {
     const confirmDelete = confirm(
@@ -1168,11 +1185,11 @@ function deleteDevotee(devoteeId) {
   }
 
   // Remove devotee
-  state.devotees = state.devotees.filter(d => String(d.id) !== String(devoteeId));
+  state.devotees = state.devotees.filter(d => d.id !== devoteeId);
 
   // Unassign coupons
   state.coupons.forEach(c => {
-    if (c.devoteeId && String(c.devoteeId) === String(devoteeId)) {
+    if (c.devoteeId === devoteeId) {
       c.devoteeId = "";
       c.assignedAt = "";
     }
@@ -1218,7 +1235,7 @@ function renderEntryList() {
     const devoteeId = els.entryDevotee.value;
 
     const entries = (state.hundi || [])
-      .filter(h => h.devoteeId && String(h.devoteeId) === String(devoteeId))
+      .filter(h => h.devoteeId === devoteeId)
       .sort((a, b) => b.date.localeCompare(a.date));
 
     els.entryList.innerHTML = `
@@ -1454,6 +1471,7 @@ function renderEntryList() {
   }).join("");
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
+    field.addEventListener("input", updateCouponField);
     field.addEventListener("change", updateCouponField);
   });
 
@@ -1489,7 +1507,7 @@ function renderAllCoupons() {
   const devoteeFilter = els.allDevoteeFilter?.value;
 
   if (devoteeFilter && devoteeFilter !== "all") {
-    coupons = coupons.filter(c => c.devoteeId && String(c.devoteeId) === String(devoteeFilter));
+    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
@@ -1602,38 +1620,23 @@ function updateCouponField(event) {
   const card = field.closest("[data-coupon-number]");
   const coupon = state.coupons[Number(card.dataset.couponNumber) - 1];
 
-  if (session?.role === "devotee" && (!coupon.devoteeId || String(coupon.devoteeId) !== String(session.devoteeId))) {
+  if (session?.role === "devotee" && coupon.devoteeId !== session.devoteeId) {
     showToast("This coupon is not assigned to this devotee");
     return;
   }
 
   coupon[field.dataset.field] = field.value.trimStart();
+  pendingLocalCouponNumbers.add(coupon.number);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
-  // ✅ Update the Sold/Pending badge on this card immediately (no full re-render)
-  const soldBadge = card.querySelector(\".coupon-number .status:first-of-type\");
-  if (soldBadge) {
-    const sold = isSold(coupon);
-    soldBadge.textContent = sold ? "Sold" : "Pending";
-    soldBadge.className = `status ${sold ? "sold" : "pending"}`;
-  }
-
-  // 🔥 DELAY SAVE — extended to 1500ms so user can tab through fields
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    saveState();
-    saveTimer = null;
-    // ✅ After save completes, apply any queued remote data if it's now safe
-    if (pendingFirebaseData && !isEditing && !suppressFirebaseEcho) {
-      applyPendingFirebaseData();
-    }
-  }, 1500);
+  // 🔥 DELAY SAVE (KEY FIX)
+  queueStateSave();
 
   // ❌ NO render()
 }
 
 function couponsForDevotee(devoteeId) {
-  if (!devoteeId) return [];
-  return state.coupons.filter((coupon) => coupon.devoteeId && String(coupon.devoteeId) === String(devoteeId));
+  return state.coupons.filter((coupon) => coupon.devoteeId === devoteeId);
 }
 
 function couponTotal() {
@@ -1730,7 +1733,7 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
   const periodSettled = settled.filter((coupon) => inSettlementPeriod(coupon, period));
   // ✅ HUNDI CALCULATION
   const hundiEntries = (state.hundi || [])
-    .filter(h => h.devoteeId && String(h.devoteeId) === String(devoteeId));
+    .filter(h => h.devoteeId === devoteeId);
 
   const hundiAmount = hundiEntries.filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
   const hundiPendingAmount = hundiEntries.filter(h => !h.settled).reduce((sum, h) => sum + h.amount, 0);
@@ -1764,8 +1767,7 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
 }
 
 function devoteeName(devoteeId) {
-  if (!devoteeId) return "";
-  const devotee = state.devotees.find((item) => String(item.id) === String(devoteeId));
+  const devotee = state.devotees.find((item) => item.id === devoteeId);
   return devotee ? devotee.name : "";
 }
 
@@ -1867,7 +1869,7 @@ function exportBackup() {
 function exportCsv() {
   const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
   const rows = state.coupons.map((coupon) => {
-    const devotee = state.devotees.find((item) => coupon.devoteeId && String(item.id) === String(coupon.devoteeId));
+    const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
     return [
       coupon.number,
       devotee ? devotee.name : "",
@@ -1900,22 +1902,19 @@ function importBackup(event) {
   reader.addEventListener("load", () => {
     try {
       const imported = JSON.parse(reader.result);
-      const importedDevotees = toArray(imported.devotees);
-      const importedCoupons = toArray(imported.coupons);
-      if (!importedDevotees || !importedCoupons) {
+      if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) {
         throw new Error("Invalid backup");
       }
 
-      const importedTotalCoupons = positiveInteger(imported.settings?.totalCoupons) || importedCoupons.length || DEFAULT_TOTAL_COUPONS;
+      const importedTotalCoupons = positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS;
       state.settings = normalizeSettings(
         { ...state.settings, ...imported.settings, totalCoupons: importedTotalCoupons },
         importedTotalCoupons
       );
-      state.devotees = importedDevotees.map(normalizeDevotee).filter(d => d && d.id);
-      state.coupons = normalizeCoupons(importedCoupons, state.settings.totalCoupons);
-      const importedHundi = toArray(imported.hundi);
-      state.hundi = importedHundi
-        ? importedHundi.map(h => ({ settled: false, ...h }))
+      state.devotees = imported.devotees.map(normalizeDevotee);
+      state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
+      state.hundi = Array.isArray(imported.hundi)
+        ? imported.hundi.map(h => ({ settled: false, ...h }))
         : [];
 
       saveState();
@@ -1962,7 +1961,7 @@ function loadInvitationTemplate() {
 }
 
 function buildInvitationMessage(coupon) {
-  const devotee = state.devotees.find(d => coupon.devoteeId && String(d.id) === String(coupon.devoteeId));
+  const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
   const template = state.settings.invitationMessage || "";
   return template
     .replace(/{name}/g, coupon.buyerName || "Devotee")
@@ -2179,9 +2178,8 @@ function newId() {
 }
 
 function normalizeDevotee(devotee) {
-  if (!devotee || typeof devotee !== "object") return null;
   return {
-    id: devotee.id || "",
+    id: devotee.id,
     name: devotee.name || "",
     contact: devotee.contact || "",
     pin: devotee.pin || ""
@@ -2197,43 +2195,46 @@ function updateSyncBadge(text) {
   if (badge) badge.textContent = text;
 }
 
-function applyFirebaseData(data) {
-  if (!data) return;
-
-  // Convert Firebase objects to arrays (Firebase may serialize arrays as {0:{…},1:{…}})
-  const remoteDevotees = toArray(data.devotees);
-  const remoteCoupons = toArray(data.coupons);
-  const remoteHundi = toArray(data.hundi);
+function applyFirebaseData(data, options = {}) {
+  const preserveCouponNumbers = options.preserveCouponNumbers || new Set();
+  const localCouponsByNumber = preserveCouponNumbers.size
+    ? new Map(state.coupons.map((coupon) => [coupon.number, coupon]))
+    : null;
 
   if (data.settings) {
     const remoteTotalCoupons = positiveInteger(data.settings?.totalCoupons) ||
-      (remoteCoupons ? remoteCoupons.length : state.coupons.length) ||
+      (Array.isArray(data.coupons) ? data.coupons.length : state.coupons.length) ||
       DEFAULT_TOTAL_COUPONS;
     state.settings = normalizeSettings(
       { ...state.settings, ...data.settings, totalCoupons: remoteTotalCoupons },
       remoteTotalCoupons
     );
   }
-  if (remoteDevotees) {
-    console.log("[Firebase] Received devotees:", remoteDevotees.length);
-    state.devotees = remoteDevotees.map(normalizeDevotee).filter(d => d && d.id);
-    console.log("[Firebase] Normalized devotees:", state.devotees.length, state.devotees.map(d => d.name));
+  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (Array.isArray(data.coupons)) {
+    const remoteCoupons = normalizeCoupons(data.coupons, couponTotal());
+    state.coupons = remoteCoupons.map((coupon) => (
+      preserveCouponNumbers.has(coupon.number) && localCouponsByNumber?.has(coupon.number)
+        ? localCouponsByNumber.get(coupon.number)
+        : coupon
+    ));
   }
-  if (remoteCoupons) state.coupons = normalizeCoupons(remoteCoupons, couponTotal());
-  if (remoteHundi) state.hundi = remoteHundi.map(h => ({ settled: false, ...h }));
+  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
 
   // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  renderSelectors();   // 🔥 force sorted dropdown refresh
-  render();
+  if (!options.skipRender) {
+    renderSelectors();   // 🔥 force sorted dropdown refresh
+    render();
+  }
 }
 
 function applyPendingFirebaseData() {
   if (!pendingFirebaseData) return;
-  // 🛑 Never apply while user has unsaved edits in flight
-  if (isEditing || saveTimer !== null || suppressFirebaseEcho) return;
   const data = pendingFirebaseData;
+  const flushedLocalEdit = flushQueuedStateSave();
   pendingFirebaseData = null;
+  if (flushedLocalEdit) return;
   applyFirebaseData(data);
 }
 
@@ -2272,14 +2273,14 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
 
-          // 🚫 Always queue the latest data first so we don't lose admin changes
-          //    even during echo suppression
-          if (isEditing || saveTimer !== null || suppressFirebaseEcho) {
+          // 🚫 Don't re-render while typing
+          if (isEditing || saveTimer) {
             pendingFirebaseData = snapshot.val();
             return;
           }
 
           const data = snapshot.val();
+
           applyFirebaseData(data);
         });
 
@@ -2310,18 +2311,6 @@ saveState = function () {
   _localSaveState();
 
   if (firebaseReady && dbRef) {
-    // 🛡️ Suppress the echo that Firebase will send back to this same listener
-    //    for up to 5 seconds after our write, preventing rollback of user edits.
-    suppressFirebaseEcho = true;
-    clearTimeout(suppressEchoTimer);
-    suppressEchoTimer = setTimeout(() => {
-      suppressFirebaseEcho = false;
-      // Apply any queued remote update that arrived while we were suppressing
-      if (pendingFirebaseData && !isEditing && saveTimer === null) {
-        applyPendingFirebaseData();
-      }
-    }, 5000);
-
     dbRef.set(state);
   }
 };

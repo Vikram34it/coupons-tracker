@@ -13,7 +13,7 @@ const VALID_SEVAS = [
  */
 function renderExcelUploadTab() {
   const devoteeId = els.entryDevotee.value;
-  const devotee = state.devotees.find(d => String(d.id) === String(devoteeId));
+  const devotee = state.devotees.find(d => d.id === devoteeId);
   const assigned = devoteeId ? couponsForDevotee(devoteeId) : [];
 
   els.entryList.innerHTML = `
@@ -109,7 +109,7 @@ function downloadExcelTemplate(devoteeId) {
     return;
   }
 
-  const devotee = state.devotees.find(d => String(d.id) === String(devoteeId));
+  const devotee = state.devotees.find(d => d.id === devoteeId);
   const devName = devotee ? devotee.name : "Devotee";
 
   const headers = [
