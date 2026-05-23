@@ -13,6 +13,8 @@ let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
 let saveTimer = null;
 let firebaseHasLoaded = false;
+let lastEditTime = 0;           // ✅ FIX: timestamp of last coupon field edit
+const EDIT_GUARD_MS = 3000;    // ✅ FIX: ignore Firebase echoes for 3s after editing
 const els = {};
 
 window.addEventListener("load", () => {
@@ -20,6 +22,10 @@ window.addEventListener("load", () => {
   bindEvents();
   renderSelectors(); // ✅ ADD THIS
   render();
+
+  // ✅ FIX: Show loading hint on login screen while Firebase connects
+  updateLoginSyncHint("loading");
+
   document.addEventListener("focusin", (e) => {
     if (e.target.matches("input, textarea, select")) {
       isEditing = true;
@@ -53,6 +59,29 @@ window.addEventListener("load", () => {
     }
   }, 200);
 });
+
+// ✅ FIX: Show sync status hint on login screen to inform users
+function updateLoginSyncHint(status) {
+  let hint = document.getElementById("loginSyncHint");
+  if (!hint) {
+    hint = document.createElement("p");
+    hint.id = "loginSyncHint";
+    hint.className = "hint";
+    hint.style.cssText = "margin-top:8px; font-size:12px; text-align:center;";
+    const loginCard = document.getElementById("loginForm");
+    if (loginCard) loginCard.appendChild(hint);
+  }
+  if (status === "loading") {
+    hint.textContent = "⏳ Loading devotee list from server...";
+    hint.style.color = "#888";
+  } else if (status === "ready") {
+    hint.textContent = "✅ Devotee list loaded. Please select your name.";
+    hint.style.color = "#1e7a45";
+    setTimeout(() => { hint.textContent = ""; }, 4000);
+  } else if (status === "local") {
+    hint.textContent = "";
+  }
+}
 function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
   return {
     settings: {
@@ -1471,8 +1500,12 @@ function renderEntryList() {
   }).join("");
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
-    field.addEventListener("input", updateCouponField);
-    field.addEventListener("change", updateCouponField);
+    // ✅ FIX: Use 'input' for text inputs (real-time), 'change' only for <select>
+    if (field.tagName === "SELECT") {
+      field.addEventListener("change", updateCouponField);
+    } else {
+      field.addEventListener("input", updateCouponField);
+    }
   });
 
   // ✅ Buyer contact 10-digit validation on blur
@@ -1627,6 +1660,7 @@ function updateCouponField(event) {
 
   coupon[field.dataset.field] = field.value.trimStart();
   pendingLocalCouponNumbers.add(coupon.number);
+  lastEditTime = Date.now();    // ✅ FIX: record time of last edit
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
   // 🔥 DELAY SAVE (KEY FIX)
@@ -2196,6 +2230,17 @@ function updateSyncBadge(text) {
 }
 
 function applyFirebaseData(data, options = {}) {
+  // ✅ FIX: Skip Firebase echo/updates if a devotee edited a field recently
+  // This prevents data rollback when Firebase echoes the saved state back
+  if (!options.skipRender && !options.preserveCouponNumbers?.size) {
+    const timeSinceEdit = Date.now() - lastEditTime;
+    if (timeSinceEdit < EDIT_GUARD_MS) {
+      // Store as pending — will be applied after edit guard expires
+      pendingFirebaseData = data;
+      return;
+    }
+  }
+
   const preserveCouponNumbers = options.preserveCouponNumbers || new Set();
   const localCouponsByNumber = preserveCouponNumbers.size
     ? new Map(state.coupons.map((coupon) => [coupon.number, coupon]))
@@ -2229,10 +2274,30 @@ function applyFirebaseData(data, options = {}) {
   }
 }
 
+let pendingFirebaseRetryTimer = null;
+
 function applyPendingFirebaseData() {
   if (!pendingFirebaseData) return;
   const data = pendingFirebaseData;
   const flushedLocalEdit = flushQueuedStateSave();
+
+  // ✅ FIX: If still within edit guard window, schedule a retry after guard expires
+  const timeSinceEdit = Date.now() - lastEditTime;
+  if (timeSinceEdit < EDIT_GUARD_MS && !flushedLocalEdit) {
+    // Ensure data is still stored as pending
+    pendingFirebaseData = data;
+    // Schedule retry after guard window passes
+    clearTimeout(pendingFirebaseRetryTimer);
+    pendingFirebaseRetryTimer = setTimeout(() => {
+      if (pendingFirebaseData) {
+        const retryData = pendingFirebaseData;
+        pendingFirebaseData = null;
+        applyFirebaseData(retryData);
+      }
+    }, EDIT_GUARD_MS - timeSinceEdit + 100);
+    return;
+  }
+
   pendingFirebaseData = null;
   if (flushedLocalEdit) return;
   applyFirebaseData(data);
@@ -2250,6 +2315,7 @@ function initFirebaseSync() {
     // Check Firebase availability
     if (!window.firebase || !window.COUPON_TRACKER_FIREBASE?.config?.databaseURL) {
       updateSyncBadge("Local");
+      updateLoginSyncHint("local");
       return;
     }
 
@@ -2272,6 +2338,13 @@ function initFirebaseSync() {
         // 🔥 Listen to realtime updates
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
+
+          // ✅ FIX: Mark Firebase as loaded on first data arrival
+          if (!firebaseHasLoaded) {
+            firebaseHasLoaded = true;
+            // Refresh the login dropdown with real devotee data
+            updateLoginSyncHint("ready");
+          }
 
           // 🚫 Don't re-render while typing
           if (isEditing || saveTimer) {
@@ -2296,11 +2369,13 @@ function initFirebaseSync() {
       .catch((err) => {
         console.error("Firebase Auth Error:", err);
         updateSyncBadge("Auth error");
+        updateLoginSyncHint("local");
       });
 
   } catch (err) {
     console.error("Firebase Init Error:", err);
     updateSyncBadge("Error");
+    updateLoginSyncHint("local");
   }
 }
 
@@ -2311,6 +2386,10 @@ saveState = function () {
   _localSaveState();
 
   if (firebaseReady && dbRef) {
+    // ✅ FIX: Record edit guard time before pushing to Firebase
+    // This prevents the Firebase echo from overwriting in-progress field edits
+    // (lastEditTime is already set by updateCouponField for field edits;
+    //  for admin saves we intentionally DON'T set it, so admin data propagates)
     dbRef.set(state);
   }
 };
