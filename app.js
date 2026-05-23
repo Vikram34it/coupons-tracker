@@ -77,23 +77,33 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
   };
 }
 
+// Helper: Firebase may return arrays as objects ({0:{…},1:{…}}). Convert safely.
+function toArray(val) {
+  if (Array.isArray(val)) return val;
+  if (val && typeof val === "object") return Object.values(val);
+  return null;
+}
+
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return defaultState();
     const parsed = JSON.parse(saved);
-    if (!Array.isArray(parsed.devotees) || !Array.isArray(parsed.coupons)) {
+    const devotees = toArray(parsed.devotees);
+    const coupons = toArray(parsed.coupons);
+    if (!devotees || !coupons) {
       return defaultState();
     }
 
-    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || parsed.coupons.length || DEFAULT_TOTAL_COUPONS;
-    const coupons = normalizeCoupons(parsed.coupons, totalCoupons);
+    const totalCoupons = positiveInteger(parsed.settings?.totalCoupons) || coupons.length || DEFAULT_TOTAL_COUPONS;
+    const normalizedCoupons = normalizeCoupons(coupons, totalCoupons);
+    const hundi = toArray(parsed.hundi);
 
     return {
       settings: normalizeSettings(parsed.settings, totalCoupons),
-      devotees: parsed.devotees.map(normalizeDevotee),
-      coupons,
-      hundi: Array.isArray(parsed.hundi) ? parsed.hundi.map(h => ({ settled: false, ...h })) : []
+      devotees: devotees.map(normalizeDevotee),
+      coupons: normalizedCoupons,
+      hundi: hundi ? hundi.map(h => ({ settled: false, ...h })) : []
     };
   } catch {
     return defaultState();
@@ -1890,19 +1900,22 @@ function importBackup(event) {
   reader.addEventListener("load", () => {
     try {
       const imported = JSON.parse(reader.result);
-      if (!Array.isArray(imported.devotees) || !Array.isArray(imported.coupons)) {
+      const importedDevotees = toArray(imported.devotees);
+      const importedCoupons = toArray(imported.coupons);
+      if (!importedDevotees || !importedCoupons) {
         throw new Error("Invalid backup");
       }
 
-      const importedTotalCoupons = positiveInteger(imported.settings?.totalCoupons) || imported.coupons.length || DEFAULT_TOTAL_COUPONS;
+      const importedTotalCoupons = positiveInteger(imported.settings?.totalCoupons) || importedCoupons.length || DEFAULT_TOTAL_COUPONS;
       state.settings = normalizeSettings(
         { ...state.settings, ...imported.settings, totalCoupons: importedTotalCoupons },
         importedTotalCoupons
       );
-      state.devotees = imported.devotees.map(normalizeDevotee);
-      state.coupons = normalizeCoupons(imported.coupons, state.settings.totalCoupons);
-      state.hundi = Array.isArray(imported.hundi)
-        ? imported.hundi.map(h => ({ settled: false, ...h }))
+      state.devotees = importedDevotees.map(normalizeDevotee);
+      state.coupons = normalizeCoupons(importedCoupons, state.settings.totalCoupons);
+      const importedHundi = toArray(imported.hundi);
+      state.hundi = importedHundi
+        ? importedHundi.map(h => ({ settled: false, ...h }))
         : [];
 
       saveState();
@@ -2184,18 +2197,25 @@ function updateSyncBadge(text) {
 }
 
 function applyFirebaseData(data) {
+  if (!data) return;
+
+  // Convert Firebase objects to arrays (Firebase may serialize arrays as {0:{…},1:{…}})
+  const remoteDevotees = toArray(data.devotees);
+  const remoteCoupons = toArray(data.coupons);
+  const remoteHundi = toArray(data.hundi);
+
   if (data.settings) {
     const remoteTotalCoupons = positiveInteger(data.settings?.totalCoupons) ||
-      (Array.isArray(data.coupons) ? data.coupons.length : state.coupons.length) ||
+      (remoteCoupons ? remoteCoupons.length : state.coupons.length) ||
       DEFAULT_TOTAL_COUPONS;
     state.settings = normalizeSettings(
       { ...state.settings, ...data.settings, totalCoupons: remoteTotalCoupons },
       remoteTotalCoupons
     );
   }
-  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
-  if (Array.isArray(data.coupons)) state.coupons = normalizeCoupons(data.coupons, couponTotal());
-  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  if (remoteDevotees) state.devotees = remoteDevotees.map(normalizeDevotee);
+  if (remoteCoupons) state.coupons = normalizeCoupons(remoteCoupons, couponTotal());
+  if (remoteHundi) state.hundi = remoteHundi.map(h => ({ settled: false, ...h }));
 
   // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
