@@ -77,10 +77,11 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
   };
 }
 
-// Helper: Firebase may return arrays as objects ({0:{…},1:{…}}). Convert safely.
+// Helper: Firebase may return arrays as objects ({0:{…},1:{…}}).
+// Also filters out null/undefined entries (Firebase leaves nulls for deleted items).
 function toArray(val) {
-  if (Array.isArray(val)) return val;
-  if (val && typeof val === "object") return Object.values(val);
+  if (Array.isArray(val)) return val.filter(item => item != null);
+  if (val && typeof val === "object") return Object.values(val).filter(item => item != null);
   return null;
 }
 
@@ -101,7 +102,7 @@ function loadState() {
 
     return {
       settings: normalizeSettings(parsed.settings, totalCoupons),
-      devotees: devotees.map(normalizeDevotee),
+      devotees: devotees.map(normalizeDevotee).filter(d => d && d.id),
       coupons: normalizedCoupons,
       hundi: hundi ? hundi.map(h => ({ settled: false, ...h })) : []
     };
@@ -648,18 +649,17 @@ function render() {
 
 function renderSelectors() {
 
-  // ✅ SORT DEVOTEES ASCENDING
-  const sortedDevotees = [...state.devotees].sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  // ✅ SORT DEVOTEES ASCENDING (filter out any bad entries)
+  const sortedDevotees = [...state.devotees]
+    .filter(d => d && d.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  console.log("[renderSelectors] devotees count:", state.devotees.length, "sorted:", sortedDevotees.length);
 
   // ✅ CREATE OPTIONS
   const options = sortedDevotees
     .map((devotee) =>
-      `<option value="${escapeAttr(devotee.id)}">
-        ${escapeHtml(devotee.name)}
-      </option>`
-    )
+      `<option value="${escapeAttr(devotee.id)}">${escapeHtml(devotee.name)}</option>`)
     .join("");
 
   const empty = '<option value="">Select devotee</option>';
@@ -1911,7 +1911,7 @@ function importBackup(event) {
         { ...state.settings, ...imported.settings, totalCoupons: importedTotalCoupons },
         importedTotalCoupons
       );
-      state.devotees = importedDevotees.map(normalizeDevotee);
+      state.devotees = importedDevotees.map(normalizeDevotee).filter(d => d && d.id);
       state.coupons = normalizeCoupons(importedCoupons, state.settings.totalCoupons);
       const importedHundi = toArray(imported.hundi);
       state.hundi = importedHundi
@@ -2179,8 +2179,9 @@ function newId() {
 }
 
 function normalizeDevotee(devotee) {
+  if (!devotee || typeof devotee !== "object") return null;
   return {
-    id: devotee.id,
+    id: devotee.id || "",
     name: devotee.name || "",
     contact: devotee.contact || "",
     pin: devotee.pin || ""
@@ -2213,7 +2214,11 @@ function applyFirebaseData(data) {
       remoteTotalCoupons
     );
   }
-  if (remoteDevotees) state.devotees = remoteDevotees.map(normalizeDevotee);
+  if (remoteDevotees) {
+    console.log("[Firebase] Received devotees:", remoteDevotees.length);
+    state.devotees = remoteDevotees.map(normalizeDevotee).filter(d => d && d.id);
+    console.log("[Firebase] Normalized devotees:", state.devotees.length, state.devotees.map(d => d.name));
+  }
   if (remoteCoupons) state.coupons = normalizeCoupons(remoteCoupons, couponTotal());
   if (remoteHundi) state.hundi = remoteHundi.map(h => ({ settled: false, ...h }));
 
