@@ -12,7 +12,7 @@
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-31-1">
+  <link rel="stylesheet" href="styles.css?v=2026-05-17-1">
 </head>
 
 <body>
@@ -74,15 +74,7 @@
         <strong id="soldCoupons">0</strong>
       </article>
       <article>
-        <span>Coupons Settled</span>
-        <strong id="couponSettledMoney">₹0</strong>
-      </article>
-      <article>
-        <span>Hundi Settled</span>
-        <strong id="hundiSettledMoney">₹0</strong>
-      </article>
-      <article>
-        <span>Total Settled</span>
+        <span>Settled Amount</span>
         <strong id="moneyReceived">₹0</strong>
       </article>
       <article>
@@ -317,9 +309,6 @@
               <option value="unsettled">Settlement Pending</option>
               <option value="settled">Settled</option>
             </select>
-            <select id="allSevaFilter">
-              <option value="all">All Seva Types</option>
-            </select>
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
@@ -355,7 +344,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
-  <script src="app.js?v=2026-05-31-1"></script>
+  <script src="app.js?v=2026-05-23-1"></script>
 </body>
 
 </html>

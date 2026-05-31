@@ -16,15 +16,6 @@ let firebaseHasLoaded = false;
 let lastEditTime = 0;           // ✅ FIX: timestamp of last coupon field edit
 const EDIT_GUARD_MS = 3000;    // ✅ FIX: ignore Firebase echoes for 3s after editing
 const els = {};
-const SEVA_TYPES = [
-  "Deepa Seva",
-  "Chenetha Seva",
-  "Sumangala Subhadram",
-  "Panchopachara Seva",
-  "General Donation",
-  "Prasadam Donation",
-  "Donation in Kind"
-];
 
 window.addEventListener("load", () => {
   cacheElements();
@@ -245,14 +236,14 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -308,29 +299,6 @@ function renderAllDevoteeFilter() {
     // If value didn't stick (devotee no longer exists), fall back to "all"
     if (els.allDevoteeFilter.value !== currentValue) {
       els.allDevoteeFilter.value = "all";
-    }
-  }
-}
-
-function renderAllSevaFilter() {
-  if (!els.allSevaFilter) return;
-
-  const currentValue = els.allSevaFilter.value;
-  const savedSevas = state.coupons
-    .map(coupon => (coupon.description || "").trim())
-    .filter(Boolean);
-  const sevas = [...new Set([...SEVA_TYPES, ...savedSevas])]
-    .sort((a, b) => a.localeCompare(b));
-
-  els.allSevaFilter.innerHTML = [
-    `<option value="all">All Seva Types</option>`,
-    ...sevas.map(seva => `<option value="${escapeAttr(seva)}">${escapeHtml(seva)}</option>`)
-  ].join("");
-
-  if (currentValue) {
-    els.allSevaFilter.value = currentValue;
-    if (els.allSevaFilter.value !== currentValue) {
-      els.allSevaFilter.value = "all";
     }
   }
 }
@@ -397,7 +365,6 @@ function bindEvents() {
   els.entryStatus.addEventListener("change", renderEntryList);
   els.allSearch.addEventListener("input", renderAllCoupons);
   els.allStatus.addEventListener("change", renderAllCoupons);
-  els.allSevaFilter.addEventListener("change", renderAllCoupons);
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
@@ -702,7 +669,6 @@ function render() {
   validateSession();
   renderSelectors();
   renderAllDevoteeFilter();
-  renderAllSevaFilter();
   renderDashboardDevoteeFilter();
   updateDevoteePendingDisplay();
   applyRoleAccess();
@@ -877,7 +843,7 @@ function renderStats() {
   const settled = state.coupons.filter((coupon) => coupon.settled).length;
 
   // Only settled coupons + hundi count as received
-  const settledCouponMoney = state.coupons
+  const settledMoney = state.coupons
     .filter(c => c.settled)
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
   const hundiMoney = (state.hundi || []).filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
@@ -894,9 +860,7 @@ function renderStats() {
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  if (els.couponSettledMoney) els.couponSettledMoney.textContent = formatMoney(settledCouponMoney);
-  if (els.hundiSettledMoney) els.hundiSettledMoney.textContent = formatMoney(hundiMoney);
-  els.moneyReceived.textContent = formatMoney(settledCouponMoney + hundiMoney);
+  els.moneyReceived.textContent = formatMoney(settledMoney + hundiMoney);
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
   if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(unsettledMoney);
   if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(templeTransfer);
@@ -1022,22 +986,7 @@ function renderDevotees() {
 
         <span>
           <strong>${formatMoney(summary.settledAmount)}</strong>
-          <span class="small-stat"> coupons</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.hundiAmount || 0)}</strong>
-          <span class="small-stat"> hundi</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.totalSettledAmount)}</strong>
-          <span class="small-stat"> total settled</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.templeTransferAmount || 0)}</strong>
-          <span class="small-stat"> temple transfer</span>
+          <span class="small-stat"> settled</span>
         </span>
 
         <span>
@@ -1529,9 +1478,13 @@ function renderEntryList() {
             Seva Type
             <select data-field="description" ${locked}>
               <option value="">Select Seva</option>
-              ${SEVA_TYPES.map(seva => `
-                <option value="${escapeAttr(seva)}" ${coupon.description === seva ? "selected" : ""}>${escapeHtml(seva)}</option>
-              `).join("")}
+              <option value="Deepa Seva" ${coupon.description === "Deepa Seva" ? "selected" : ""}>Deepa Seva</option>
+              <option value="Chenetha Seva" ${coupon.description === "Chenetha Seva" ? "selected" : ""}>Chenetha Seva</option>
+              <option value="Sumangala Subhadram" ${coupon.description === "Sumangala Subhadram" ? "selected" : ""}>Sumangala Subhadram</option>
+              <option value="Panchopachara Seva" ${coupon.description === "Panchopachara Seva" ? "selected" : ""}>Panchopachara Seva</option>
+              <option value="General Donation" ${coupon.description === "General Donation" ? "selected" : ""}>General Donation</option>
+              <option value="Prasadam Donation" ${coupon.description === "Prasadam Donation" ? "selected" : ""}>Prasadam Donation</option>
+              <option value="Donation in Kind" ${coupon.description === "Donation in Kind" ? "selected" : ""}>Donation in Kind</option>
             </select>
           </label>
           <label class="half">
@@ -1569,7 +1522,6 @@ function renderEntryList() {
 function renderAllCoupons() {
   const query = els.allSearch.value.trim().toLowerCase();
   const status = els.allStatus.value;
-  const sevaFilter = els.allSevaFilter?.value || "all";
   let coupons = state.coupons;
 
   if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
@@ -1589,9 +1541,6 @@ function renderAllCoupons() {
 
   if (devoteeFilter && devoteeFilter !== "all") {
     coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
-  }
-  if (sevaFilter !== "all") {
-    coupons = coupons.filter(c => (c.description || "") === sevaFilter);
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
@@ -1798,8 +1747,8 @@ function renderDevoteeStats(devoteeId) {
   <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
   <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
 
-  <article><span>Coupons Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
-  <article><span>Hundi Settled</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
+  <article><span>Coupons Amount</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
+  <article><span>Hundi Amount</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
   <article><span>Total Settled Amount</span><strong>${formatMoney(summary.totalSettledAmount)}</strong></article>
 
   <article><span>Pending Coupons Amount</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
