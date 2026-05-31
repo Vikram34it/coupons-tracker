@@ -269,7 +269,7 @@ main {
 }
 
 .top-stats {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
 .compact-stats {
@@ -330,6 +330,8 @@ main {
 }
 
 /* Color coding for key stats */
+#couponSettledMoney,
+#hundiSettledMoney,
 #moneyReceived {
   color: var(--ok);
 }
@@ -563,7 +565,7 @@ textarea {
   border-radius: var(--radius);
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(200px, 1fr) repeat(9, minmax(70px, auto));
+  grid-template-columns: minmax(200px, 1fr) repeat(auto-fit, minmax(76px, 1fr));
   padding: 16px;
   transition: all var(--transition);
   background: var(--surface);
