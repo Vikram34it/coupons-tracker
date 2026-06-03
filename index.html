@@ -164,6 +164,20 @@
           <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
         </form>
 
+        <form id="sheetSyncForm" class="panel">
+          <h2>Google Sheets Auto Update</h2>
+          <label class="checkbox-line">
+            <input id="sheetAutoUpdate" type="checkbox">
+            Auto update spreadsheet after every save
+          </label>
+          <label>
+            Apps Script Web App URL
+            <input id="sheetWebhookUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+          </label>
+          <button type="submit">Save Sheet Settings</button>
+          <p class="hint">Create a Google Apps Script Web App that accepts POST requests, then paste its URL here.</p>
+        </form>
+
         <form id="adminPasswordForm" class="panel">
           <h2>Admin Password</h2>
           <label>
@@ -320,6 +334,11 @@
             <select id="allSevaFilter">
               <option value="all">All Seva Types</option>
             </select>
+            <select id="allPaymentFilter">
+              <option value="all">All Payment Modes</option>
+              <option value="cash">Cash</option>
+              <option value="temple_transfer">Temple Transfer</option>
+            </select>
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
@@ -355,7 +374,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
-  <script src="app.js?v=2026-05-31-1"></script>
+  <script src="app.js?v=2026-06-03-1"></script>
 </body>
 
 </html>

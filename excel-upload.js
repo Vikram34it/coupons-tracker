@@ -361,7 +361,11 @@ function importFromExcel(file, devoteeId) {
           if (row.description)   coupon.description   = row.description;
           if (row.receiptNumber) coupon.receiptNumber = row.receiptNumber;
           coupon.paymentMode = row.paymentMode; // always set (has a default)
-          coupon._updated = ts();
+          if (typeof markCouponUpdated === "function") {
+            markCouponUpdated(coupon);
+          } else {
+            coupon._updated = Date.now();
+          }
           updated++;
         });
 

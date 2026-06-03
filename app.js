@@ -3,6 +3,7 @@ const STORAGE_KEY = "coupon-seva-tracker-v1";
 const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const APP_URL = "https://vikram34it.github.io/coupons-tracker/";
+const SHEET_SYNC_DEBOUNCE_MS = 2000;
 
 const state = loadState();
 let session = loadSession();
@@ -12,7 +13,10 @@ let isEditing = false;
 let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
 let saveTimer = null;
+let sheetSyncTimer = null;
 let firebaseHasLoaded = false;
+let firebaseCanWrite = false;
+let pendingFirebaseWrite = false;
 let lastEditTime = 0;           // ✅ FIX: timestamp of last coupon field edit
 const EDIT_GUARD_MS = 3000;    // ✅ FIX: ignore Firebase echoes for 3s after editing
 const els = {};
@@ -97,7 +101,9 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
       invitationMessage: "",
-      viewerPassword: ""
+      viewerPassword: "",
+      sheetAutoUpdate: false,
+      sheetWebhookUrl: ""
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -110,7 +116,9 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
     adminPassword: settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
     totalCoupons: positiveInteger(settings.totalCoupons) || fallbackTotal || DEFAULT_TOTAL_COUPONS,
     invitationMessage: settings.invitationMessage || "",
-    viewerPassword: settings.viewerPassword || ""
+    viewerPassword: settings.viewerPassword || "",
+    sheetAutoUpdate: Boolean(settings.sheetAutoUpdate),
+    sheetWebhookUrl: settings.sheetWebhookUrl || ""
   };
 }
 
@@ -249,10 +257,10 @@ function cacheElements() {
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput",
+    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetWebhookUrl",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -385,6 +393,7 @@ function bindEvents() {
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
+  els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -398,6 +407,7 @@ function bindEvents() {
   els.allSearch.addEventListener("input", renderAllCoupons);
   els.allStatus.addEventListener("change", renderAllCoupons);
   els.allSevaFilter.addEventListener("change", renderAllCoupons);
+  els.allPaymentFilter.addEventListener("change", renderAllCoupons);
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
@@ -536,6 +546,31 @@ function updateViewerPassword(event) {
   showToast("Viewer password set ✓");
 }
 
+function saveSheetSyncSettings(event) {
+  event.preventDefault();
+  const enabled = Boolean(els.sheetAutoUpdate?.checked);
+  const webhookUrl = (els.sheetWebhookUrl?.value || "").trim();
+
+  if (enabled && !webhookUrl) {
+    showToast("Paste the Google Apps Script Web App URL first");
+    return;
+  }
+
+  state.settings.sheetAutoUpdate = enabled;
+  state.settings.sheetWebhookUrl = webhookUrl;
+  saveState();
+  showToast(enabled ? "Google Sheets auto update enabled" : "Google Sheets auto update disabled");
+}
+
+function loadSheetSyncSettings() {
+  if (els.sheetAutoUpdate) {
+    els.sheetAutoUpdate.checked = Boolean(state.settings.sheetAutoUpdate);
+  }
+  if (els.sheetWebhookUrl) {
+    els.sheetWebhookUrl.value = state.settings.sheetWebhookUrl || "";
+  }
+}
+
 function updateTotalCoupons(event) {
   event.preventDefault();
   const totalCoupons = positiveInteger(els.totalCouponInput.value);
@@ -569,7 +604,7 @@ function resetOneCoupon(event) {
   }
 
   if (!window.confirm(`Reset coupon ${number}? This will clear assignment, buyer details, amount, description, and settlement.`)) return;
-  state.coupons[number - 1] = emptyCoupon(number);
+  state.coupons[number - 1] = { ...emptyCoupon(number), _updated: Date.now() };
   els.resetCouponForm.reset();
   saveState();
   render();
@@ -610,7 +645,8 @@ function resetAllCoupons() {
     return;
   }
 
-  state.coupons = makeCoupons(couponTotal());
+  const updatedAt = Date.now();
+  state.coupons = makeCoupons(couponTotal()).map((coupon) => ({ ...coupon, _updated: updatedAt }));
   saveState();
   render();
   showToast("All coupons reset");
@@ -619,7 +655,7 @@ function resetAllCoupons() {
 function resetCouponNumbers(numbers, message) {
   if (!window.confirm(message)) return;
   numbers.forEach((number) => {
-    state.coupons[number - 1] = emptyCoupon(number);
+    state.coupons[number - 1] = { ...emptyCoupon(number), _updated: Date.now() };
   });
   saveState();
   render();
@@ -683,6 +719,7 @@ function assignCoupons(event) {
     if (coupon.number >= from && coupon.number <= to) {
       coupon.devoteeId = devoteeId;
       coupon.assignedAt = assignedAt;
+      markCouponUpdated(coupon);
     }
   });
 
@@ -1272,6 +1309,7 @@ function deleteDevotee(devoteeId) {
     if (c.devoteeId === devoteeId) {
       c.devoteeId = "";
       c.assignedAt = "";
+      markCouponUpdated(c);
     }
   });
 
@@ -1570,6 +1608,7 @@ function renderAllCoupons() {
   const query = els.allSearch.value.trim().toLowerCase();
   const status = els.allStatus.value;
   const sevaFilter = els.allSevaFilter?.value || "all";
+  const paymentFilter = els.allPaymentFilter?.value || "all";
   let coupons = state.coupons;
 
   if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
@@ -1592,6 +1631,9 @@ function renderAllCoupons() {
   }
   if (sevaFilter !== "all") {
     coupons = coupons.filter(c => (c.description || "") === sevaFilter);
+  }
+  if (paymentFilter !== "all") {
+    coupons = coupons.filter(c => (c.paymentMode || "cash") === paymentFilter);
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
@@ -1670,6 +1712,7 @@ function toggleSettlement(event) {
   coupon.settledAt = coupon.settled
     ? todayKey()
     : "";
+  markCouponUpdated(coupon);
 
   saveState();
 
@@ -1678,6 +1721,8 @@ function toggleSettlement(event) {
   const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
   const savedDevoteeFilter = els.allDevoteeFilter ? els.allDevoteeFilter.value : "all";
   const savedStatus = els.allStatus ? els.allStatus.value : "all";
+  const savedSevaFilter = els.allSevaFilter ? els.allSevaFilter.value : "all";
+  const savedPaymentFilter = els.allPaymentFilter ? els.allPaymentFilter.value : "all";
 
   renderStats();
   renderDevotees();
@@ -1687,6 +1732,8 @@ function toggleSettlement(event) {
   // ✅ Restore filters then render table once
   if (els.allDevoteeFilter && savedDevoteeFilter) els.allDevoteeFilter.value = savedDevoteeFilter;
   if (els.allStatus && savedStatus) els.allStatus.value = savedStatus;
+  if (els.allSevaFilter && savedSevaFilter) els.allSevaFilter.value = savedSevaFilter;
+  if (els.allPaymentFilter && savedPaymentFilter) els.allPaymentFilter.value = savedPaymentFilter;
   renderAllCoupons();
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
@@ -1710,6 +1757,7 @@ function updateCouponField(event) {
   }
 
   coupon[field.dataset.field] = field.value.trimStart();
+  markCouponUpdated(coupon);
   pendingLocalCouponNumbers.add(coupon.number);
   lastEditTime = Date.now();    // ✅ FIX: record time of last edit
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1744,7 +1792,8 @@ function emptyCoupon(number) {
     receiptNumber: "",
     paymentMode: "cash",
     settled: false,
-    settledAt: ""
+    settledAt: "",
+    _updated: 0
   };
 }
 
@@ -1764,9 +1813,14 @@ function normalizeCoupons(coupons, totalCoupons) {
       receiptNumber: savedCoupon.receiptNumber || "",
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
-      settledAt: savedCoupon.settledAt || ""
+      settledAt: savedCoupon.settledAt || "",
+      _updated: Number(savedCoupon._updated) || 0
     };
   });
+}
+
+function markCouponUpdated(coupon, updatedAt = Date.now()) {
+  if (coupon) coupon._updated = updatedAt;
 }
 
 function hasCouponData(coupon) {
@@ -2280,6 +2334,55 @@ function updateSyncBadge(text) {
   if (badge) badge.textContent = text;
 }
 
+function normalizedUpdatedAt(item) {
+  return Number(item?._updated) || 0;
+}
+
+function mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers = new Set()) {
+  const localCouponsByNumber = new Map(state.coupons.map((coupon) => [coupon.number, coupon]));
+  return remoteCoupons.map((remoteCoupon) => {
+    const localCoupon = localCouponsByNumber.get(remoteCoupon.number);
+    if (!localCoupon) return remoteCoupon;
+    if (preserveCouponNumbers.has(remoteCoupon.number)) return localCoupon;
+
+    const localUpdated = normalizedUpdatedAt(localCoupon);
+    const remoteUpdated = normalizedUpdatedAt(remoteCoupon);
+
+    if (localUpdated > remoteUpdated) return localCoupon;
+    if (remoteUpdated > localUpdated) return remoteCoupon;
+
+    if (hasCouponData(localCoupon) && !hasCouponData(remoteCoupon)) {
+      return localCoupon;
+    }
+
+    return remoteCoupon;
+  });
+}
+
+function mergeRemoteDevotees(remoteDevotees) {
+  const devoteesById = new Map(remoteDevotees.map((devotee) => [devotee.id, devotee]));
+  state.devotees.forEach((localDevotee) => {
+    if (!devoteesById.has(localDevotee.id)) {
+      devoteesById.set(localDevotee.id, localDevotee);
+    }
+  });
+  return Array.from(devoteesById.values());
+}
+
+function hasStateData(candidateState = state) {
+  return Boolean(
+    candidateState.devotees?.length ||
+    candidateState.coupons?.some(hasCouponData) ||
+    candidateState.hundi?.length
+  );
+}
+
+function flushPendingFirebaseWrite() {
+  if (!pendingFirebaseWrite || !firebaseCanWrite || !firebaseReady || !dbRef) return;
+  pendingFirebaseWrite = false;
+  dbRef.set(state);
+}
+
 function applyFirebaseData(data, options = {}) {
   // ✅ FIX: Skip Firebase echo/updates if a devotee edited a field recently
   // This prevents data rollback when Firebase echoes the saved state back
@@ -2293,9 +2396,6 @@ function applyFirebaseData(data, options = {}) {
   }
 
   const preserveCouponNumbers = options.preserveCouponNumbers || new Set();
-  const localCouponsByNumber = preserveCouponNumbers.size
-    ? new Map(state.coupons.map((coupon) => [coupon.number, coupon]))
-    : null;
 
   if (data.settings) {
     const remoteTotalCoupons = positiveInteger(data.settings?.totalCoupons) ||
@@ -2306,16 +2406,19 @@ function applyFirebaseData(data, options = {}) {
       remoteTotalCoupons
     );
   }
-  if (Array.isArray(data.devotees)) state.devotees = data.devotees.map(normalizeDevotee);
+  if (Array.isArray(data.devotees) && (data.devotees.length || !state.devotees.length)) {
+    const remoteDevotees = data.devotees.map(normalizeDevotee);
+    state.devotees = pendingFirebaseWrite
+      ? mergeRemoteDevotees(remoteDevotees)
+      : remoteDevotees;
+  }
   if (Array.isArray(data.coupons)) {
     const remoteCoupons = normalizeCoupons(data.coupons, couponTotal());
-    state.coupons = remoteCoupons.map((coupon) => (
-      preserveCouponNumbers.has(coupon.number) && localCouponsByNumber?.has(coupon.number)
-        ? localCouponsByNumber.get(coupon.number)
-        : coupon
-    ));
+    state.coupons = mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers);
   }
-  if (Array.isArray(data.hundi)) state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  if (Array.isArray(data.hundi) && (data.hundi.length || !state.hundi.length)) {
+    state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+  }
 
   // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -2323,6 +2426,7 @@ function applyFirebaseData(data, options = {}) {
     renderSelectors();   // 🔥 force sorted dropdown refresh
     render();
   }
+  flushPendingFirebaseWrite();
 }
 
 let pendingFirebaseRetryTimer = null;
@@ -2359,6 +2463,9 @@ function updateAdminView() {
     section.style.display =
       section.dataset.adminSection === activeAdminTab ? "" : "none";
   });
+  if (activeAdminTab === "setup") {
+    loadSheetSyncSettings();
+  }
 }
 
 function initFirebaseSync() {
@@ -2393,6 +2500,7 @@ function initFirebaseSync() {
           // ✅ FIX: Mark Firebase as loaded on first data arrival
           if (!firebaseHasLoaded) {
             firebaseHasLoaded = true;
+            firebaseCanWrite = true;
             // Refresh the login dropdown with real devotee data
             updateLoginSyncHint("ready");
           }
@@ -2406,6 +2514,7 @@ function initFirebaseSync() {
           const data = snapshot.val();
 
           applyFirebaseData(data);
+          flushPendingFirebaseWrite();
         });
 
         updateSyncBadge("Realtime");
@@ -2413,7 +2522,13 @@ function initFirebaseSync() {
         // First-time push if DB empty
         dbRef.once("value").then((snap) => {
           if (!snap.exists()) {
-            dbRef.set(state);
+            firebaseHasLoaded = true;
+            firebaseCanWrite = true;
+            if (hasStateData(state)) {
+              dbRef.set(state);
+            }
+            updateLoginSyncHint("ready");
+            flushPendingFirebaseWrite();
           }
         });
       })
@@ -2431,16 +2546,65 @@ function initFirebaseSync() {
 }
 
 // 🔥 Override saveState for Firebase sync
+function spreadsheetRows() {
+  return state.coupons.map((coupon) => {
+    const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
+    return {
+      coupon: coupon.number,
+      assignedTo: devotee ? devotee.name : "",
+      assignedDate: coupon.assignedAt || "",
+      devoteeContact: devotee ? devotee.contact : "",
+      buyerName: coupon.buyerName || "",
+      buyerContact: coupon.buyerContact || "",
+      amount: amountValue(coupon.amount),
+      receiptNumber: coupon.receiptNumber || "",
+      paymentMode: coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash",
+      settlement: coupon.settled ? "Settled" : "Not Settled",
+      settledDate: coupon.settledAt || "",
+      description: coupon.description || ""
+    };
+  });
+}
+
+function queueSheetAutoUpdate() {
+  if (!state.settings.sheetAutoUpdate || !state.settings.sheetWebhookUrl) return;
+  clearTimeout(sheetSyncTimer);
+  sheetSyncTimer = setTimeout(() => {
+    sheetSyncTimer = null;
+    updateGoogleSheet();
+  }, SHEET_SYNC_DEBOUNCE_MS);
+}
+
+function updateGoogleSheet() {
+  fetch(state.settings.sheetWebhookUrl, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      updatedAt: new Date().toISOString(),
+      rows: spreadsheetRows()
+    })
+  }).catch((err) => {
+    console.error("Google Sheets update failed:", err);
+  });
+}
+
 const _localSaveState = saveState;
 
 saveState = function () {
   _localSaveState();
+  queueSheetAutoUpdate();
 
   if (firebaseReady && dbRef) {
     // ✅ FIX: Record edit guard time before pushing to Firebase
     // This prevents the Firebase echo from overwriting in-progress field edits
     // (lastEditTime is already set by updateCouponField for field edits;
     //  for admin saves we intentionally DON'T set it, so admin data propagates)
-    dbRef.set(state);
+    if (firebaseCanWrite) {
+      dbRef.set(state);
+    } else {
+      pendingFirebaseWrite = true;
+      updateSyncBadge("Sync pending");
+    }
   }
 };
