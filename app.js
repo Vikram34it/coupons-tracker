@@ -257,7 +257,7 @@ function cacheElements() {
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetWebhookUrl",
+    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
@@ -394,6 +394,7 @@ function bindEvents() {
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
+  els.sheetSyncNowBtn.addEventListener("click", syncSheetNow);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.devoteeSearch.addEventListener("input", renderDevotees);
@@ -549,7 +550,7 @@ function updateViewerPassword(event) {
 function saveSheetSyncSettings(event) {
   event.preventDefault();
   const enabled = Boolean(els.sheetAutoUpdate?.checked);
-  const webhookUrl = (els.sheetWebhookUrl?.value || "").trim();
+  const webhookUrl = normalizeSheetWebhookUrl(els.sheetWebhookUrl?.value || "");
 
   if (enabled && !webhookUrl) {
     showToast("Paste the Google Apps Script Web App URL first");
@@ -558,7 +559,13 @@ function saveSheetSyncSettings(event) {
 
   state.settings.sheetAutoUpdate = enabled;
   state.settings.sheetWebhookUrl = webhookUrl;
+  if (els.sheetWebhookUrl) els.sheetWebhookUrl.value = webhookUrl;
   saveState();
+  updateSheetSyncStatus(
+    enabled
+      ? "Saved. The spreadsheet will update after coupon changes."
+      : "Saved. Auto update is off."
+  );
   showToast(enabled ? "Google Sheets auto update enabled" : "Google Sheets auto update disabled");
 }
 
@@ -569,6 +576,32 @@ function loadSheetSyncSettings() {
   if (els.sheetWebhookUrl) {
     els.sheetWebhookUrl.value = state.settings.sheetWebhookUrl || "";
   }
+}
+
+function normalizeSheetWebhookUrl(url) {
+  const trimmed = String(url || "").trim();
+  return trimmed.replace(/\/dev(\?.*)?$/, "/exec$1");
+}
+
+function updateSheetSyncStatus(message) {
+  if (els.sheetSyncStatus) {
+    els.sheetSyncStatus.textContent = message || "";
+  }
+}
+
+function syncSheetNow() {
+  const webhookUrl = normalizeSheetWebhookUrl(els.sheetWebhookUrl?.value || state.settings.sheetWebhookUrl || "");
+  if (!webhookUrl) {
+    updateSheetSyncStatus("Paste the deployed Apps Script Web App URL ending in /exec.");
+    showToast("Paste the Google Apps Script URL first");
+    return;
+  }
+
+  state.settings.sheetWebhookUrl = webhookUrl;
+  state.settings.sheetAutoUpdate = Boolean(els.sheetAutoUpdate?.checked);
+  if (els.sheetWebhookUrl) els.sheetWebhookUrl.value = webhookUrl;
+  saveState();
+  updateGoogleSheet(true);
 }
 
 function updateTotalCoupons(event) {
@@ -2568,6 +2601,7 @@ function spreadsheetRows() {
 
 function queueSheetAutoUpdate() {
   if (!state.settings.sheetAutoUpdate || !state.settings.sheetWebhookUrl) return;
+  updateSheetSyncStatus("Spreadsheet update queued...");
   clearTimeout(sheetSyncTimer);
   sheetSyncTimer = setTimeout(() => {
     sheetSyncTimer = null;
@@ -2575,7 +2609,14 @@ function queueSheetAutoUpdate() {
   }, SHEET_SYNC_DEBOUNCE_MS);
 }
 
-function updateGoogleSheet() {
+function updateGoogleSheet(manual = false) {
+  if (!state.settings.sheetWebhookUrl) {
+    updateSheetSyncStatus("Paste the deployed Apps Script Web App URL ending in /exec.");
+    return;
+  }
+  clearTimeout(sheetSyncTimer);
+  sheetSyncTimer = null;
+  updateSheetSyncStatus("Sending spreadsheet update...");
   fetch(state.settings.sheetWebhookUrl, {
     method: "POST",
     mode: "no-cors",
@@ -2584,8 +2625,16 @@ function updateGoogleSheet() {
       updatedAt: new Date().toISOString(),
       rows: spreadsheetRows()
     })
+  }).then(() => {
+    const note = manual
+      ? "Update sent. Check the Google Sheet. If it did not change, redeploy Apps Script with access set to Anyone."
+      : "Spreadsheet update sent.";
+    updateSheetSyncStatus(note);
+    if (manual) showToast("Spreadsheet update sent");
   }).catch((err) => {
     console.error("Google Sheets update failed:", err);
+    updateSheetSyncStatus("Could not send spreadsheet update. Check the Apps Script URL and deployment access.");
+    if (manual) showToast("Spreadsheet update failed");
   });
 }
 

@@ -174,8 +174,12 @@
             Apps Script Web App URL
             <input id="sheetWebhookUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
           </label>
-          <button type="submit">Save Sheet Settings</button>
-          <p class="hint">Create a Google Apps Script Web App that accepts POST requests, then paste its URL here.</p>
+          <div class="inline-fields" style="align-items:center">
+            <button type="submit">Save Sheet Settings</button>
+            <button id="sheetSyncNowBtn" type="button" class="ghost">Update Now</button>
+          </div>
+          <p id="sheetSyncStatus" class="hint"></p>
+          <p class="hint">Use the deployed Web App URL ending in /exec. URLs ending in /dev only work for the script owner.</p>
         </form>
 
         <form id="adminPasswordForm" class="panel">
@@ -374,7 +378,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
-  <script src="app.js?v=2026-06-03-1"></script>
+  <script src="app.js?v=2026-06-04-1"></script>
 </body>
 
 </html>

@@ -1,11 +1,20 @@
 // Paste this into Google Apps Script, update SHEET_NAME if needed,
 // deploy as a Web App, then paste the Web App URL into the tracker setup.
+// If this script is not opened from inside the spreadsheet, paste the spreadsheet ID here.
+const SPREADSHEET_ID = "";
 const SHEET_NAME = "Coupons";
 
 function doPost(e) {
   const payload = JSON.parse(e.postData.contents || "{}");
   const rows = Array.isArray(payload.rows) ? payload.rows : [];
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const spreadsheet = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+
+  if (!spreadsheet) {
+    throw new Error("No spreadsheet found. Bind this script to a Google Sheet or set SPREADSHEET_ID.");
+  }
+
   const sheet = spreadsheet.getSheetByName(SHEET_NAME) || spreadsheet.insertSheet(SHEET_NAME);
 
   const headers = [
