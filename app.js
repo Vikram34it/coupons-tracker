@@ -260,7 +260,7 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -1669,6 +1669,11 @@ function renderAllCoupons() {
     coupons = coupons.filter(c => (c.paymentMode || "cash") === paymentFilter);
   }
   if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
+
+  if (els.allCouponCount) {
+    const label = coupons.length === 1 ? "Coupon" : "Coupons";
+    els.allCouponCount.textContent = `${label}: ${coupons.length.toLocaleString("en-IN")}`;
+  }
 
   els.allCouponsBody.innerHTML = coupons.map((coupon) => {
     const isViewer = session?.role === "viewer";
