@@ -976,7 +976,7 @@ function renderStats() {
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
   const cashTotal = state.coupons
-    .filter(c => c.paymentMode === "cash")
+    .filter(c => c.settled && c.paymentMode === "cash")
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
