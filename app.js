@@ -4,6 +4,7 @@ const AUTH_KEY = "coupon-seva-session-v1";
 const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const APP_URL = "https://vikram34it.github.io/coupons-tracker/";
 const SHEET_SYNC_DEBOUNCE_MS = 2000;
+const SHEET_HOURLY_SYNC_MS = 60 * 60 * 1000;
 
 const state = loadState();
 let session = loadSession();
@@ -14,6 +15,8 @@ let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
 let saveTimer = null;
 let sheetSyncTimer = null;
+let sheetHourlyTimer = null;
+let sheetHourlyConfigKey = "";
 let firebaseHasLoaded = false;
 let firebaseCanWrite = false;
 let pendingFirebaseWrite = false;
@@ -35,6 +38,7 @@ window.addEventListener("load", () => {
   bindEvents();
   renderSelectors(); // ✅ ADD THIS
   render();
+  configureHourlySheetSync();
 
   // ✅ FIX: Show loading hint on login screen while Firebase connects
   updateLoginSyncHint("loading");
@@ -103,6 +107,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       invitationMessage: "",
       viewerPassword: "",
       sheetAutoUpdate: false,
+      sheetHourlyUpdate: false,
       sheetWebhookUrl: ""
     },
     devotees: [],
@@ -118,6 +123,7 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
     invitationMessage: settings.invitationMessage || "",
     viewerPassword: settings.viewerPassword || "",
     sheetAutoUpdate: Boolean(settings.sheetAutoUpdate),
+    sheetHourlyUpdate: Boolean(settings.sheetHourlyUpdate),
     sheetWebhookUrl: settings.sheetWebhookUrl || ""
   };
 }
@@ -257,7 +263,7 @@ function cacheElements() {
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
+    "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "toast"
@@ -550,28 +556,34 @@ function updateViewerPassword(event) {
 function saveSheetSyncSettings(event) {
   event.preventDefault();
   const enabled = Boolean(els.sheetAutoUpdate?.checked);
+  const hourlyEnabled = Boolean(els.sheetHourlyUpdate?.checked);
   const webhookUrl = normalizeSheetWebhookUrl(els.sheetWebhookUrl?.value || "");
 
-  if (enabled && !webhookUrl) {
+  if ((enabled || hourlyEnabled) && !webhookUrl) {
     showToast("Paste the Google Apps Script Web App URL first");
     return;
   }
 
   state.settings.sheetAutoUpdate = enabled;
+  state.settings.sheetHourlyUpdate = hourlyEnabled;
   state.settings.sheetWebhookUrl = webhookUrl;
   if (els.sheetWebhookUrl) els.sheetWebhookUrl.value = webhookUrl;
   saveState();
+  configureHourlySheetSync();
   updateSheetSyncStatus(
-    enabled
-      ? "Saved. The spreadsheet will update after coupon changes."
+    enabled || hourlyEnabled
+      ? `Saved. Spreadsheet updates${enabled ? " after coupon changes" : ""}${enabled && hourlyEnabled ? " and" : ""}${hourlyEnabled ? " every 1 hour while open" : ""}.`
       : "Saved. Auto update is off."
   );
-  showToast(enabled ? "Google Sheets auto update enabled" : "Google Sheets auto update disabled");
+  showToast(enabled || hourlyEnabled ? "Google Sheets auto update enabled" : "Google Sheets auto update disabled");
 }
 
 function loadSheetSyncSettings() {
   if (els.sheetAutoUpdate) {
     els.sheetAutoUpdate.checked = Boolean(state.settings.sheetAutoUpdate);
+  }
+  if (els.sheetHourlyUpdate) {
+    els.sheetHourlyUpdate.checked = Boolean(state.settings.sheetHourlyUpdate);
   }
   if (els.sheetWebhookUrl) {
     els.sheetWebhookUrl.value = state.settings.sheetWebhookUrl || "";
@@ -599,8 +611,10 @@ function syncSheetNow() {
 
   state.settings.sheetWebhookUrl = webhookUrl;
   state.settings.sheetAutoUpdate = Boolean(els.sheetAutoUpdate?.checked);
+  state.settings.sheetHourlyUpdate = Boolean(els.sheetHourlyUpdate?.checked);
   if (els.sheetWebhookUrl) els.sheetWebhookUrl.value = webhookUrl;
   saveState();
+  configureHourlySheetSync();
   updateGoogleSheet(true);
 }
 
@@ -1406,6 +1420,7 @@ function renderEntryList() {
             <th>Date</th>
             <th>Amount</th>
             ${session?.role === "admin" ? "<th>Settlement</th>" : ""}
+            ${session?.role === "admin" ? "<th>Actions</th>" : ""}
           </tr>
         </thead>
         <tbody>
@@ -1418,9 +1433,13 @@ function renderEntryList() {
                   <button class="ghost settlement-btn" type="button" data-hundi-settle="${e.id}">
                     ${e.settled ? "Settled" : "Mark Settled"}
                   </button>
+                </td>
+                <td>
+                  <button class="ghost" type="button" data-hundi-edit="${e.id}">Edit</button>
+                  <button class="danger" type="button" data-hundi-delete="${e.id}">Delete</button>
                 </td>` : ""}
               </tr>
-            `).join("") || `<tr><td colspan="${session?.role === "admin" ? 3 : 2}">No entries</td></tr>`
+            `).join("") || `<tr><td colspan="${session?.role === "admin" ? 4 : 2}">No entries</td></tr>`
       }
         </tbody>
       </table>
@@ -1436,12 +1455,69 @@ function renderEntryList() {
         const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
         if (!hundi) return;
         hundi.settled = !hundi.settled;
+        hundi._updated = Date.now();
         saveState();
         renderEntryList();
         renderStats();
         renderDevoteeStats(hundi.devoteeId);
         renderSevaSummary();
         showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
+      });
+    });
+
+    els.entryList.querySelectorAll("[data-hundi-edit]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can edit hundi");
+          return;
+        }
+
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiEdit);
+        if (!hundi) return;
+
+        const date = window.prompt("Enter hundi date (YYYY-MM-DD)", hundi.date || todayKey());
+        if (date === null) return;
+
+        const amountInput = window.prompt("Enter hundi amount", String(hundi.amount || ""));
+        if (amountInput === null) return;
+
+        const amount = Number(amountInput);
+        if (!date.trim() || !amount || amount < 0) {
+          showToast("Enter a valid date and amount");
+          return;
+        }
+
+        hundi.date = date.trim();
+        hundi.amount = amount;
+        hundi._updated = Date.now();
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast("Hundi entry updated");
+      });
+    });
+
+    els.entryList.querySelectorAll("[data-hundi-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can delete hundi");
+          return;
+        }
+
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiDelete);
+        if (!hundi) return;
+
+        if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
+
+        state.hundi = state.hundi.filter(h => h.id !== hundi.id);
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast("Hundi entry deleted");
       });
     });
 
@@ -1459,11 +1535,15 @@ function renderEntryList() {
         devoteeId,
         amount,
         date,
-        settled: false
+        settled: false,
+        _updated: Date.now()
       });
 
       saveState();
       renderEntryList();
+      renderStats();
+      renderDevoteeStats(devoteeId);
+      renderSevaSummary();
       showToast("Hundi added");
     };
 
@@ -2443,6 +2523,7 @@ function applyFirebaseData(data, options = {}) {
       { ...state.settings, ...data.settings, totalCoupons: remoteTotalCoupons },
       remoteTotalCoupons
     );
+    configureHourlySheetSync();
   }
   if (Array.isArray(data.devotees) && (data.devotees.length || !state.devotees.length)) {
     const remoteDevotees = data.devotees.map(normalizeDevotee);
@@ -2604,6 +2685,19 @@ function spreadsheetRows() {
   });
 }
 
+function spreadsheetHundiRows() {
+  return (state.hundi || []).map((entry) => {
+    const devotee = state.devotees.find((item) => item.id === entry.devoteeId);
+    return {
+      date: entry.date || "",
+      devoteeName: devotee ? devotee.name : "",
+      devoteeContact: devotee ? devotee.contact : "",
+      amount: amountValue(entry.amount),
+      settlement: entry.settled ? "Settled" : "Not Settled"
+    };
+  });
+}
+
 function queueSheetAutoUpdate() {
   if (!state.settings.sheetAutoUpdate || !state.settings.sheetWebhookUrl) return;
   updateSheetSyncStatus("Spreadsheet update queued...");
@@ -2614,7 +2708,22 @@ function queueSheetAutoUpdate() {
   }, SHEET_SYNC_DEBOUNCE_MS);
 }
 
-function updateGoogleSheet(manual = false) {
+function configureHourlySheetSync() {
+  const nextConfigKey = `${Boolean(state.settings.sheetHourlyUpdate)}|${state.settings.sheetWebhookUrl || ""}`;
+  if (nextConfigKey === sheetHourlyConfigKey && (sheetHourlyTimer || !state.settings.sheetHourlyUpdate)) return;
+
+  sheetHourlyConfigKey = nextConfigKey;
+  clearInterval(sheetHourlyTimer);
+  sheetHourlyTimer = null;
+
+  if (!state.settings.sheetHourlyUpdate || !state.settings.sheetWebhookUrl) return;
+
+  sheetHourlyTimer = setInterval(() => {
+    updateGoogleSheet(false, "hourly");
+  }, SHEET_HOURLY_SYNC_MS);
+}
+
+function updateGoogleSheet(manual = false, reason = "save") {
   if (!state.settings.sheetWebhookUrl) {
     updateSheetSyncStatus("Paste the deployed Apps Script Web App URL ending in /exec.");
     return;
@@ -2628,12 +2737,15 @@ function updateGoogleSheet(manual = false) {
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
       updatedAt: new Date().toISOString(),
-      rows: spreadsheetRows()
+      rows: spreadsheetRows(),
+      hundiRows: spreadsheetHundiRows()
     })
   }).then(() => {
     const note = manual
       ? "Update sent. Check the Google Sheet. If it did not change, redeploy Apps Script with access set to Anyone."
-      : "Spreadsheet update sent.";
+      : reason === "hourly"
+        ? "Hourly spreadsheet update sent."
+        : "Spreadsheet update sent.";
     updateSheetSyncStatus(note);
     if (manual) showToast("Spreadsheet update sent");
   }).catch((err) => {
