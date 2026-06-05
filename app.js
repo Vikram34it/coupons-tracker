@@ -259,7 +259,7 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney",
+    "logoutBtn", "userBadge", "syncBadge", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint", "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
@@ -975,6 +975,10 @@ function renderStats() {
     .filter(c => c.paymentMode === "temple_transfer")
     .reduce((sum, c) => sum + amountValue(c.amount), 0);
 
+  const cashTotal = state.coupons
+    .filter(c => c.paymentMode === "cash")
+    .reduce((sum, c) => sum + amountValue(c.amount), 0);
+
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
   els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
   els.soldCoupons.textContent = sold.toLocaleString("en-IN");
@@ -984,6 +988,7 @@ function renderStats() {
   els.settledCoupons.textContent = settled.toLocaleString("en-IN");
   if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(unsettledMoney);
   if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(templeTransfer);
+  if (els.cashTotalMoney) els.cashTotalMoney.textContent = formatMoney(cashTotal);
 }
 
 function renderDevotees() {
