@@ -265,7 +265,7 @@ function cacheElements() {
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
-    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinCount", "checkinReportBody", "checkinPrintBtn",
+    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
     "checkinActionHeader"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
@@ -454,6 +454,7 @@ function bindEvents() {
   els.checkinDevoteeFilter.addEventListener("change", renderCheckinReport);
   els.checkinSevaFilter.addEventListener("change", renderCheckinReport);
   els.checkinStatusFilter.addEventListener("change", renderCheckinReport);
+  els.checkinSearch.addEventListener("input", renderCheckinReport);
   els.checkinPrintBtn.addEventListener("click", () => window.print());
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
@@ -3637,6 +3638,13 @@ function renderCheckinReport() {
   if (sevaFilter !== "all") coupons = coupons.filter(c => (c.description || "") === sevaFilter);
   if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
   else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
+
+  const searchQuery = els.checkinSearch?.value.trim();
+  if (searchQuery) {
+    const searchNum = Number(searchQuery);
+    if (!isNaN(searchNum)) coupons = coupons.filter(c => c.number === searchNum);
+    else coupons = coupons.filter(c => String(c.number).includes(searchQuery));
+  }
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
 
