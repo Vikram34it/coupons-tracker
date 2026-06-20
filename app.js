@@ -3241,7 +3241,7 @@ function showQrModal(coupon) {
 }
 
 // ═══════════════════════════════════════════════
-️ 🖨️ PRINT COUPON SLIP
+// 🖨️ PRINT COUPON SLIP
 // ═══════════════════════════════════════════════
 
 function showPrintSlip(coupon) {
