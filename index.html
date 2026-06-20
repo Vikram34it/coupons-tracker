@@ -133,6 +133,10 @@
             Devotee Password
             <input id="devoteePassword" type="password" minlength="4" required placeholder="Minimum 4 characters">
           </label>
+          <label class="checkbox-line">
+            <input id="devoteeCanCheckin" type="checkbox">
+            Can check in attendees on event day
+          </label>
           <button type="submit">Add Devotee</button>
         </form>
 
@@ -467,7 +471,7 @@
                 <th>Seva</th>
                 <th>Status</th>
                 <th>Checked In At</th>
-                <th class="no-print">Action</th>
+                <th id="checkinActionHeader" class="no-print">Action</th>
               </tr>
             </thead>
             <tbody id="checkinReportBody"></tbody>

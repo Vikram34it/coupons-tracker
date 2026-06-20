@@ -257,7 +257,7 @@ function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "syncBadge", "darkToggle", "langToggle", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
-    "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "assignForm", "assignDevotee", "assignFrom",
+    "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "autoReceiptCheck", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
@@ -265,7 +265,8 @@ function cacheElements() {
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
-    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinCount", "checkinReportBody", "checkinPrintBtn"
+    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinCount", "checkinReportBody", "checkinPrintBtn",
+    "checkinActionHeader"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -551,7 +552,8 @@ function addDevotee(event) {
     id: newId(),
     name,
     contact,
-    pin: password
+    pin: password,
+    canCheckin: els.devoteeCanCheckin.checked
   });
 
   els.devoteeForm.reset();
@@ -1190,6 +1192,10 @@ function renderDevotees() {
         </span>
 
         ${session?.role === "viewer" ? "" : `
+        <label class="checkbox-line can-checkin-toggle" title="Allow this devotee to mark attendance on event day">
+          <input type="checkbox" data-can-checkin="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}>
+          Check-in
+        </label>
         <button
           class="ghost"
           type="button"
@@ -1254,6 +1260,20 @@ function renderDevotees() {
         document
           .querySelector('[data-view="devoteeView"]')
           .click();
+      });
+    });
+
+  // ✅ CAN CHECK-IN TOGGLE
+  els.devoteeList.querySelectorAll("[data-can-checkin]")
+    .forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        const devotee = state.devotees.find(
+          (item) => item.id === checkbox.dataset.canCheckin
+        );
+        if (!devotee) return;
+        devotee.canCheckin = checkbox.checked;
+        saveState();
+        showToast(`${devotee.name} check-in ${checkbox.checked ? "enabled" : "disabled"}`);
       });
     });
 
@@ -2565,7 +2585,8 @@ function normalizeDevotee(devotee) {
     id: devotee.id,
     name: devotee.name || "",
     contact: devotee.contact || "",
-    pin: devotee.pin || ""
+    pin: devotee.pin || "",
+    canCheckin: Boolean(devotee.canCheckin)
   };
 }
 // ================= FIREBASE SYNC (ADD ONLY THIS) =================
@@ -3485,12 +3506,25 @@ function goToPage(page) {
 
 let lastCheckinNumber = null;
 
+function canCurrentUserCheckin() {
+  if (session?.role === "admin" || session?.role === "viewer") return true;
+  if (session?.role === "devotee") {
+    const devotee = state.devotees.find(d => d.id === session.devoteeId);
+    return devotee ? devotee.canCheckin : false;
+  }
+  return false;
+}
+
 function renderCheckinView() {
+  const canCheckin = canCurrentUserCheckin();
+  els.checkinInput.closest(".checkin-scanner")?.classList.toggle("hidden", !canCheckin);
+  els.checkinResult.classList.toggle("hidden", !canCheckin);
+  if (els.checkinActionHeader) els.checkinActionHeader.classList.toggle("hidden", !canCheckin);
   renderCheckinStats();
   renderCheckinReport();
   populateCheckinFilters();
   els.checkinInput.value = "";
-  els.checkinInput.focus();
+  if (canCheckin) els.checkinInput.focus();
   els.checkinResult.className = "checkin-result";
   els.checkinResult.textContent = "";
   els.checkinUndoBtn.style.display = "none";
@@ -3507,6 +3541,7 @@ function populateCheckinFilters() {
 }
 
 function handleCheckin() {
+  if (!canCurrentUserCheckin()) { showCheckinError("You don't have permission to check in"); return; }
   const raw = els.checkinInput.value.trim();
   if (!raw) { showCheckinError("Enter a coupon number"); return; }
 
@@ -3556,6 +3591,7 @@ function handleCheckin() {
 }
 
 function handleUndoCheckin() {
+  if (!canCurrentUserCheckin()) return;
   if (!lastCheckinNumber) return;
   const coupon = state.coupons[lastCheckinNumber - 1];
   if (coupon) {
@@ -3604,6 +3640,8 @@ function renderCheckinReport() {
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
 
+  const canCheckin = canCurrentUserCheckin();
+
   els.checkinReportBody.innerHTML = coupons.map(c => {
     const attended = c.attended;
     return `
@@ -3615,12 +3653,13 @@ function renderCheckinReport() {
         <td>${escapeHtml(c.description || "-")}</td>
         <td><span class="attended-badge ${attended ? '' : 'missed'}">${attended ? "✓ Checked In" : "○ Not Yet"}</span></td>
         <td>${attended ? escapeHtml(c.attendedAt) : "-"}</td>
+        ${canCheckin ? `
         <td class="no-print">
           ${attended
             ? `<button class="ghost" type="button" onclick="undoCheckinFromReport(${c.number})">Undo</button>`
             : `<button class="ghost" type="button" onclick="checkinFromReport(${c.number})">Check In</button>`
           }
-        </td>
+        </td>` : ""}
       </tr>
     `;
   }).join("") || '<tr><td colspan="8"><div class="empty">No coupons match the filters.</div></td></tr>';

@@ -2064,3 +2064,19 @@ body.dark-mode .pdf-btn:hover {
   color: var(--warning);
   border-color: var(--warning);
 }
+
+/* ================= CAN CHECK-IN TOGGLE ================= */
+.can-checkin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.can-checkin-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
