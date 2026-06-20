@@ -204,28 +204,23 @@ function saveSession(nextSession) {
 
 function renderSevaSummary() {
   const period = settlementPeriod();
+
   const sevaMap = {};
+  SEVA_TYPES.forEach(s => { sevaMap[s] = { count: 0, amount: 0 }; });
+  sevaMap["Hundi Donation"] = { count: 0, amount: 0 };
 
   state.coupons
     .filter(c => c.settled && inSettlementPeriod(c, period))
     .forEach(coupon => {
       const seva = coupon.description || "Others";
-
-      if (!sevaMap[seva]) {
-        sevaMap[seva] = { count: 0, amount: 0 };
-      }
-
+      if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
       sevaMap[seva].count += 1;
       sevaMap[seva].amount += amountValue(coupon.amount);
     });
 
   (state.hundi || []).filter(h => h.settled).forEach(h => {
     const seva = "Hundi Donation";
-
-    if (!sevaMap[seva]) {
-      sevaMap[seva] = { count: 0, amount: 0 };
-    }
-
+    if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
     sevaMap[seva].count += 1;
     sevaMap[seva].amount += h.amount;
   });
