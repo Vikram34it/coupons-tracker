@@ -1966,3 +1966,101 @@ body.dark-mode .pdf-btn {
 body.dark-mode .pdf-btn:hover {
   background: rgba(220, 38, 38, 0.1);
 }
+
+/* ================= CHECK-IN VIEW ================= */
+.checkin-scanner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.checkin-scanner input {
+  flex: 1;
+  min-width: 200px;
+  font-size: 1.3rem;
+  padding: 14px 16px;
+  text-align: center;
+  letter-spacing: 2px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.checkin-scanner input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+  outline: none;
+}
+
+.checkin-scanner .primary {
+  padding: 14px 28px;
+  font-size: 1.1rem;
+}
+
+.checkin-result {
+  padding: 16px;
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  font-size: 1rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.checkin-result.success {
+  background: var(--ok-light);
+  border: 1px solid var(--ok);
+  color: var(--ok);
+}
+
+.checkin-result.error {
+  background: var(--danger-light);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.checkin-result .coupon-details {
+  font-size: 0.9rem;
+  margin-top: 8px;
+  color: var(--ink-secondary);
+}
+
+.checkin-result .coupon-details span {
+  display: inline-block;
+  margin: 0 8px;
+}
+
+.checkin-stats {
+  margin-top: 12px;
+}
+
+.checkin-stats article {
+  text-align: center;
+}
+
+.checkin-stats strong {
+  font-size: 1.8rem;
+  display: block;
+}
+
+.attended-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ok-light);
+  color: var(--ok);
+  font-weight: 600;
+  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ok);
+}
+
+.attended-badge.missed {
+  background: var(--warning-light);
+  color: var(--warning);
+  border-color: var(--warning);
+}

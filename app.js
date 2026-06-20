@@ -263,7 +263,9 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn", "toast"
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn", "toast",
+    "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
+    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinCount", "checkinReportBody", "checkinPrintBtn"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -442,6 +444,16 @@ function bindEvents() {
     renderPagination();
     updateDevoteePendingDisplay();
   });
+
+  els.checkinInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleCheckin();
+  });
+  els.checkinBtn.addEventListener("click", handleCheckin);
+  els.checkinUndoBtn.addEventListener("click", handleUndoCheckin);
+  els.checkinDevoteeFilter.addEventListener("change", renderCheckinReport);
+  els.checkinSevaFilter.addEventListener("change", renderCheckinReport);
+  els.checkinStatusFilter.addEventListener("change", renderCheckinReport);
+  els.checkinPrintBtn.addEventListener("click", () => window.print());
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -826,6 +838,7 @@ function render() {
   renderEntryList();
   renderAllCoupons();
   renderPagination();
+  renderCheckinView();
   updateAdminView();
   loadInvitationTemplate(); // ✅ populate textarea from saved state
 
@@ -960,6 +973,9 @@ function applyRoleAccess() {
 
   // Devotee Entry tab — hidden for viewer
   document.querySelector('[data-view="devoteeView"]')?.classList.toggle("hidden", isViewer);
+
+  // Check-in tab — visible to all logged-in users
+  document.querySelector('[data-view="checkinView"]')?.classList.toggle("hidden", !session);
 
   // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
@@ -2011,6 +2027,8 @@ function emptyCoupon(number) {
     settled: false,
     settledAt: "",
     soldAt: "",
+    attended: false,
+    attendedAt: "",
     _updated: 0
   };
 }
@@ -2033,6 +2051,8 @@ function normalizeCoupons(coupons, totalCoupons) {
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || "",
       soldAt: savedCoupon.soldAt || "",
+      attended: Boolean(savedCoupon.attended),
+      attendedAt: savedCoupon.attendedAt || "",
       _updated: Number(savedCoupon._updated) || 0
     };
   });
@@ -3454,6 +3474,163 @@ function goToPage(page) {
   renderAllCoupons();
   renderPagination();
   els.allCouponsBody.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ═══════════════════════════════════════════════
+// ✅ EVENT CHECK-IN SYSTEM
+// ═══════════════════════════════════════════════
+
+let lastCheckinNumber = null;
+
+function renderCheckinView() {
+  renderCheckinStats();
+  renderCheckinReport();
+  populateCheckinFilters();
+  els.checkinInput.value = "";
+  els.checkinInput.focus();
+  els.checkinResult.className = "checkin-result";
+  els.checkinResult.textContent = "";
+  els.checkinUndoBtn.style.display = "none";
+  lastCheckinNumber = null;
+}
+
+function populateCheckinFilters() {
+  const sorted = [...state.devotees].sort((a, b) => a.name.localeCompare(b.name));
+  els.checkinDevoteeFilter.innerHTML = '<option value="all">All Devotees</option>' +
+    sorted.map(d => `<option value="${escapeAttr(d.id)}">${escapeHtml(d.name)}</option>`).join("");
+
+  els.checkinSevaFilter.innerHTML = '<option value="all">All Seva Types</option>' +
+    SEVA_TYPES.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
+}
+
+function handleCheckin() {
+  const raw = els.checkinInput.value.trim();
+  if (!raw) { showCheckinError("Enter a coupon number"); return; }
+
+  const num = Number(raw);
+  if (isNaN(num) || num < 1 || num > state.coupons.length) {
+    showCheckinError("Invalid coupon number");
+    return;
+  }
+
+  const coupon = state.coupons[num - 1];
+  if (!coupon || !coupon.devoteeId) {
+    showCheckinError("Coupon #" + num + " is not assigned to any devotee");
+    return;
+  }
+  if (!isSold(coupon)) {
+    showCheckinError("Coupon #" + num + " has not been sold yet");
+    return;
+  }
+  if (coupon.attended) {
+    showCheckinError("Coupon #" + num + " is already checked in at " + coupon.attendedAt);
+    return;
+  }
+
+  coupon.attended = true;
+  coupon.attendedAt = todayKey() + " " + new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  markCouponUpdated(coupon);
+  saveState();
+
+  lastCheckinNumber = num;
+  els.checkinResult.className = "checkin-result success";
+  els.checkinResult.innerHTML = `
+    <strong>✓ Checked In — Coupon #${num}</strong>
+    <div class="coupon-details">
+      <span>Buyer: ${escapeHtml(coupon.buyerName || "-")}</span>
+      <span>Seva: ${escapeHtml(coupon.description || "-")}</span>
+      <span>Devotee: ${escapeHtml(devoteeName(coupon.devoteeId))}</span>
+      <span>Time: ${escapeHtml(coupon.attendedAt)}</span>
+    </div>
+  `;
+  els.checkinUndoBtn.style.display = "inline-block";
+  els.checkinUndoBtn.textContent = "↩ Undo #" + num;
+  els.checkinInput.value = "";
+  els.checkinInput.focus();
+  renderCheckinStats();
+  renderCheckinReport();
+  addAuditEntry("checkin: Coupon #" + num + " checked in - " + (coupon.buyerName || "?"));
+}
+
+function handleUndoCheckin() {
+  if (!lastCheckinNumber) return;
+  const coupon = state.coupons[lastCheckinNumber - 1];
+  if (coupon) {
+    coupon.attended = false;
+    coupon.attendedAt = "";
+    markCouponUpdated(coupon);
+    saveState();
+    addAuditEntry("checkin_undo: Coupon #" + lastCheckinNumber + " check-in undone");
+  }
+  els.checkinResult.className = "checkin-result error";
+  els.checkinResult.innerHTML = "<strong>↩ Check-in undone for Coupon #" + lastCheckinNumber + "</strong>";
+  els.checkinUndoBtn.style.display = "none";
+  lastCheckinNumber = null;
+  els.checkinInput.value = "";
+  els.checkinInput.focus();
+  renderCheckinStats();
+  renderCheckinReport();
+}
+
+function showCheckinError(msg) {
+  els.checkinResult.className = "checkin-result error";
+  els.checkinResult.textContent = "✕ " + msg;
+  els.checkinUndoBtn.style.display = "none";
+  els.checkinInput.focus();
+}
+
+function renderCheckinStats() {
+  const sold = state.coupons.filter(isSold);
+  const checkedIn = sold.filter(c => c.attended);
+  els.checkinTotalSold.textContent = sold.length.toLocaleString("en-IN");
+  els.checkinCheckedIn.textContent = checkedIn.length.toLocaleString("en-IN");
+  els.checkinPending.textContent = (sold.length - checkedIn.length).toLocaleString("en-IN");
+}
+
+function renderCheckinReport() {
+  const devFilter = els.checkinDevoteeFilter?.value || "all";
+  const sevaFilter = els.checkinSevaFilter?.value || "all";
+  const statusFilter = els.checkinStatusFilter?.value || "all";
+
+  let coupons = state.coupons.filter(isSold);
+
+  if (devFilter !== "all") coupons = coupons.filter(c => c.devoteeId === devFilter);
+  if (sevaFilter !== "all") coupons = coupons.filter(c => (c.description || "") === sevaFilter);
+  if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
+  else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
+
+  els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
+
+  els.checkinReportBody.innerHTML = coupons.map(c => {
+    const attended = c.attended;
+    return `
+      <tr>
+        <td>#${c.number}</td>
+        <td>${escapeHtml(c.buyerName || "-")}</td>
+        <td>${escapeHtml(c.buyerContact || "-")}</td>
+        <td>${escapeHtml(devoteeName(c.devoteeId))}</td>
+        <td>${escapeHtml(c.description || "-")}</td>
+        <td><span class="attended-badge ${attended ? '' : 'missed'}">${attended ? "✓ Checked In" : "○ Not Yet"}</span></td>
+        <td>${attended ? escapeHtml(c.attendedAt) : "-"}</td>
+        <td class="no-print">
+          ${attended
+            ? `<button class="ghost" type="button" onclick="undoCheckinFromReport(${c.number})">Undo</button>`
+            : `<button class="ghost" type="button" onclick="checkinFromReport(${c.number})">Check In</button>`
+          }
+        </td>
+      </tr>
+    `;
+  }).join("") || '<tr><td colspan="8"><div class="empty">No coupons match the filters.</div></td></tr>';
+}
+
+function checkinFromReport(num) {
+  els.checkinInput.value = num;
+  handleCheckin();
+}
+
+function undoCheckinFromReport(num) {
+  lastCheckinNumber = num;
+  handleUndoCheckin();
 }
 
 // ═══════════════════════════════════════════════

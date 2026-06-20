@@ -114,6 +114,7 @@
       <button class="subtab" data-admin-tab="reset">Reset</button>
       <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
       <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
+      <button class="tab" type="button" data-view="checkinView">Check-in</button>
     </nav>
 
     <section id="adminView" class="view active">
@@ -419,6 +420,59 @@
           </table>
         </div>
         <div id="allPagination" class="pagination no-print"></div>
+      </section>
+    </section>
+
+    <section id="checkinView" class="view">
+      <section class="panel">
+        <div class="section-head">
+          <h2>Event Check-in</h2>
+          <p class="hint">Enter or scan coupon number to mark attendance</p>
+        </div>
+        <div class="checkin-scanner">
+          <input id="checkinInput" type="number" min="1" placeholder="Enter coupon number..." autofocus>
+          <button id="checkinBtn" type="button" class="primary">Check In</button>
+          <button id="checkinUndoBtn" type="button" class="ghost" style="display:none">Undo</button>
+        </div>
+        <div id="checkinResult" class="checkin-result"></div>
+        <div class="stats-grid compact-stats checkin-stats">
+          <article><span>Total Sold</span><strong id="checkinTotalSold">0</strong></article>
+          <article><span>Checked In</span><strong id="checkinCheckedIn">0</strong></article>
+          <article><span>Pending</span><strong id="checkinPending">0</strong></article>
+        </div>
+      </section>
+      <section class="panel" style="margin-top:16px">
+        <div class="section-head">
+          <h2>Attendance Report</h2>
+          <div class="entry-controls compact">
+            <select id="checkinDevoteeFilter"><option value="all">All Devotees</option></select>
+            <select id="checkinSevaFilter"><option value="all">All Seva Types</option></select>
+            <select id="checkinStatusFilter">
+              <option value="all">All</option>
+              <option value="checked_in">Checked In</option>
+              <option value="not_checked_in">Not Checked In</option>
+            </select>
+            <span id="checkinCount" class="small-stat">Coupons: 0</span>
+            <button id="checkinPrintBtn" type="button" class="ghost no-print" title="Print attendance report">🖨️ Print</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Coupon</th>
+                <th>Buyer</th>
+                <th>Contact</th>
+                <th>Devotee</th>
+                <th>Seva</th>
+                <th>Status</th>
+                <th>Checked In At</th>
+                <th class="no-print">Action</th>
+              </tr>
+            </thead>
+            <tbody id="checkinReportBody"></tbody>
+          </table>
+        </div>
       </section>
     </section>
   </main>
