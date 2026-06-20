@@ -1595,6 +1595,8 @@ function renderEntryList() {
             <th>Coupon</th>
             <th>Buyer</th>
             <th>Contact</th>
+            <th>Call</th>
+            <th>Sold Date</th>
             <th>Amount</th>
             <th>Seva</th>
             <th>Receipt</th>
@@ -1608,6 +1610,8 @@ function renderEntryList() {
               <td>#${coupon.number}</td>
               <td>${escapeHtml(coupon.buyerName || "-")}</td>
               <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+              <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
+              <td>${escapeHtml(coupon.soldAt || "-")}</td>
               <td>${formatMoney(coupon.amount)}</td>
               <td>${escapeHtml(coupon.description || "-")}</td>
               <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
@@ -1769,6 +1773,8 @@ function renderAllCoupons() {
       <td>${escapeHtml(coupon.assignedAt || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+      <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
+      <td>${escapeHtml(coupon.soldAt || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
       <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
@@ -1880,6 +1886,10 @@ function updateCouponField(event) {
   }
 
   coupon[field.dataset.field] = field.value.trimStart();
+
+  if (!coupon.soldAt && isSold(coupon)) {
+    coupon.soldAt = new Date().toISOString();
+  }
   markCouponUpdated(coupon);
   pendingLocalCouponNumbers.add(coupon.number);
   lastEditTime = Date.now();    // ✅ FIX: record time of last edit
@@ -1916,6 +1926,7 @@ function emptyCoupon(number) {
     paymentMode: "cash",
     settled: false,
     settledAt: "",
+    soldAt: "",
     _updated: 0
   };
 }
@@ -1937,6 +1948,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || "",
+      soldAt: savedCoupon.soldAt || "",
       _updated: Number(savedCoupon._updated) || 0
     };
   });
@@ -2062,6 +2074,7 @@ function couponSearchText(coupon) {
     coupon.assignedAt,
     coupon.buyerName,
     coupon.buyerContact,
+    coupon.soldAt,
     coupon.amount,
     coupon.receiptNumber,
     coupon.description,
@@ -2129,7 +2142,7 @@ function exportBackup() {
 }
 
 function exportCsv() {
-  const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
+  const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Sold Date", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
   const rows = state.coupons.map((coupon) => {
     const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
     return [
@@ -2139,6 +2152,7 @@ function exportCsv() {
       devotee ? devotee.contact : "",
       coupon.buyerName,
       coupon.buyerContact,
+      coupon.soldAt,
       coupon.amount,
       coupon.settled ? "Settled" : "Not Settled",
       coupon.settledAt,
@@ -2680,6 +2694,7 @@ function spreadsheetRows() {
       devoteeContact: devotee ? devotee.contact : "",
       buyerName: coupon.buyerName || "",
       buyerContact: coupon.buyerContact || "",
+      soldDate: coupon.soldAt || "",
       amount: amountValue(coupon.amount),
       receiptNumber: coupon.receiptNumber || "",
       paymentMode: coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash",
