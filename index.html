@@ -9,6 +9,8 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description"
     content="Coupon Seva Tracker — manage and track coupon assignments, collections, and settlements for your temple sevas.">
+  <meta name="theme-color" content="#0d9488">
+  <link rel="manifest" href="manifest.json">
   <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,6 +51,9 @@
     <div class="toolbar">
       <span id="syncBadge" class="user-badge">Local</span>
       <span id="userBadge" class="user-badge"></span>
+      <button id="langToggle" class="lang-toggle" type="button" title="Toggle language">हि</button>
+      <button id="darkToggle" class="dark-toggle" type="button" title="Toggle dark mode">🌙</button>
+      <button id="printViewBtn" class="ghost" type="button" title="Print coupon report">🖨️</button>
       <button id="csvBtn" class="ghost" type="button" title="Export spreadsheet CSV">CSV</button>
       <button id="exportBtn" class="ghost" type="button" title="Export backup">Export</button>
       <label class="ghost file-label" title="Import backup">
@@ -164,6 +169,10 @@
             Total Coupons
             <input id="totalCouponInput" type="number" min="1" required placeholder="Example: 3000">
           </label>
+          <label class="checkbox-line">
+            <input id="autoReceiptCheck" type="checkbox">
+            Auto-generate receipt numbers (REC-XXXX format)
+          </label>
           <button type="submit">Update Total</button>
           <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
         </form>
@@ -271,6 +280,13 @@
               <p id="adminPeriodSummary" class="hint"></p>
             </div>
             <div class="entry-controls compact">
+              <div class="date-presets no-print">
+                <button type="button" class="ghost" data-preset="today">Today</button>
+                <button type="button" class="ghost" data-preset="week">This Week</button>
+                <button type="button" class="ghost" data-preset="month">This Month</button>
+                <button type="button" class="ghost" data-preset="year">This Year</button>
+                <button type="button" class="ghost active-preset" data-preset="all">All Time</button>
+              </div>
               <select id="dashboardDevoteeFilter">
                 <option value="all">All Devotees</option>
               </select>
@@ -286,11 +302,24 @@
               <input id="settledToDate" type="date" title="Settled to date">
             </div>
           </div>
+          <section class="charts-grid no-print">
+            <div class="chart-card"><h3>📊 Seva-wise Collection</h3><canvas id="sevaChart"></canvas></div>
+            <div class="chart-card"><h3>📈 Settlement Trend</h3><canvas id="trendChart"></canvas></div>
+            <div class="chart-card"><h3>🏆 Devotee Performance</h3><canvas id="perfChart"></canvas></div>
+          </section>
           <section class="panel">
             <h3>Seva-wise Summary</h3>
             <div id="sevaSummary"></div>
           </section>
           <div id="devoteeList" class="devotee-list"></div>
+        </section>
+        <section class="panel" style="margin-top:16px">
+          <div class="section-head">
+            <h2>📋 Recent Activity</h2>
+          </div>
+          <div id="auditLog" class="audit-log">
+            <div class="empty">No recent activity.</div>
+          </div>
         </section>
       </div>
     </section>
@@ -357,39 +386,51 @@
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
+            <button id="bulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" title="Send WhatsApp to all settled buyers">
+              📲 Bulk WhatsApp
+            </button>
+            <button id="bulkPdfBtn" class="ghost pdf-btn no-print" type="button" title="Download all receipts as PDF">
+              📄 Bulk PDF
+            </button>
           </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Coupon</th>
-                <th>Assigned To</th>
-                <th>Assigned Date</th>
-                <th>Buyer</th>
+                <th class="sortable" data-sort="number">Coupon</th>
+                <th class="sortable" data-sort="devotee">Assigned To</th>
+                <th class="sortable" data-sort="assignedAt">Assigned Date</th>
+                <th class="sortable" data-sort="buyerName">Buyer</th>
                 <th>Contact</th>
                 <th>Call</th>
-                <th>Sold Date</th>
-                <th>Amount</th>
+                <th class="sortable" data-sort="soldAt">Sold Date</th>
+                <th class="sortable" data-sort="amount">Amount</th>
                 <th>Receipt No</th>
                 <th>Payment Mode</th>
-                <th>Settlement</th>
-                <th>Settled Date</th>
+                <th class="sortable" data-sort="settled">Settlement</th>
+                <th class="sortable" data-sort="settledAt">Settled Date</th>
                 <th>Description</th>
+                <th>QR</th>
                 <th>Send Invite</th>
               </tr>
             </thead>
             <tbody id="allCouponsBody"></tbody>
           </table>
         </div>
+        <div id="allPagination" class="pagination no-print"></div>
       </section>
     </section>
   </main>
 
+  <button id="scrollTopBtn" class="ghost scroll-top-btn no-print" type="button" title="Scroll to top">↑</button>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
   <script src="app.js?v=2026-06-05-1"></script>
 </body>
