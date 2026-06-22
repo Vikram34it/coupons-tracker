@@ -470,11 +470,8 @@ function bindEvents() {
   document.querySelectorAll("[data-admin-tab]").forEach(tab => {
     tab.addEventListener("click", () => {
       activeAdminTab = tab.dataset.adminTab;
-
-      document.querySelectorAll("[data-admin-tab]").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-
       activateView("adminView");
+      tab.classList.add("active");
       updateAdminView();
     });
   });
@@ -483,6 +480,8 @@ function bindEvents() {
 
 function activateView(viewId) {
   document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+  document.querySelectorAll("[data-admin-tab]").forEach((item) => item.classList.remove("active"));
+  document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
   document.querySelectorAll(".view").forEach((item) => item.classList.remove("active"));
   document.querySelector(`[data-view="${viewId}"]`)?.classList.add("active");
   document.getElementById(viewId)?.classList.add("active");
