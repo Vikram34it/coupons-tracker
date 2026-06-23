@@ -24,6 +24,41 @@ let pendingFirebaseWrite = false;
 let lastEditTime = 0;           // ✅ FIX: timestamp of last coupon field edit
 const EDIT_GUARD_MS = 3000;    // ✅ FIX: ignore Firebase echoes for 3s after editing
 const els = {};
+
+// Lookup caches for O(1) access
+let _devMap = null;
+let _couponsByDev = null;
+
+function ensureDevMap() {
+  if (!_devMap || _devMap.size !== state.devotees.length) {
+    _devMap = new Map(state.devotees.map(d => [d.id, d]));
+  }
+  return _devMap;
+}
+
+function ensureCouponsByDev() {
+  if (!_couponsByDev) {
+    _couponsByDev = new Map();
+    for (const c of state.coupons) {
+      if (c.devoteeId) {
+        let list = _couponsByDev.get(c.devoteeId);
+        if (!list) { list = []; _couponsByDev.set(c.devoteeId, list); }
+        list.push(c);
+      }
+    }
+  }
+  return _couponsByDev;
+}
+
+function invalidateCaches() {
+  _devMap = null;
+  _couponsByDev = null;
+}
+
+function getCachedDevotee(id) {
+  return ensureDevMap().get(id) || null;
+}
+
 const SEVA_TYPES = [
   "Deepa Seva",
   "Chenetha Seva",
@@ -155,6 +190,7 @@ function loadState() {
 }
 
 function saveState() {
+  invalidateCaches();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -210,21 +246,23 @@ function renderSevaSummary() {
   SEVA_TYPES.forEach(s => { sevaMap[s] = { count: 0, amount: 0 }; });
   sevaMap["Hundi Donation"] = { count: 0, amount: 0 };
 
-  state.coupons
-    .filter(c => c.settled && inSettlementPeriod(c, period))
-    .forEach(coupon => {
-      const seva = coupon.description || "Others";
+  for (const c of state.coupons) {
+    if (c.settled && inSettlementPeriod(c, period)) {
+      const seva = c.description || "Others";
       if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
       sevaMap[seva].count += 1;
-      sevaMap[seva].amount += amountValue(coupon.amount);
-    });
+      sevaMap[seva].amount += amountValue(c.amount);
+    }
+  }
 
-  (state.hundi || []).filter(h => h.settled).forEach(h => {
-    const seva = "Hundi Donation";
-    if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
-    sevaMap[seva].count += 1;
-    sevaMap[seva].amount += h.amount;
-  });
+  for (const h of (state.hundi || [])) {
+    if (h.settled) {
+      const seva = "Hundi Donation";
+      if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
+      sevaMap[seva].count += 1;
+      sevaMap[seva].amount += h.amount;
+    }
+  }
   const rows = Object.entries(sevaMap)
     .sort((a, b) => b[1].amount - a[1].amount) // sort by amount
     .map(([seva, data]) => `
@@ -828,6 +866,10 @@ function assignCoupons(event) {
   }
 }
 
+function activeView() {
+  return document.querySelector(".view.active")?.id || "";
+}
+
 function render() {
   validateSession();
   renderSelectors();
@@ -837,10 +879,15 @@ function render() {
   updateDevoteePendingDisplay();
   applyRoleAccess();
   renderStats();
-  renderDevotees();
-  renderSevaSummary();
-  renderCharts();
-  renderAuditLog();
+
+  const view = activeView();
+
+  if (view === "adminView" || !view) {
+    renderDevotees();
+    renderSevaSummary();
+    renderCharts();
+    renderAuditLog();
+  }
   renderResetCouponList();
   renderEntryList();
   renderAllCoupons();
@@ -1018,39 +1065,33 @@ function applyRoleAccess() {
 }
 
 function renderStats() {
-  const assigned = state.coupons.filter((coupon) => coupon.devoteeId).length;
-  const sold = state.coupons.filter(isSold).length;
-  const settled = state.coupons.filter((coupon) => coupon.settled).length;
+  let a = 0, s = 0, st = 0, sm = 0, um = 0, tt = 0, ct = 0;
+  for (const c of state.coupons) {
+    const hasDev = !!c.devoteeId;
+    const isSld = isSold(c);
+    const isSt = c.settled;
+    const amt = amountValue(c.amount);
 
-  // Only settled coupons + hundi count as received
-  const settledCouponMoney = state.coupons
-    .filter(c => c.settled)
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
+    if (hasDev) a++;
+    if (isSld) s++;
+    if (isSt) { st++; sm += amt; }
+    if (isSld && !isSt) um += amt;
+    if (c.paymentMode === "temple_transfer") tt += amt;
+    if (isSt && c.paymentMode === "cash") ct += amt;
+  }
+
   const hundiMoney = (state.hundi || []).filter(h => h.settled).reduce((sum, h) => sum + h.amount, 0);
 
-  // Unsettled = sold but not yet settled
-  const unsettledMoney = state.coupons
-    .filter(c => isSold(c) && !c.settled)
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  const templeTransfer = state.coupons
-    .filter(c => c.paymentMode === "temple_transfer")
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
-  const cashTotal = state.coupons
-    .filter(c => c.settled && c.paymentMode === "cash")
-    .reduce((sum, c) => sum + amountValue(c.amount), 0);
-
   els.totalCoupons.textContent = couponTotal().toLocaleString("en-IN");
-  els.assignedCoupons.textContent = assigned.toLocaleString("en-IN");
-  els.soldCoupons.textContent = sold.toLocaleString("en-IN");
-  if (els.couponSettledMoney) els.couponSettledMoney.textContent = formatMoney(settledCouponMoney);
+  els.assignedCoupons.textContent = a.toLocaleString("en-IN");
+  els.soldCoupons.textContent = s.toLocaleString("en-IN");
+  if (els.couponSettledMoney) els.couponSettledMoney.textContent = formatMoney(sm);
   if (els.hundiSettledMoney) els.hundiSettledMoney.textContent = formatMoney(hundiMoney);
-  els.moneyReceived.textContent = formatMoney(settledCouponMoney + hundiMoney);
-  els.settledCoupons.textContent = settled.toLocaleString("en-IN");
-  if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(unsettledMoney);
-  if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(templeTransfer);
-  if (els.cashTotalMoney) els.cashTotalMoney.textContent = formatMoney(cashTotal);
+  els.moneyReceived.textContent = formatMoney(sm + hundiMoney);
+  els.settledCoupons.textContent = st.toLocaleString("en-IN");
+  if (els.unsettledMoney) els.unsettledMoney.textContent = formatMoney(um);
+  if (els.templeTransferMoney) els.templeTransferMoney.textContent = formatMoney(tt);
+  if (els.cashTotalMoney) els.cashTotalMoney.textContent = formatMoney(ct);
 }
 
 function renderDevotees() {
@@ -1074,10 +1115,11 @@ function renderDevotees() {
     return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
-  // ✅ FILTER BY STATUS
+  // ✅ FILTER BY STATUS (using cached map for O(1) per devotee)
   if (statusFilter !== "all") {
+    const cbd = ensureCouponsByDev();
     devotees = devotees.filter((devotee) => {
-      const assigned = state.coupons.filter(c => c.devoteeId === devotee.id);
+      const assigned = cbd.get(devotee.id) || [];
       const sold = assigned.filter(isSold);
       const settled = assigned.filter(c => c.settled);
       const pending = sold.filter(c => !c.settled);
@@ -1988,8 +2030,11 @@ function toggleSettlement(event) {
   const savedPaymentFilter = els.allPaymentFilter ? els.allPaymentFilter.value : "all";
 
   renderStats();
-  renderDevotees();
-  renderSevaSummary();
+  const adminActive = document.getElementById("adminView")?.classList.contains("active");
+  if (adminActive) {
+    renderDevotees();
+    renderSevaSummary();
+  }
   updateDevoteePendingDisplay();
 
   // ✅ Restore filters then render table once
@@ -2046,7 +2091,8 @@ function updateCouponField(event) {
 }
 
 function couponsForDevotee(devoteeId) {
-  return state.coupons.filter((coupon) => coupon.devoteeId === devoteeId);
+  const map = ensureCouponsByDev();
+  return map.get(devoteeId) || [];
 }
 
 function couponTotal() {
@@ -2192,7 +2238,7 @@ function devoteeSummary(devoteeId, period = settlementPeriod()) {
 }
 
 function devoteeName(devoteeId) {
-  const devotee = state.devotees.find((item) => item.id === devoteeId);
+  const devotee = getCachedDevotee(devoteeId);
   return devotee ? devotee.name : "";
 }
 
@@ -2294,8 +2340,9 @@ function exportBackup() {
 
 function exportCsv() {
   const headers = ["Coupon", "Assigned To", "Assigned Date", "Devotee Contact", "Buyer Name", "Buyer Contact", "Sold Date", "Amount", "Settlement", "Settlement Date", "Description", "Payment Mode"];
+  const dMap = ensureDevMap();
   const rows = state.coupons.map((coupon) => {
-    const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
+    const devotee = dMap.get(coupon.devoteeId);
     return [
       coupon.number,
       devotee ? devotee.name : "",
@@ -2856,8 +2903,9 @@ function initFirebaseSync() {
 
 // 🔥 Override saveState for Firebase sync
 function spreadsheetRows() {
+  const dMap = ensureDevMap();
   return state.coupons.map((coupon) => {
-    const devotee = state.devotees.find((item) => item.id === coupon.devoteeId);
+    const devotee = dMap.get(coupon.devoteeId);
     return {
       coupon: coupon.number,
       assignedTo: devotee ? devotee.name : "",
@@ -2877,8 +2925,9 @@ function spreadsheetRows() {
 }
 
 function spreadsheetHundiRows() {
+  const dMap = ensureDevMap();
   return (state.hundi || []).map((entry) => {
-    const devotee = state.devotees.find((item) => item.id === entry.devoteeId);
+    const devotee = dMap.get(entry.devoteeId);
     return {
       date: entry.date || "",
       devoteeName: devotee ? devotee.name : "",
