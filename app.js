@@ -192,7 +192,14 @@ function loadState() {
 function saveState() {
   invalidateCaches();
   lastEditTime = Date.now();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    localStorage.removeItem(STORAGE_KEY);
+    try {
+      saveToIndexedDB(state);
+    } catch (e2) {}
+  }
 }
 
 function queueStateSave(delay = 500) {
@@ -458,7 +465,11 @@ function bindEvents() {
   els.entryDevotee.addEventListener("change", renderEntryList);
   els.entrySearch.addEventListener("input", renderEntryList);
   els.entryStatus.addEventListener("change", renderEntryList);
-  els.allSearch.addEventListener("input", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
+  let searchDebounce;
+  els.allSearch.addEventListener("input", () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => { currentPage = 1; renderAllCoupons(); renderPagination(); }, 200);
+  });
   els.allStatus.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
   els.allSevaFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
   els.allPaymentFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
@@ -1883,33 +1894,31 @@ function renderAllCoupons() {
   selectedCouponsForSettle.clear();
   updateBulkSettleUi();
 
-  let coupons = state.coupons;
-
-  if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
-  if (status === "assigned") coupons = coupons.filter((coupon) => coupon.devoteeId);
-  if (status === "sold") coupons = coupons.filter(isSold);
-  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
-  if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
-  if (status === "sold_unsettled") {
-    coupons = coupons.filter(c =>
-      c.devoteeId &&              // must be assigned
-      isSold(c) &&               // must be sold
-      !c.settled &&              // must NOT be settled
-      amountValue(c.amount) > 0  // must have real amount
-    );
-  }
   const devoteeFilter = els.allDevoteeFilter?.value;
+  const hasDevFilter = devoteeFilter && devoteeFilter !== "all";
+  const hasStatus = status !== "all";
+  const hasSeva = sevaFilter !== "all";
+  const hasPayment = paymentFilter !== "all";
+  const hasQuery = !!query;
 
-  if (devoteeFilter && devoteeFilter !== "all") {
-    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
+  let coupons = state.coupons;
+  if (hasStatus || hasDevFilter || hasSeva || hasPayment || hasQuery) {
+    coupons = state.coupons.filter(c => {
+      if (hasStatus) {
+        if (status === "unassigned" && c.devoteeId) return false;
+        if (status === "assigned" && !c.devoteeId) return false;
+        if (status === "sold" && !isSold(c)) return false;
+        if (status === "settled" && !c.settled) return false;
+        if (status === "unsettled" && (!c.devoteeId || c.settled)) return false;
+        if (status === "sold_unsettled" && (!c.devoteeId || !isSold(c) || c.settled || amountValue(c.amount) <= 0)) return false;
+      }
+      if (hasDevFilter && c.devoteeId !== devoteeFilter) return false;
+      if (hasSeva && (c.description || "") !== sevaFilter) return false;
+      if (hasPayment && (c.paymentMode || "cash") !== paymentFilter) return false;
+      if (hasQuery && !couponSearchText(c).includes(query)) return false;
+      return true;
+    });
   }
-  if (sevaFilter !== "all") {
-    coupons = coupons.filter(c => (c.description || "") === sevaFilter);
-  }
-  if (paymentFilter !== "all") {
-    coupons = coupons.filter(c => (c.paymentMode || "cash") === paymentFilter);
-  }
-  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   couponDataCache = coupons;
 
@@ -2823,11 +2832,10 @@ function buildFirebaseUpdates() {
       updates[`coupons/${num - 1}`] = state.coupons[num - 1];
     });
     dirtyCouponNumbers.clear();
-  } else {
-    state.coupons.forEach((coupon, index) => {
-      updates[`coupons/${index}`] = coupon;
-    });
   }
+  // When no coupons changed, omit the coupons path entirely.
+  // Firebase update() only touches paths present in the object,
+  // so existing coupon data on the server stays intact.
   return updates;
 }
 
@@ -2838,6 +2846,8 @@ function flushPendingFirebaseWrite() {
 }
 
 function applyFirebaseData(data, options = {}) {
+  // Stale cache guard: state.coupons is about to be replaced
+  invalidateCaches();
   // ✅ FIX: Skip Firebase echo/updates if a devotee edited a field recently
   // This prevents data rollback when Firebase echoes the saved state back
   if (!options.skipRender && !options.preserveCouponNumbers?.size) {
@@ -3357,13 +3367,6 @@ function formatAuditTime(ts) {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
 }
-
-// Patch `saveState` to auto-log key actions (keep wrapper chain)
-const _auditOriginalSave = saveState;
-saveState = function() {
-  _auditOriginalSave();
-};
-// Direct audit logging from action functions is preferred.
 
 // ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON REPORT
