@@ -1546,22 +1546,7 @@ body.dark-mode .pin-mask:hover {
 }
 
 /* ================= LANGUAGE TOGGLE ================= */
-.lang-toggle {
-  background: var(--surface);
-  border: 1px solid var(--line-dark);
-  border-radius: 999px;
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  min-height: 32px;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-  white-space: nowrap;
-}
+
 
 .lang-toggle:hover {
   background: var(--surface-elevated);

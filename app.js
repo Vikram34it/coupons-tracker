@@ -303,7 +303,7 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "darkToggle", "langToggle", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
+    "logoutBtn", "userBadge", "syncBadge", "darkToggle", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "autoReceiptCheck", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
@@ -477,7 +477,6 @@ function bindEvents() {
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
   els.darkToggle.addEventListener("click", toggleDarkMode);
-  els.langToggle.addEventListener("click", toggleLanguage);
   els.printViewBtn.addEventListener("click", printCouponReport);
   els.scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   els.bulkWhatsAppBtn.addEventListener("click", bulkWhatsApp);
@@ -1031,7 +1030,6 @@ function applyRoleAccess() {
   if (els.printViewBtn) els.printViewBtn.classList.toggle("hidden", !isAdmin);
   // Language & dark mode toggle — always visible when logged in
   if (els.darkToggle) els.darkToggle.classList.toggle("hidden", !session);
-  if (els.langToggle) els.langToggle.classList.toggle("hidden", !session);
 
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
