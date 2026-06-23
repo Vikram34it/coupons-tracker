@@ -191,6 +191,7 @@ function loadState() {
 
 function saveState() {
   invalidateCaches();
+  lastEditTime = Date.now();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -302,7 +303,8 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn", "toast",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn",
+    "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
     "checkinActionHeader"
@@ -469,6 +471,9 @@ function bindEvents() {
   els.scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   els.bulkWhatsAppBtn.addEventListener("click", bulkWhatsApp);
   els.bulkPdfBtn.addEventListener("click", bulkPdfReceipts);
+  if (els.batchSettleBtn) els.batchSettleBtn.addEventListener("click", batchSettle);
+  if (els.selectAllSettle) els.selectAllSettle.addEventListener("change", (e) => toggleSelectAll(e.target));
+  if (els.selectAllSettleHead) els.selectAllSettleHead.addEventListener("change", (e) => toggleSelectAll(e.target));
   document.querySelectorAll("[data-preset]").forEach(btn => {
     btn.addEventListener("click", () => applyDatePreset(btn.dataset.preset));
   });
@@ -1870,6 +1875,14 @@ function renderAllCoupons() {
   const status = els.allStatus.value;
   const sevaFilter = els.allSevaFilter?.value || "all";
   const paymentFilter = els.allPaymentFilter?.value || "all";
+  const isAdmin = session?.role === "admin";
+
+  if (els.bulkSettleBar) els.bulkSettleBar.style.display = isAdmin ? "flex" : "none";
+  if (els.bulkSettleTh) els.bulkSettleTh.style.display = isAdmin ? "" : "none";
+
+  selectedCouponsForSettle.clear();
+  updateBulkSettleUi();
+
   let coupons = state.coupons;
 
   if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
@@ -1926,8 +1939,10 @@ function renderAllCoupons() {
 
   els.allCouponsBody.innerHTML = pageItems.map((coupon) => {
     const isViewer = session?.role === "viewer";
+    const checked = selectedCouponsForSettle.has(coupon.number);
     return `
-    <tr>
+    <tr class="${checked ? 'selected-row' : ''}">
+      ${isAdmin ? `<td><input type="checkbox" class="coupon-check" data-check="${coupon.number}" ${checked ? 'checked' : ''}></td>` : ''}
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
       <td>${escapeHtml(coupon.assignedAt || "-")}</td>
@@ -1982,12 +1997,96 @@ function renderAllCoupons() {
       openWhatsAppForBuyer(coupon);
     });
   });
+
+  els.allCouponsBody.querySelectorAll(".coupon-check").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const num = Number(cb.dataset.check);
+      if (cb.checked) selectedCouponsForSettle.add(num);
+      else selectedCouponsForSettle.delete(num);
+      cb.closest("tr")?.classList.toggle("selected-row", cb.checked);
+      updateBulkSettleUi();
+    });
+  });
 }
 
 let currentSortColumn = null;
+
 let currentSortOrder = "asc";
+
 let couponDataCache = [];
+
 let currentPage = 1;
+
+const selectedCouponsForSettle = new Set();
+
+function updateBulkSettleUi() {
+  const count = selectedCouponsForSettle.size;
+  const el = document.getElementById("selectedCount");
+  if (el) el.textContent = `${count} selected`;
+  const btn = document.getElementById("batchSettleBtn");
+  if (btn) btn.disabled = count === 0;
+}
+
+function toggleSelectAll(source) {
+  const checked = source.checked;
+  document.querySelectorAll(".coupon-check").forEach(cb => {
+    cb.checked = checked;
+    const num = Number(cb.dataset.check);
+    if (checked) selectedCouponsForSettle.add(num);
+    else selectedCouponsForSettle.delete(num);
+    cb.closest("tr")?.classList.toggle("selected-row", checked);
+  });
+  const head = document.getElementById("selectAllSettleHead");
+  if (head && head !== source) head.checked = checked;
+  const bar = document.getElementById("selectAllSettle");
+  if (bar && bar !== source) bar.checked = checked;
+  updateBulkSettleUi();
+}
+
+function batchSettle() {
+  if (session?.role !== "admin") {
+    showToast("Only admin can settle coupons");
+    return;
+  }
+  const unsettled = [...selectedCouponsForSettle]
+    .map(num => state.coupons[num - 1])
+    .filter(c => c && !c.settled);
+  if (!unsettled.length) {
+    showToast("None of the selected coupons are pending settlement");
+    return;
+  }
+  const amt = unsettled.reduce((s, c) => s + amountValue(c.amount), 0);
+  const confirmed = window.confirm(
+    `Mark ${unsettled.length} coupon${unsettled.length > 1 ? 's' : ''} as settled${amt > 0 ? ` for ${formatMoney(amt)}` : ''}?`
+  );
+  if (!confirmed) return;
+
+  const today = todayKey();
+  for (const c of unsettled) {
+    c.settled = true;
+    c.settledAt = today;
+    markCouponUpdated(c);
+  }
+  saveState();
+
+  const tableWrap = els.allCouponsBody?.closest(".table-wrap");
+  const scrollTop = tableWrap ? tableWrap.scrollTop : 0;
+
+  renderStats();
+  const adminActive = document.getElementById("adminView")?.classList.contains("active");
+  if (adminActive) {
+    renderDevotees();
+    renderSevaSummary();
+  }
+  updateDevoteePendingDisplay();
+  renderAllCoupons();
+  renderPagination();
+
+  if (tableWrap) tableWrap.scrollTop = scrollTop;
+
+  addAuditEntry(`Batch settled ${unsettled.length} coupons`);
+  showToast(`Settled ${unsettled.length} coupons`);
+}
 const PAGE_SIZE = 50;
 
 function toggleSettlement(event) {

@@ -399,10 +399,18 @@
             </button>
           </div>
         </div>
+        <div id="bulkSettleBar" class="bulk-settle-bar no-print" style="display:none">
+          <label class="bulk-check-label">
+            <input type="checkbox" id="selectAllSettle"> Select All
+          </label>
+          <span id="selectedCount" class="small-stat">0 selected</span>
+          <button id="batchSettleBtn" class="primary" type="button">Mark Selected as Settled</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th id="bulkSettleTh" style="display:none"><input type="checkbox" id="selectAllSettleHead"></th>
                 <th class="sortable" data-sort="number">Coupon</th>
                 <th class="sortable" data-sort="devotee">Assigned To</th>
                 <th class="sortable" data-sort="assignedAt">Assigned Date</th>
