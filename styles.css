@@ -468,12 +468,12 @@ body.dark-mode .subtab.active {
 
 .view.active {
   display: block;
-  animation: fadeIn 0.3s ease;
+  animation: fadeIn 0.1s ease;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* ================= SETUP GRID ================= */
@@ -848,6 +848,8 @@ textarea {
   max-height: 600px;
   overflow: auto;
   background: var(--surface);
+  overscroll-behavior: contain;
+  will-change: transform;
 }
 
 table {
@@ -865,15 +867,18 @@ td {
   font-size: 13px;
 }
 
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 th {
   background: var(--surface-elevated);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  position: sticky;
-  top: 0;
-  z-index: 1;
   color: var(--ink-secondary);
   border-bottom: 2px solid var(--line-dark);
 }
@@ -884,6 +889,12 @@ td {
 
 tr:last-child td {
   border-bottom: 0;
+}
+
+#allCouponsBody tr,
+#entryList .table-wrap tbody tr {
+  content-visibility: auto;
+  contain-intrinsic-size: 48px;
 }
 
 tbody tr:nth-child(even) td {
