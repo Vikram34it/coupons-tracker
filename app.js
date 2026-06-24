@@ -2205,19 +2205,76 @@ function renderDevoteeStats(devoteeId) {
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
-  <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
-  <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
-  <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
-
-  <article><span>Coupons Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
-  <article><span>Hundi Settled</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
-  <article><span>Total Settled Amount</span><strong>${formatMoney(summary.totalSettledAmount)}</strong></article>
-
-  <article><span>Pending Coupons Amount</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
-  <article><span>Total Pending Amount</span><strong>${formatMoney(summary.totalPendingAmount)}</strong></article>
-
-  <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
-  <article><span>Temple Transfer</span><strong>${formatMoney(summary.templeTransferAmount || 0)}</strong></article>
+  <article class="stat-card stat-overview">
+    <div class="stat-icon">📋</div>
+    <div class="stat-body">
+      <span class="stat-label">Coupons Issued</span>
+      <strong class="stat-value">${summary.issued}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-overview">
+    <div class="stat-icon">✅</div>
+    <div class="stat-body">
+      <span class="stat-label">Coupons Sold</span>
+      <strong class="stat-value">${summary.sold}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-overview">
+    <div class="stat-icon">⏳</div>
+    <div class="stat-body">
+      <span class="stat-label">Coupons Left</span>
+      <strong class="stat-value">${summary.left}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-settlement">
+    <div class="stat-icon">💰</div>
+    <div class="stat-body">
+      <span class="stat-label">Coupons Settled</span>
+      <strong class="stat-value">${formatMoney(summary.settledAmount)}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-settlement">
+    <div class="stat-icon">🪙</div>
+    <div class="stat-body">
+      <span class="stat-label">Hundi Settled</span>
+      <strong class="stat-value">${formatMoney(summary.hundiAmount || 0)}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-total">
+    <div class="stat-icon">💵</div>
+    <div class="stat-body">
+      <span class="stat-label">Total Settled</span>
+      <strong class="stat-value">${formatMoney(summary.totalSettledAmount)}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-pending">
+    <div class="stat-icon">⏳</div>
+    <div class="stat-body">
+      <span class="stat-label">Pending Coupons</span>
+      <strong class="stat-value">${formatMoney(summary.pendingAmount)}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-pending">
+    <div class="stat-icon">📊</div>
+    <div class="stat-body">
+      <span class="stat-label">Total Pending</span>
+      <strong class="stat-value">${formatMoney(summary.totalPendingAmount)}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-count">
+    <div class="stat-icon">🏆</div>
+    <div class="stat-body">
+      <span class="stat-label">Settled Coupons</span>
+      <strong class="stat-value">${summary.settledCount}</strong>
+    </div>
+  </article>
+  <article class="stat-card stat-mode">
+    <div class="stat-icon">🏛️</div>
+    <div class="stat-body">
+      <span class="stat-label">Temple Transfer</span>
+      <strong class="stat-value">${formatMoney(summary.templeTransferAmount || 0)}</strong>
+    </div>
+  </article>
 `;
 }
 
