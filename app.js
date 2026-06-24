@@ -1736,10 +1736,10 @@ function renderEntryList() {
             <th>Contact</th>
             <th>Call</th>
             <th>Send Invite</th>
-            <th>Sold Date</th>
             <th>Amount</th>
             <th>Seva</th>
             <th>Payment Mode</th>
+            <th>Sold Date</th>
           </tr>
         </thead>
         <tbody>
@@ -1758,10 +1758,10 @@ function renderEntryList() {
         : `<span class="small-stat">No contact</span>`
       }
               </td>
-              <td>${escapeHtml(coupon.soldAt || "-")}</td>
               <td>${formatMoney(coupon.amount)}</td>
               <td>${escapeHtml(coupon.description || "-")}</td>
               <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
+              <td>${escapeHtml(coupon.soldAt || "-")}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -1938,7 +1938,6 @@ function renderAllCoupons() {
       ${isAdmin ? `<td><input type="checkbox" class="coupon-check" data-check="${coupon.number}" ${checked ? 'checked' : ''}></td>` : ''}
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
-      <td>${escapeHtml(coupon.assignedAt || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
       <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
@@ -1951,7 +1950,6 @@ function renderAllCoupons() {
         : `<span class="small-stat">\u2013</span>`
       }
       </td>
-      <td>${escapeHtml(coupon.soldAt || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
@@ -1962,8 +1960,10 @@ function renderAllCoupons() {
             </button>`
       }
       </td>
-      <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
+      <td>${escapeHtml(coupon.assignedAt || "-")}</td>
+      <td>${escapeHtml(coupon.soldAt || "-")}</td>
+      <td>${escapeHtml(coupon.settledAt || "-")}</td>
     </tr>
   `;
   }).join("");
