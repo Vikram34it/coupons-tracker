@@ -423,7 +423,7 @@ function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       activateView(tab.dataset.view);
-      render();
+      renderView();
     });
   });
 
@@ -498,7 +498,7 @@ function bindEvents() {
       activeDevoteeTab = tab.dataset.devoteeTab;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
-      render();
+      renderView();
     });
   });
 
@@ -900,6 +900,21 @@ function render() {
       topStats.style.display = "grid";
     }
   }
+}
+
+function renderView() {
+  const view = activeView();
+  applyRoleAccess();
+  renderStats();
+  if (view === "devoteeView") {
+    renderEntryList();
+  } else if (view === "allCouponsView") {
+    renderAllCoupons();
+    renderPagination();
+  } else if (view === "checkinView") {
+    renderCheckinView();
+  }
+  updateAdminView();
 }
 
 function renderSelectors() {
