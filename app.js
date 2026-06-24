@@ -307,7 +307,7 @@ function cacheElements() {
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
@@ -449,11 +449,7 @@ function bindEvents() {
   els.sheetSyncNowBtn.addEventListener("click", syncSheetNow);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
-  els.devoteeSearch.addEventListener("input", renderDevotees);
-  els.devoteeStatusFilter.addEventListener("change", renderDevotees);
   els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
-  els.settledFromDate.addEventListener("change", renderDevotees);
-  els.settledToDate.addEventListener("change", renderDevotees);
   els.entryDevotee.addEventListener("change", renderEntryList);
   els.entrySearch.addEventListener("input", renderEntryList);
   els.entryStatus.addEventListener("change", renderEntryList);
@@ -1095,21 +1091,13 @@ function renderDevotees() {
     return;
   }
 
-  const query = els.devoteeSearch.value.trim().toLowerCase();
-  const statusFilter = els.devoteeStatusFilter?.value || "all";
   const period = settlementPeriod();
-
-  // ✅ FILTER DEVOTEES — by dropdown selection
   const selectedDevotee = els.dashboardDevoteeFilter?.value || "all";
 
-  // ✅ FILTER DEVOTEES — by name/contact search
   let devotees = state.devotees.filter((devotee) => {
     if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
-    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
+    return true;
   });
-
-  // ✅ FILTER BY STATUS (using cached map for O(1) per devotee)
-  if (statusFilter !== "all") {
     const cbd = ensureCouponsByDev();
     devotees = devotees.filter((devotee) => {
       const assigned = cbd.get(devotee.id) || [];
