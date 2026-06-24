@@ -1936,15 +1936,12 @@ function renderAllCoupons() {
     });
   }
 
-  const startIdx = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = couponDataCache.slice(startIdx, startIdx + PAGE_SIZE);
-
   if (els.allCouponCount) {
     const label = coupons.length === 1 ? "Coupon" : "Coupons";
     els.allCouponCount.textContent = `${label}: ${coupons.length.toLocaleString("en-IN")}`;
   }
 
-  els.allCouponsBody.innerHTML = pageItems.map((coupon) => {
+  els.allCouponsBody.innerHTML = couponDataCache.map((coupon) => {
     const isViewer = session?.role === "viewer";
     const checked = selectedCouponsForSettle.has(coupon.number);
     return `
@@ -3687,29 +3684,7 @@ function sortTable(column) {
 // ═══════════════════════════════════════════════
 
 function renderPagination() {
-  if (!els.allPagination) return;
-  const totalItems = couponDataCache.length;
-  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
-
-  if (totalPages <= 1) {
-    els.allPagination.innerHTML = "";
-    return;
-  }
-
-  let html = "";
-  html += `<button class="ghost" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? "disabled" : ""}>‹ Prev</button>`;
-
-  const startPage = Math.max(1, currentPage - 2);
-  const endPage = Math.min(totalPages, currentPage + 2);
-  if (startPage > 1) html += `<button class="ghost" onclick="goToPage(1)">1</button>${startPage > 2 ? '<span class="page-info">…</span>' : ""}`;
-  for (let i = startPage; i <= endPage; i++) {
-    html += `<button class="ghost ${i === currentPage ? "active-page" : ""}" onclick="goToPage(${i})">${i}</button>`;
-  }
-  if (endPage < totalPages) html += `${endPage < totalPages - 1 ? '<span class="page-info">…</span>' : ""}<button class="ghost" onclick="goToPage(${totalPages})">${totalPages}</button>`;
-  html += `<button class="ghost" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? "disabled" : ""}>Next ›</button>`;
-  html += `<span class="page-info">Page ${currentPage} of ${totalPages} (${totalItems} items)</span>`;
-
-  els.allPagination.innerHTML = html;
+  if (els.allPagination) els.allPagination.innerHTML = "";
 }
 
 function goToPage(page) {
