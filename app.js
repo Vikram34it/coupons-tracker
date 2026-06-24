@@ -307,8 +307,8 @@ function cacheElements() {
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn",
+    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
@@ -470,13 +470,9 @@ function bindEvents() {
   els.importFile.addEventListener("change", importBackup);
   els.printViewBtn.addEventListener("click", printCouponReport);
   els.scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-  els.bulkWhatsAppBtn.addEventListener("click", bulkWhatsApp);
   if (els.batchSettleBtn) els.batchSettleBtn.addEventListener("click", batchSettle);
   if (els.selectAllSettle) els.selectAllSettle.addEventListener("change", (e) => toggleSelectAll(e.target));
   if (els.selectAllSettleHead) els.selectAllSettleHead.addEventListener("change", (e) => toggleSelectAll(e.target));
-  document.querySelectorAll("[data-preset]").forEach(btn => {
-    btn.addEventListener("click", () => applyDatePreset(btn.dataset.preset));
-  });
   document.querySelectorAll(".sortable").forEach(th => {
     th.addEventListener("click", () => sortTable(th.dataset.sort));
   });
@@ -562,11 +558,9 @@ function login(event) {
 
   els.loginForm.reset();
   render();
-  addAuditEntry(`${role === "admin" ? "Admin" : role === "viewer" ? "Viewer" : "Devotee"} logged in`);
 }
 
 function logout() {
-  addAuditEntry("User logged out");
   saveSession(null);
   render();
   showToast("Logged out");
@@ -603,7 +597,6 @@ function addDevotee(event) {
   els.devoteeForm.reset();
   saveState();
   render();
-  addAuditEntry(`Added devotee: ${name}`);
   showToast("Devotee added");
 }
 
@@ -618,7 +611,6 @@ function updateAdminPassword(event) {
   state.settings.adminPassword = password;
   els.adminPasswordForm.reset();
   saveState();
-  addAuditEntry("Admin password updated");
   showToast("Admin password updated");
 }
 
@@ -721,7 +713,6 @@ function updateTotalCoupons(event) {
   state.coupons = normalizeCoupons(state.coupons, totalCoupons);
   saveState();
   render();
-  addAuditEntry(`Updated total coupons to ${totalCoupons}`);
   showToast(`Total coupons updated to ${totalCoupons}`);
 }
 
@@ -779,7 +770,6 @@ function resetAllCoupons() {
   const updatedAt = Date.now();
   state.coupons = makeCoupons(couponTotal()).map((coupon) => ({ ...coupon, _updated: updatedAt }));
   state.coupons.forEach(c => dirtyCouponNumbers.add(c.number));
-  addAuditEntry("Reset all coupons");
   saveState();
   render();
   showToast("All coupons reset");
@@ -863,7 +853,6 @@ function assignCoupons(event) {
   els.assignHint.textContent = "";
   saveState();
   render();
-  addAuditEntry(`Assigned coupons ${from}-${to} to ${devotee ? devotee.name : devoteeId}`);
   showToast(`Assigned coupons ${from} to ${to}`);
 
   if (sendWhatsApp) {
@@ -890,7 +879,6 @@ function render() {
   if (view === "adminView" || !view) {
     renderDevotees();
     renderSevaSummary();
-    renderAuditLog();
   }
   renderResetCouponList();
 
@@ -1021,7 +1009,6 @@ function applyRoleAccess() {
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
-  if (els.bulkWhatsAppBtn) els.bulkWhatsAppBtn.classList.toggle("hidden", !isAdmin);
   if (els.printViewBtn) els.printViewBtn.classList.toggle("hidden", !isAdmin);
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
@@ -1493,7 +1480,6 @@ function deleteDevotee(devoteeId) {
     }
   });
 
-  addAuditEntry(`Deleted devotee: ${devotee.name}`);
   saveState();
   render();
   showToast("Devotee deleted successfully");
@@ -1716,15 +1702,8 @@ function renderEntryList() {
       : "";
 
     const settledWithContact = coupons.filter(c => c.buyerContact);
-    const bulkWaEnabled = state.settings.invitationMessage && settledWithContact.length > 0;
-
     els.entryList.innerHTML = `
     ${noTemplateBanner}
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <button id="devoteeBulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" ${bulkWaEnabled ? "" : "disabled"} style="font-size:13px">
-        📲 Bulk WhatsApp (${settledWithContact.length})
-      </button>
-    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1774,15 +1753,6 @@ function renderEntryList() {
         openWhatsAppForBuyer(coupon);
       });
     });
-
-    // Wire up devotee bulk WhatsApp button
-    const bulkWaBtn = document.getElementById("devoteeBulkWhatsAppBtn");
-    if (bulkWaBtn && !bulkWaBtn.disabled) {
-      bulkWaBtn.addEventListener("click", () => {
-        devoteeBulkWhatsApp(devoteeId);
-      });
-    }
-
     return; // 🔥 VERY IMPORTANT (stops card rendering)
   }
   if (status === "sold") coupons = coupons.filter(isSold);
@@ -2064,7 +2034,6 @@ function batchSettle() {
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
-  addAuditEntry(`Batch settled ${unsettled.length} coupons`);
   showToast(`Settled ${unsettled.length} coupons`);
 }
 const PAGE_SIZE = 50;
@@ -2126,11 +2095,6 @@ function toggleSettlement(event) {
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
-  addAuditEntry(
-    coupon.settled
-      ? `Marked coupon #${coupon.number} as settled`
-      : `Marked coupon #${coupon.number} as pending`
-  );
   showToast(
     coupon.settled
       ? `✓ Coupon ${coupon.number} settled`
@@ -3136,44 +3100,6 @@ function t(key) {
   return i18n[currentLang][key] || key;
 }
 
-// ═══════════════════════════════════════════════
-// 📋 AUDIT LOG
-// ═══════════════════════════════════════════════
-
-function addAuditEntry(action) {
-  if (!state.auditLog) state.auditLog = [];
-  state.auditLog.unshift({ action, time: Date.now() });
-  if (state.auditLog.length > 200) state.auditLog.length = 200;
-  saveState();
-}
-
-function renderAuditLog() {
-  if (!els.auditLog) return;
-  if (session?.role === "devotee") { els.auditLog.innerHTML = ""; return; }
-
-  const logs = (state.auditLog || []).slice(0, 50);
-  if (!logs.length) {
-    els.auditLog.innerHTML = `<div class="empty with-icon" style="padding:20px"><span class="empty-title">No recent activity</span><span class="empty-desc">Activity will appear here as actions are taken.</span></div>`;
-    return;
-  }
-
-  els.auditLog.innerHTML = logs.map(entry => `
-    <div class="audit-entry">
-      <span class="audit-time">${formatAuditTime(entry.time)}</span>
-      <span class="audit-action">${escapeHtml(entry.action)}</span>
-    </div>
-  `).join("");
-}
-
-function formatAuditTime(ts) {
-  const d = new Date(ts);
-  const now = new Date();
-  const diff = now - d;
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
-}
 
 // ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON REPORT
@@ -3255,108 +3181,6 @@ function showPrintSlip(coupon) {
     window.print();
   });
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-}
-
-// ═══════════════════════════════════════════════
-// 📲 BULK WHATSAPP
-// ═══════════════════════════════════════════════
-
-function bulkWhatsApp() {
-  const settledWithContact = state.coupons.filter(c => c.settled && c.buyerContact);
-  if (!settledWithContact.length) {
-    showToast("No settled coupons with buyer contact numbers.");
-    return;
-  }
-
-  const confirmed = confirm(`Send invitation to ${settledWithContact.length} settled buyers via WhatsApp? This will open multiple tabs.`);
-  if (!confirmed) return;
-
-  const template = state.settings.invitationMessage;
-  if (!template) {
-    showToast("No invitation template set — Setup → WhatsApp Invitation Template");
-    return;
-  }
-
-  let count = 0;
-  settledWithContact.forEach(coupon => {
-    const message = buildInvitationMessage(coupon);
-    const url = buildWhatsAppUrl(coupon.buyerContact, message);
-    if (url) {
-      setTimeout(() => window.open(url, "_blank"), count * 500);
-      count++;
-    }
-  });
-
-  addAuditEntry(`Bulk WhatsApp sent to ${count} buyers`);
-  showToast(`Opened ${count} WhatsApp chat(s) — check your browser tabs`);
-}
-
-function devoteeBulkWhatsApp(devoteeId) {
-  const coupons = couponsForDevotee(devoteeId).filter(c => c.settled && c.buyerContact);
-  if (!coupons.length) {
-    showToast("No settled coupons with buyer contact numbers for this devotee.");
-    return;
-  }
-
-  const template = state.settings.invitationMessage;
-  if (!template) {
-    showToast("No invitation template set — Admin: Setup → WhatsApp Invitation Template");
-    return;
-  }
-
-  const devotee = state.devotees.find(d => d.id === devoteeId);
-  const confirmed = confirm(`Send invitation to ${coupons.length} settled buyer(s) for ${devotee ? devotee.name : "this devotee"} via WhatsApp? This will open multiple tabs.`);
-  if (!confirmed) return;
-
-  let count = 0;
-  coupons.forEach(coupon => {
-    const message = buildInvitationMessage(coupon);
-    const url = buildWhatsAppUrl(coupon.buyerContact, message);
-    if (url) {
-      setTimeout(() => window.open(url, "_blank"), count * 500);
-      count++;
-    }
-  });
-
-  addAuditEntry(`Devotee bulk WhatsApp sent to ${count} buyers for ${devotee ? devotee.name : devoteeId}`);
-  showToast(`Opened ${count} WhatsApp chat(s) — check your browser tabs`);
-}
-
-// ═══════════════════════════════════════════════
-// 📅 DATE PRESETS
-// ═══════════════════════════════════════════════
-
-function applyDatePreset(preset) {
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
-  const todayStr = `${yyyy}-${mm}-${dd}`;
-
-  document.querySelectorAll("[data-preset]").forEach(b => b.classList.remove("active-preset"));
-  document.querySelector(`[data-preset="${preset}"]`)?.classList.add("active-preset");
-
-  if (preset === "all") {
-    els.settledFromDate.value = "";
-    els.settledToDate.value = "";
-  } else if (preset === "today") {
-    els.settledFromDate.value = todayStr;
-    els.settledToDate.value = todayStr;
-  } else if (preset === "week") {
-    const start = new Date(today);
-    start.setDate(start.getDate() - start.getDay());
-    els.settledFromDate.value = start.toISOString().slice(0, 10);
-    els.settledToDate.value = todayStr;
-  } else if (preset === "month") {
-    els.settledFromDate.value = `${yyyy}-${mm}-01`;
-    els.settledToDate.value = todayStr;
-  } else if (preset === "year") {
-    els.settledFromDate.value = `${yyyy}-01-01`;
-    els.settledToDate.value = todayStr;
-  }
-
-  renderDevotees();
-  renderSevaSummary();
 }
 
 // ═══════════════════════════════════════════════
@@ -3484,7 +3308,6 @@ function handleCheckin() {
   els.checkinInput.focus();
   renderCheckinStats();
   renderCheckinReport();
-  addAuditEntry("checkin: Coupon #" + num + " checked in - " + (coupon.buyerName || "?"));
 }
 
 function handleUndoCheckin() {
@@ -3496,7 +3319,6 @@ function handleUndoCheckin() {
     coupon.attendedAt = "";
     markCouponUpdated(coupon);
     saveState();
-    addAuditEntry("checkin_undo: Coupon #" + lastCheckinNumber + " check-in undone");
   }
   els.checkinResult.className = "checkin-result error";
   els.checkinResult.innerHTML = "<strong>↩ Check-in undone for Coupon #" + lastCheckinNumber + "</strong>";

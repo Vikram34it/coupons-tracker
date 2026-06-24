@@ -1686,70 +1686,6 @@ th.sortable.sorted-desc::after {
   padding: 0 8px;
 }
 
-/* ================= DATE PRESETS ================= */
-.date-presets {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.date-presets button {
-  min-height: 30px;
-  padding: 0 12px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.date-presets button.active-preset {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
-
-/* ================= AUDIT LOG ================= */
-.audit-log {
-  max-height: 300px;
-  overflow-y: auto;
-  font-size: 12px;
-}
-
-.audit-entry {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  transition: background var(--transition);
-}
-
-.audit-entry:hover {
-  background: var(--primary-light);
-}
-
-.audit-entry:last-child {
-  border-bottom: 0;
-}
-
-.audit-time {
-  color: var(--muted);
-  font-size: 11px;
-  white-space: nowrap;
-  min-width: 70px;
-  flex-shrink: 0;
-}
-
-.audit-action {
-  color: var(--ink);
-  flex: 1;
-  line-height: 1.4;
-}
-
-.audit-action .highlight {
-  color: var(--primary);
-  font-weight: 600;
-}
 
 /* ================= PRINT SLIP ================= */
 .print-slip {
@@ -1951,21 +1887,6 @@ body.dark-mode tr.selected-row {
 
 body.dark-mode tr.selected-row td {
   border-bottom-color: rgba(20, 184, 166, 0.15);
-}
-
-/* ================= BULK WHATSAPP BUTTON ================= */
-.bulk-wa-btn {
-  background: #25d366;
-  color: #fff;
-}
-
-.bulk-wa-btn:hover {
-  background: #1da851;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
-}
-
-body.dark-mode .bulk-wa-btn {
-  background: #1da851;
 }
 
 /* ================= SCROLL TO TOP ================= */

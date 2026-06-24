@@ -288,13 +288,6 @@
               <p id="adminPeriodSummary" class="hint"></p>
             </div>
             <div class="entry-controls compact">
-              <div class="date-presets no-print">
-                <button type="button" class="ghost" data-preset="today">Today</button>
-                <button type="button" class="ghost" data-preset="week">This Week</button>
-                <button type="button" class="ghost" data-preset="month">This Month</button>
-                <button type="button" class="ghost" data-preset="year">This Year</button>
-                <button type="button" class="ghost active-preset" data-preset="all">All Time</button>
-              </div>
               <select id="dashboardDevoteeFilter">
                 <option value="all">All Devotees</option>
               </select>
@@ -317,12 +310,6 @@
           <div id="devoteeList" class="devotee-list"></div>
         </section>
         <section class="panel" style="margin-top:16px">
-          <div class="section-head">
-            <h2>📋 Recent Activity</h2>
-          </div>
-          <div id="auditLog" class="audit-log">
-            <div class="empty">No recent activity.</div>
-          </div>
         </section>
       </div>
     </section>
@@ -389,9 +376,6 @@
             <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
               Pending: ₹0
             </span>
-            <button id="bulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" title="Send WhatsApp to all settled buyers">
-              📲 Bulk WhatsApp
-            </button>
           </div>
         </div>
         <div id="bulkSettleBar" class="bulk-settle-bar no-print" style="display:none">
