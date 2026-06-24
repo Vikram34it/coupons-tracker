@@ -1983,22 +1983,12 @@ function renderAllCoupons() {
       </td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
       <td>${escapeHtml(coupon.description || "-")}</td>
-      <td>
-        <button class="qr-btn" type="button" data-qr-coupon="${coupon.number}" title="Show QR for coupon #${coupon.number}">QR</button>
-      </td>
     </tr>
   `;
   }).join("");
 
   els.allCouponsBody.querySelectorAll("[data-settlement]").forEach((button) => {
     button.addEventListener("click", toggleSettlement);
-  });
-
-  els.allCouponsBody.querySelectorAll("[data-qr-coupon]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const coupon = state.coupons[Number(btn.dataset.qrCoupon) - 1];
-      if (coupon) showQrModal(coupon);
-    });
   });
 
   // Wire up WhatsApp send buttons in All Coupons table (admin)
@@ -3419,60 +3409,6 @@ function printCouponReport() {
 }
 
 // ═══════════════════════════════════════════════
-// 📲 QR CODE MODAL
-// ═══════════════════════════════════════════════
-
-function showQrModal(coupon) {
-  let overlay = document.getElementById("qrModalOverlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "qrModalOverlay";
-    overlay.className = "modal-overlay hidden";
-    overlay.innerHTML = `
-      <div class="modal-card" role="dialog" aria-modal="true" aria-label="Coupon QR Code">
-        <h3>📱 Coupon QR Code</h3>
-        <div class="qr-modal-body" id="qrModalBody"></div>
-        <div class="inline-fields" style="justify-content:center">
-          <button type="button" id="qrModalClose" class="ghost">Close</button>
-          <button type="button" id="qrPrintBtn">Print Slip</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById("qrModalClose").addEventListener("click", () => overlay.classList.add("hidden"));
-    document.getElementById("qrPrintBtn").addEventListener("click", () => {
-      const num = overlay.dataset.qrNumber;
-      if (num) showPrintSlip(state.coupons[Number(num) - 1]);
-    });
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.add("hidden"); });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !overlay.classList.contains("hidden")) overlay.classList.add("hidden");
-    });
-  }
-
-  const body = document.getElementById("qrModalBody");
-  body.innerHTML = `<div id="qrCodeContainer"></div><p style="margin-top:12px;font-size:13px;color:var(--muted)">Coupon #${coupon.number}</p>`;
-  overlay.dataset.qrNumber = coupon.number;
-  overlay.classList.remove("hidden");
-
-  try {
-    if (typeof QRCode === "undefined") {
-      body.innerHTML = `<p style="color:var(--muted)">Loading QR library...</p>`;
-      ensureQrLoaded().then(() => showQrModal(coupon));
-      return;
-    }
-    new QRCode(document.getElementById("qrCodeContainer"), {
-      text: `${window.location.origin}${window.location.pathname}?coupon=${coupon.number}`,
-      width: 200, height: 200,
-      colorDark: "#1a1a1a",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
-    });
-  } catch (e) {
-    body.innerHTML = `<p style="color:var(--muted)">QR library not loaded.</p>`;
-  }
-}
-
-// ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON SLIP
 // ═══════════════════════════════════════════════
 
@@ -3986,8 +3922,6 @@ function loadScript(src) {
 
 let _chartsLoaded = false;
 let _pdfLoaded = false;
-let _qrLoaded = false;
-
 function ensureChartsLoaded() {
   if (typeof Chart !== "undefined") { _chartsLoaded = true; return Promise.resolve(); }
   if (_chartsLoaded) return Promise.resolve();
@@ -4004,13 +3938,6 @@ function ensurePdfLoaded() {
     .catch(() => {});
 }
 
-function ensureQrLoaded() {
-  if (typeof QRCode !== "undefined") { _qrLoaded = true; return Promise.resolve(); }
-  if (_qrLoaded) return Promise.resolve();
-  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js")
-    .then(() => { _qrLoaded = true; })
-    .catch(() => {});
-}
 
 // ═══════════════════════════════════════════════
 // 🚀 INIT NEW FEATURES
