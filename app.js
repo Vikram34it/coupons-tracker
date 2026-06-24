@@ -1767,7 +1767,7 @@ function renderEntryList() {
   }
 
   els.entryList.innerHTML = coupons.map((coupon) => {
-    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
+    const locked = session?.role === "viewer" || (session?.role === "devotee" && coupon.settled) ? "disabled" : "";
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
@@ -3283,7 +3283,7 @@ function goToPage(page) {
 let lastCheckinNumber = null;
 
 function canCurrentUserCheckin() {
-  if (session?.role === "admin" || session?.role === "viewer") return true;
+  if (session?.role === "admin") return true;
   if (session?.role === "devotee") {
     const devotee = state.devotees.find(d => d.id === session.devoteeId);
     return devotee ? devotee.canCheckin : false;
