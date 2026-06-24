@@ -1618,30 +1618,6 @@ body.dark-mode .pin-mask:hover {
   color: var(--primary);
 }
 
-/* ================= DARK MODE TOGGLE ================= */
-.dark-toggle {
-  background: var(--surface);
-  border: 1px solid var(--line-dark);
-  border-radius: 999px;
-  color: var(--ink);
-  cursor: pointer;
-  font-size: 16px;
-  min-height: 32px;
-  min-width: 32px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-}
-
-.dark-toggle:hover {
-  background: var(--surface-elevated);
-  border-color: var(--primary);
-  transform: translateY(-1px);
-}
-
-
 
 /* ================= SORTABLE TABLE HEADERS ================= */
 th.sortable {

@@ -144,8 +144,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       viewerPassword: "",
       sheetAutoUpdate: false,
       sheetHourlyUpdate: false,
-      sheetWebhookUrl: "",
-      autoReceipt: false
+      sheetWebhookUrl: ""
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -161,8 +160,7 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
     viewerPassword: settings.viewerPassword || "",
     sheetAutoUpdate: Boolean(settings.sheetAutoUpdate),
     sheetHourlyUpdate: Boolean(settings.sheetHourlyUpdate),
-    sheetWebhookUrl: settings.sheetWebhookUrl || "",
-    autoReceipt: Boolean(settings.autoReceipt)
+    sheetWebhookUrl: settings.sheetWebhookUrl || ""
   };
 }
 
@@ -303,9 +301,9 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "darkToggle", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
+    "logoutBtn", "userBadge", "syncBadge", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "autoReceiptCheck", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
@@ -438,12 +436,6 @@ function bindEvents() {
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
   els.couponSettingsForm.addEventListener("submit", updateTotalCoupons);
-  if (els.autoReceiptCheck) {
-    els.autoReceiptCheck.addEventListener("change", () => {
-      state.settings.autoReceipt = els.autoReceiptCheck.checked;
-      saveState();
-    });
-  }
   els.resetCouponForm.addEventListener("submit", resetOneCoupon);
   els.resetDevotee.addEventListener("change", renderResetCouponList);
   els.selectAllResetCouponsBtn.addEventListener("click", selectAllResetCoupons);
@@ -476,11 +468,9 @@ function bindEvents() {
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
-  els.darkToggle.addEventListener("click", toggleDarkMode);
   els.printViewBtn.addEventListener("click", printCouponReport);
   els.scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   els.bulkWhatsAppBtn.addEventListener("click", bulkWhatsApp);
-  els.bulkPdfBtn.addEventListener("click", bulkPdfReceipts);
   if (els.batchSettleBtn) els.batchSettleBtn.addEventListener("click", batchSettle);
   if (els.selectAllSettle) els.selectAllSettle.addEventListener("change", (e) => toggleSelectAll(e.target));
   if (els.selectAllSettleHead) els.selectAllSettleHead.addEventListener("change", (e) => toggleSelectAll(e.target));
@@ -1035,9 +1025,6 @@ function applyRoleAccess() {
   if (els.bulkWhatsAppBtn) els.bulkWhatsAppBtn.classList.toggle("hidden", !isAdmin);
   if (els.bulkPdfBtn) els.bulkPdfBtn.classList.toggle("hidden", !isAdmin);
   if (els.printViewBtn) els.printViewBtn.classList.toggle("hidden", !isAdmin);
-  // Language & dark mode toggle — always visible when logged in
-  if (els.darkToggle) els.darkToggle.classList.toggle("hidden", !session);
-
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
   els.entryStatus.classList.toggle("hidden", isDevotee);
@@ -1752,7 +1739,6 @@ function renderEntryList() {
             <th>Sold Date</th>
             <th>Amount</th>
             <th>Seva</th>
-            <th>Receipt</th>
             <th>Payment Mode</th>
           </tr>
         </thead>
@@ -1775,7 +1761,6 @@ function renderEntryList() {
               <td>${escapeHtml(coupon.soldAt || "-")}</td>
               <td>${formatMoney(coupon.amount)}</td>
               <td>${escapeHtml(coupon.description || "-")}</td>
-              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
               <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
             </tr>
           `).join("")}
@@ -1837,10 +1822,7 @@ function renderEntryList() {
             Amount Received
             <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-     <!--     <label>
-            Receipt No
-           <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt number" ${locked}>
-          </label>  -->
+
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
@@ -1971,7 +1953,6 @@ function renderAllCoupons() {
       </td>
       <td>${escapeHtml(coupon.soldAt || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
-      <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
         ${isViewer
@@ -2175,10 +2156,6 @@ function updateCouponField(event) {
   if (!coupon.soldAt && isSold(coupon)) {
     coupon.soldAt = new Date().toISOString();
   }
-  if (!coupon.receiptNumber && isSold(coupon) && isAutoReceiptEnabled()) {
-    const nextNum = state.coupons.filter(c => c.receiptNumber).length + 1;
-    coupon.receiptNumber = `REC-${String(nextNum).padStart(4, "0")}`;
-  }
   markCouponUpdated(coupon);
   pendingLocalCouponNumbers.add(coupon.number);
   lastEditTime = Date.now();    // ✅ FIX: record time of last edit
@@ -2212,7 +2189,6 @@ function emptyCoupon(number) {
     buyerContact: "",
     amount: "",
     description: "",
-    receiptNumber: "",
     paymentMode: "cash",
     settled: false,
     settledAt: "",
@@ -2236,7 +2212,6 @@ function normalizeCoupons(coupons, totalCoupons) {
       buyerContact: savedCoupon.buyerContact || "",
       amount: savedCoupon.amount || "",
       description: savedCoupon.description || "",
-      receiptNumber: savedCoupon.receiptNumber || "",
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || "",
@@ -2263,7 +2238,6 @@ function hasCouponData(coupon) {
     coupon.buyerContact ||
     coupon.amount ||
     coupon.description ||
-    coupon.receiptNumber ||
     coupon.settled ||
     coupon.settledAt
   );
@@ -2373,7 +2347,6 @@ function couponSearchText(coupon) {
     coupon.buyerContact,
     coupon.soldAt,
     coupon.amount,
-    coupon.receiptNumber,
     coupon.description,
     coupon.settledAt,
     coupon.settled ? "settled" : "not settled"
@@ -3016,7 +2989,6 @@ function spreadsheetRows() {
       buyerContact: coupon.buyerContact || "",
       soldDate: coupon.soldAt || "",
       amount: amountValue(coupon.amount),
-      receiptNumber: coupon.receiptNumber || "",
       paymentMode: coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash",
       settlement: coupon.settled ? "Settled" : "Not Settled",
       settledDate: coupon.settledAt || "",
@@ -3111,28 +3083,6 @@ saveState = function () {
     }
   }
 };
-
-// ═══════════════════════════════════════════════
-// 🌙 DARK MODE
-// ═══════════════════════════════════════════════
-
-function toggleDarkMode() {
-  document.body.classList.toggle("dark-mode");
-  const isDark = document.body.classList.contains("dark-mode");
-  els.darkToggle.innerHTML = isDark
-    ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>'
-    : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-  localStorage.setItem("dark-mode", isDark ? "1" : "");
-}
-
-function loadDarkModePreference() {
-  const stored = localStorage.getItem("dark-mode");
-  if (stored === "1" || (stored === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-    document.body.classList.add("dark-mode");
-    els.darkToggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-    els.darkToggle.title = "Switch to light mode";
-  }
-}
 
 // ═══════════════════════════════════════════════
 // 🌐 MULTI-LANGUAGE (i18n)
@@ -3509,61 +3459,6 @@ function devoteeBulkWhatsApp(devoteeId) {
 }
 
 // ═══════════════════════════════════════════════
-// 📄 BULK PDF RECEIPTS
-// ═══════════════════════════════════════════════
-
-async function bulkPdfReceipts() {
-  const settled = state.coupons.filter(c => c.settled && c.buyerName);
-  if (!settled.length) {
-    showToast("No settled coupons with buyer names.");
-    return;
-  }
-
-  if (typeof html2pdf === "undefined") {
-    showToast("Loading PDF library...");
-    await ensurePdfLoaded();
-    if (typeof html2pdf === "undefined") {
-      showToast("PDF library failed to load. Check internet connection.");
-      return;
-    }
-  }
-
-  const container = document.createElement("div");
-  container.style.cssText = "padding:20px;font-family:sans-serif";
-  container.innerHTML = `
-    <h1 style="font-size:18px;margin-bottom:16px">Coupon Receipts</h1>
-    ${settled.map(c => `
-      <div style="border:1px solid #ccc;border-radius:8px;padding:16px;margin-bottom:12px;page-break-inside:avoid">
-        <div style="font-size:14px;font-weight:bold;margin-bottom:8px">Receipt #${c.number}</div>
-        <div style="font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
-          <span>Buyer: ${escapeHtml(c.buyerName || "-")}</span>
-          <span>Contact: ${escapeHtml(c.buyerContact || "-")}</span>
-          <span>Seva: ${escapeHtml(c.description || "-")}</span>
-          <span>Amount: ${formatMoney(amountValue(c.amount))}</span>
-          <span>Date: ${c.soldAt || "-"}</span>
-          <span>Devotee: ${escapeHtml(devoteeName(c.devoteeId))}</span>
-        </div>
-      </div>
-    `).join("")}
-  `;
-
-  document.body.appendChild(container);
-  html2pdf().from(container).set({
-    margin: [10, 10],
-    filename: `coupon-receipts-${new Date().toISOString().slice(0,10)}.pdf`,
-    image: { type: "jpeg", quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-  }).save().then(() => {
-    document.body.removeChild(container);
-    showToast("PDF downloaded");
-  }).catch(() => {
-    document.body.removeChild(container);
-    showToast("PDF generation failed");
-  });
-}
-
-// ═══════════════════════════════════════════════
 // 📅 DATE PRESETS
 // ═══════════════════════════════════════════════
 
@@ -3821,28 +3716,6 @@ function undoCheckinFromReport(num) {
 }
 
 // ═══════════════════════════════════════════════
-// 🔢 RECEIPT AUTO-GENERATION
-// ═══════════════════════════════════════════════
-
-function isAutoReceiptEnabled() {
-  return Boolean(els.autoReceiptCheck?.checked);
-}
-
-function loadAutoReceiptSetting() {
-  const val = state.settings.autoReceipt;
-  if (els.autoReceiptCheck) els.autoReceiptCheck.checked = Boolean(val);
-}
-
-// Patch assignCoupons to save the setting
-const _origUpdateTotalCoupons = updateTotalCoupons;
-updateTotalCoupons = function(event) {
-  if (els.autoReceiptCheck) {
-    state.settings.autoReceipt = els.autoReceiptCheck.checked;
-  }
-  _origUpdateTotalCoupons(event);
-};
-
-// ═══════════════════════════════════════════════
 // 🗄️ INDEXEDDB FALLBACK
 // ═══════════════════════════════════════════════
 
@@ -3944,9 +3817,7 @@ function ensurePdfLoaded() {
 // ═══════════════════════════════════════════════
 
 function initNewFeatures() {
-  loadDarkModePreference();
   loadLangPreference();
-  loadAutoReceiptSetting();
   ensureChartsLoaded();
 }
 

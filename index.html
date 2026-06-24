@@ -60,7 +60,6 @@
       <span id="syncBadge" class="user-badge">Local</span>
       <span id="userBadge" class="user-badge"></span>
 
-      <button id="darkToggle" class="dark-toggle" type="button" title="Toggle dark mode"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
       <button id="printViewBtn" class="ghost" type="button" title="Print coupon report">🖨️</button>
       <button id="csvBtn" class="ghost" type="button" title="Export spreadsheet CSV">CSV</button>
       <button id="exportBtn" class="ghost" type="button" title="Export backup">Export</button>
@@ -181,10 +180,6 @@
           <label>
             Total Coupons
             <input id="totalCouponInput" type="number" min="1" required placeholder="Example: 3000">
-          </label>
-          <label class="checkbox-line">
-            <input id="autoReceiptCheck" type="checkbox">
-            Auto-generate receipt numbers (REC-XXXX format)
           </label>
           <button type="submit">Update Total</button>
           <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
@@ -402,9 +397,6 @@
             <button id="bulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" title="Send WhatsApp to all settled buyers">
               📲 Bulk WhatsApp
             </button>
-            <button id="bulkPdfBtn" class="ghost pdf-btn no-print" type="button" title="Download all receipts as PDF">
-              📄 Bulk PDF
-            </button>
           </div>
         </div>
         <div id="bulkSettleBar" class="bulk-settle-bar no-print" style="display:none">
@@ -428,7 +420,6 @@
                 <th>Send Invite</th>
                 <th class="sortable" data-sort="soldAt">Sold Date</th>
                 <th class="sortable" data-sort="amount">Amount</th>
-                <th>Receipt No</th>
                 <th>Payment Mode</th>
                 <th class="sortable" data-sort="settled">Settlement</th>
                 <th class="sortable" data-sort="settledAt">Settled Date</th>
