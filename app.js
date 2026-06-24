@@ -906,14 +906,23 @@ function renderView() {
   const view = activeView();
   applyRoleAccess();
   renderStats();
+
+  if (view === "adminView" || !view) {
+    renderDevotees();
+    renderSevaSummary();
+  }
+
   if (view === "devoteeView") {
     renderEntryList();
-  } else if (view === "allCouponsView") {
+  }
+  if (view === "allCouponsView") {
     renderAllCoupons();
     renderPagination();
-  } else if (view === "checkinView") {
+  }
+  if (view === "checkinView") {
     renderCheckinView();
   }
+
   updateAdminView();
 }
 
