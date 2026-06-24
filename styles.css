@@ -1708,37 +1708,6 @@ th.sortable.sorted-desc::after {
   border-color: var(--primary);
 }
 
-/* ================= CHARTS ================= */
-.charts-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  margin-bottom: 20px;
-}
-
-.chart-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px;
-}
-
-.chart-card h3 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 12px;
-  color: var(--ink-secondary);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.chart-card canvas {
-  max-height: 260px;
-  max-width: 100%;
-}
-
 /* ================= AUDIT LOG ================= */
 .audit-log {
   max-height: 300px;
@@ -2022,27 +1991,6 @@ body.dark-mode .bulk-wa-btn {
 .scroll-top-btn.visible {
   opacity: 1;
   pointer-events: auto;
-}
-
-/* ================= PDF BUTTON ================= */
-.pdf-btn {
-  background: var(--surface);
-  border: 1px solid var(--line-dark);
-  color: #dc2626;
-}
-
-.pdf-btn:hover {
-  background: #fef2f2;
-  border-color: #dc2626;
-}
-
-body.dark-mode .pdf-btn {
-  background: var(--surface);
-  color: #f87171;
-}
-
-body.dark-mode .pdf-btn:hover {
-  background: rgba(220, 38, 38, 0.1);
 }
 
 /* ================= CHECK-IN VIEW ================= */

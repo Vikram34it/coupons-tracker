@@ -307,8 +307,8 @@ function cacheElements() {
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn",
+    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
@@ -890,7 +890,6 @@ function render() {
   if (view === "adminView" || !view) {
     renderDevotees();
     renderSevaSummary();
-    renderCharts();
     renderAuditLog();
   }
   renderResetCouponList();
@@ -1023,7 +1022,6 @@ function applyRoleAccess() {
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
   if (els.bulkWhatsAppBtn) els.bulkWhatsAppBtn.classList.toggle("hidden", !isAdmin);
-  if (els.bulkPdfBtn) els.bulkPdfBtn.classList.toggle("hidden", !isAdmin);
   if (els.printViewBtn) els.printViewBtn.classList.toggle("hidden", !isAdmin);
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
@@ -3139,140 +3137,6 @@ function t(key) {
 }
 
 // ═══════════════════════════════════════════════
-// 📊 CHARTS (Chart.js)
-// ═══════════════════════════════════════════════
-
-let sevaChartInstance = null;
-let trendChartInstance = null;
-let perfChartInstance = null;
-
-function renderCharts() {
-  if (session?.role === "devotee") return;
-  if (!els.sevaChart || !els.trendChart || !els.perfChart) return;
-  const isAdminOrViewer = session?.role === "admin" || session?.role === "viewer";
-  if (!isAdminOrViewer) return;
-  if (typeof Chart === "undefined") {
-    ensureChartsLoaded();
-    return;
-  }
-  renderSevaChart();
-  renderTrendChart();
-  renderPerfChart();
-}
-
-function renderSevaChart() {
-  const sevaMap = {};
-  state.coupons.filter(c => c.settled).forEach(c => {
-    const seva = c.description || "Others";
-    sevaMap[seva] = (sevaMap[seva] || 0) + amountValue(c.amount);
-  });
-  (state.hundi || []).filter(h => h.settled).forEach(h => {
-    sevaMap["Hundi Donation"] = (sevaMap["Hundi Donation"] || 0) + h.amount;
-  });
-
-  const labels = Object.keys(sevaMap);
-  const data = Object.values(sevaMap);
-
-  if (sevaChartInstance) sevaChartInstance.destroy();
-
-  if (!labels.length) {
-    sevaChartInstance = null;
-    return;
-  }
-
-  const colors = ["#14b8a6","#f59e0b","#ef4444","#8b5cf6","#3b82f6","#10b981","#f97316","#ec4899"];
-
-  sevaChartInstance = new Chart(els.sevaChart, {
-    type: "doughnut",
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors.slice(0, labels.length),
-        borderWidth: 0,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { position: "bottom", labels: { boxWidth: 12, padding: 12, font: { size: 11 } } }
-      }
-    }
-  });
-}
-
-function renderTrendChart() {
-  const monthly = {};
-  state.coupons.filter(c => c.settled && c.settledAt).forEach(c => {
-    const month = c.settledAt.slice(0, 7);
-    monthly[month] = (monthly[month] || 0) + amountValue(c.amount);
-  });
-
-  const sorted = Object.entries(monthly).sort((a, b) => a[0].localeCompare(b[0]));
-  const labels = sorted.map(([m]) => m);
-  const data = sorted.map(([, v]) => v);
-
-  if (trendChartInstance) trendChartInstance.destroy();
-  if (!labels.length) { trendChartInstance = null; return; }
-
-  trendChartInstance = new Chart(els.trendChart, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "Settled Amount",
-        data,
-        borderColor: "#14b8a6",
-        backgroundColor: "rgba(20,184,166,0.1)",
-        fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { font: { size: 10 } } },
-        y: { ticks: { font: { size: 10 }, callback: v => "₹" + v.toLocaleString("en-IN") } }
-      }
-    }
-  });
-}
-
-function renderPerfChart() {
-  const sorted = [...state.devotees].map(d => {
-    const s = devoteeSummary(d.id);
-    return { name: d.name, settled: s.settledAmount, pending: s.pendingAmount };
-  }).sort((a, b) => b.settled - a.settled).slice(0, 10);
-
-  if (perfChartInstance) perfChartInstance.destroy();
-  if (!sorted.length) { perfChartInstance = null; return; }
-
-  perfChartInstance = new Chart(els.perfChart, {
-    type: "bar",
-    data: {
-      labels: sorted.map(s => s.name),
-      datasets: [
-        { label: "Settled", data: sorted.map(s => s.settled), backgroundColor: "#14b8a6", borderRadius: 4 },
-        { label: "Pending", data: sorted.map(s => s.pending), backgroundColor: "#f59e0b", borderRadius: 4 },
-      ]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } } },
-      scales: {
-        x: { ticks: { font: { size: 9 } } },
-        y: { ticks: { font: { size: 10 }, callback: v => "₹" + v.toLocaleString("en-IN") } }
-      }
-    }
-  });
-}
-
-// ═══════════════════════════════════════════════
 // 📋 AUDIT LOG
 // ═══════════════════════════════════════════════
 
@@ -3793,24 +3657,6 @@ function loadScript(src) {
   });
 }
 
-let _chartsLoaded = false;
-let _pdfLoaded = false;
-function ensureChartsLoaded() {
-  if (typeof Chart !== "undefined") { _chartsLoaded = true; return Promise.resolve(); }
-  if (_chartsLoaded) return Promise.resolve();
-  return loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js")
-    .then(() => { _chartsLoaded = true; renderCharts(); })
-    .catch(() => {});
-}
-
-function ensurePdfLoaded() {
-  if (typeof html2pdf !== "undefined") { _pdfLoaded = true; return Promise.resolve(); }
-  if (_pdfLoaded) return Promise.resolve();
-  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js")
-    .then(() => { _pdfLoaded = true; })
-    .catch(() => {});
-}
-
 
 // ═══════════════════════════════════════════════
 // 🚀 INIT NEW FEATURES
@@ -3818,7 +3664,6 @@ function ensurePdfLoaded() {
 
 function initNewFeatures() {
   loadLangPreference();
-  ensureChartsLoaded();
 }
 
 // Defer init until after Firebase loads
