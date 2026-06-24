@@ -1098,20 +1098,6 @@ function renderDevotees() {
     if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
     return true;
   });
-    const cbd = ensureCouponsByDev();
-    devotees = devotees.filter((devotee) => {
-      const assigned = cbd.get(devotee.id) || [];
-      const sold = assigned.filter(isSold);
-      const settled = assigned.filter(c => c.settled);
-      const pending = sold.filter(c => !c.settled);
-
-      if (statusFilter === "has_pending") return pending.length > 0;
-      if (statusFilter === "fully_settled") return sold.length > 0 && pending.length === 0;
-      if (statusFilter === "not_started") return assigned.length > 0 && sold.length === 0;
-      if (statusFilter === "no_coupons") return assigned.length === 0;
-      return true;
-    });
-  }
 
   // ✅ SORT DEVOTEES BY NAME (ASCENDING)
   devotees.sort((a, b) =>
