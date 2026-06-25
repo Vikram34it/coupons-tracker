@@ -1753,23 +1753,24 @@ body.dark-mode .toast {
 
   /* --- Filter bar (mobile) --- */
   .filter-bar {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 8px;
+    overflow-x: auto;
   }
 
-  .filter-bar input[type="search"] {
-    grid-column: 1 / -1;
+  .filter-bar select,
+  .filter-bar input {
+    font-size: 11px;
+    padding: 3px 5px;
   }
 
   .filter-bar select {
-    max-width: none;
+    max-width: 100px;
   }
 
-  .filter-bar .small-stat {
-    grid-column: 1 / -1;
-    text-align: right;
+  .filter-bar input[type="search"] {
+    max-width: 120px;
   }
 
   /* --- Inline fields --- */
@@ -2713,34 +2714,40 @@ body.dark-mode tr.selected-row td {
 
 .filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
   align-items: center;
   margin-bottom: 14px;
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 10px 14px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .filter-bar select,
 .filter-bar input {
   border-radius: var(--radius-sm);
+  font-size: 12px;
+  padding: 4px 6px;
+  min-width: 0;
 }
 
 .filter-bar select {
-  max-width: 180px;
+  max-width: 130px;
+  flex-shrink: 1;
+}
+
+.filter-bar input[type="search"] {
+  max-width: 160px;
+  flex-shrink: 1;
 }
 
 .filter-bar .small-stat {
   white-space: nowrap;
-  font-size: 12px;
-}
-
-#couponJump {
-  width: 80px;
-  text-align: center;
-  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
 .copy-contact {
@@ -2752,15 +2759,6 @@ body.dark-mode tr.selected-row td {
 .copy-contact:hover {
   border-color: var(--primary);
   color: var(--primary);
-}
-
-@keyframes highlightFade {
-  0% { background: rgba(124, 58, 237, 0.15); }
-  100% { background: transparent; }
-}
-
-.highlight-row {
-  animation: highlightFade 2.5s ease-out;
 }
 
 .attended-badge.missed {

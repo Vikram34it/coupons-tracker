@@ -312,7 +312,7 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "couponJump",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPagination", "checkinPrintBtn",
@@ -504,10 +504,6 @@ function bindEvents() {
   els.allDevoteeFilter.addEventListener("change", () => {
     resetAllCouponsView();
     updateDevoteePendingDisplay();
-  });
-
-  els.couponJump.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") handleCouponJump();
   });
 
   els.checkinInput.addEventListener("keydown", (e) => {
@@ -3112,36 +3108,6 @@ function renderPagination() {
     ALL_COUPONS_PAGE_SIZE,
     "goToPage"
   );
-}
-
-function handleCouponJump() {
-  const jumpVal = els.couponJump?.value;
-  if (!jumpVal) return;
-  const num = Number(jumpVal);
-  if (isNaN(num) || num < 1 || num > couponTotal()) {
-    showToast(`Enter a coupon number from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  els.allSearch.value = "";
-  els.allStatus.value = "all";
-  els.allSevaFilter.value = "all";
-  els.allPaymentFilter.value = "all";
-  els.allDevoteeFilter.value = "all";
-  resetAllCouponsView();
-
-  const targetRow = els.allCouponsBody.querySelector(`tr:has(td:nth-child(2))`);
-  const rows = els.allCouponsBody.querySelectorAll("tr");
-  for (const row of rows) {
-    const cell = row.querySelector("td");
-    if (cell && cell.textContent.trim() === `#${num}`) {
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
-      row.classList.add("highlight-row");
-      setTimeout(() => row.classList.remove("highlight-row"), 2500);
-      break;
-    }
-  }
-  els.couponJump.value = "";
 }
 
 function goToPage(page) {
