@@ -1244,9 +1244,23 @@ textarea {
 }
 
 table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   min-width: 1100px;
   width: 100%;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+thead th {
+  background: linear-gradient(180deg, #f5f0ff 0%, #faf5ff 100%);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 th,
@@ -1256,12 +1270,6 @@ td {
   text-align: left;
   vertical-align: middle;
   font-size: 13px;
-}
-
-thead {
-  position: sticky;
-  top: 0;
-  z-index: 2;
 }
 
 th {
