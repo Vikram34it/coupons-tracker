@@ -384,37 +384,31 @@
 
     <section id="allCouponsView" class="view">
       <section class="panel">
-        <div class="section-head">
-          <h2>All Coupon Records</h2>
-          <div class="entry-controls compact">
-            <input id="allSearch" type="search" placeholder="Search all coupons">
-            <select id="allDevoteeFilter">
-              <option value="all">All Devotees</option>
-            </select>
-            <select id="allStatus">
-              <option value="all">All</option>
-              <option value="unassigned">Unassigned</option>
-              <option value="assigned">Assigned</option>
-              <option value="sold">Sold</option>
-              <option value="sold_unsettled">Sold & Unsettled</option>
-              <option value="unsettled">Settlement Pending</option>
-              <option value="settled">Settled</option>
-            </select>
-            <select id="allSevaFilter">
-              <option value="all">All Seva Types</option>
-            </select>
-            <select id="allPaymentFilter">
-              <option value="all">All Payment Modes</option>
-              <option value="cash">Cash</option>
-              <option value="temple_transfer">Temple Transfer</option>
-            </select>
-            <span id="allCouponCount" class="small-stat">
-              Coupons: 0
-            </span>
-            <span id="devoteePendingDisplay" class="small-stat ml-sm">
-              Pending: ₹0
-            </span>
-          </div>
+        <h2 class="panel-heading">All Coupon Records</h2>
+        <div class="filter-bar">
+          <input id="allSearch" type="search" placeholder="Search all coupons">
+          <select id="allDevoteeFilter">
+            <option value="all">All Devotees</option>
+          </select>
+          <select id="allStatus">
+            <option value="all">All</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="assigned">Assigned</option>
+            <option value="sold">Sold</option>
+            <option value="sold_unsettled">Sold & Unsettled</option>
+            <option value="unsettled">Settlement Pending</option>
+            <option value="settled">Settled</option>
+          </select>
+          <select id="allSevaFilter">
+            <option value="all">All Seva Types</option>
+          </select>
+          <select id="allPaymentFilter">
+            <option value="all">All Payment Modes</option>
+            <option value="cash">Cash</option>
+            <option value="temple_transfer">Temple Transfer</option>
+          </select>
+          <span id="allCouponCount" class="small-stat">Coupons: 0</span>
+          <span id="devoteePendingDisplay" class="small-stat">Pending: ₹0</span>
         </div>
         <div id="bulkSettleBar" class="bulk-settle-bar no-print init-hidden">
           <label class="bulk-check-label">

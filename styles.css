@@ -1743,6 +1743,27 @@ body.dark-mode .toast {
     grid-template-columns: 1fr 1fr;
   }
 
+  /* --- Filter bar (mobile) --- */
+  .filter-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .filter-bar input[type="search"] {
+    grid-column: 1 / -1;
+  }
+
+  .filter-bar select {
+    max-width: none;
+  }
+
+  .filter-bar .small-stat {
+    grid-column: 1 / -1;
+    text-align: right;
+  }
+
   /* --- Inline fields --- */
   .inline-fields {
     flex-wrap: wrap;
@@ -2655,9 +2676,57 @@ body.dark-mode tr.selected-row td {
   font-family: 'Plus Jakarta Sans', monospace;
 }
 
-/* All coupons view entry controls enhancement */
-#allCouponsView .section-head + .entry-controls {
-  margin-top: -8px;
+/* ================= ALL COUPONS HEADER ================= */
+.panel-heading {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  position: relative;
+  display: block;
+}
+
+.panel-heading::before {
+  display: none;
+}
+
+.panel-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 1px;
+  opacity: 0.5;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+
+.filter-bar select,
+.filter-bar input {
+  border-radius: var(--radius-sm);
+}
+
+.filter-bar select {
+  max-width: 180px;
+}
+
+.filter-bar .small-stat {
+  white-space: nowrap;
+  font-size: 12px;
 }
 
 .attended-badge.missed {
