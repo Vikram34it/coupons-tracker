@@ -1436,106 +1436,7 @@ function renderEntryList() {
     </div>
   `;
 
-    els.entryList.querySelectorAll("[data-hundi-settle]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (session?.role !== "admin") {
-          showToast("Only admin can settle hundi");
-          return;
-        }
-        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
-        if (!hundi) return;
-        hundi.settled = !hundi.settled;
-        hundi._updated = Date.now();
-        saveState();
-        renderEntryList();
-        renderStats();
-        renderDevoteeStats(hundi.devoteeId);
-        renderSevaSummary();
-        showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
-      });
-    });
-
-    els.entryList.querySelectorAll("[data-hundi-edit]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (session?.role !== "admin") {
-          showToast("Only admin can edit hundi");
-          return;
-        }
-
-        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiEdit);
-        if (!hundi) return;
-
-        const date = window.prompt("Enter hundi date (YYYY-MM-DD)", hundi.date || todayKey());
-        if (date === null) return;
-
-        const amountInput = window.prompt("Enter hundi amount", String(hundi.amount || ""));
-        if (amountInput === null) return;
-
-        const amount = Number(amountInput);
-        if (!date.trim() || !amount || amount < 0) {
-          showToast("Enter a valid date and amount");
-          return;
-        }
-
-        hundi.date = date.trim();
-        hundi.amount = amount;
-        hundi._updated = Date.now();
-        saveState();
-        renderEntryList();
-        renderStats();
-        renderDevoteeStats(hundi.devoteeId);
-        renderSevaSummary();
-        showToast("Hundi entry updated");
-      });
-    });
-
-    els.entryList.querySelectorAll("[data-hundi-delete]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (session?.role !== "admin") {
-          showToast("Only admin can delete hundi");
-          return;
-        }
-
-        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiDelete);
-        if (!hundi) return;
-
-        if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
-
-        state.hundi = state.hundi.filter(h => h.id !== hundi.id);
-        saveState();
-        renderEntryList();
-        renderStats();
-        renderDevoteeStats(hundi.devoteeId);
-        renderSevaSummary();
-        showToast("Hundi entry deleted");
-      });
-    });
-
-    document.getElementById("addHundiBtn").onclick = () => {
-      const amount = Number(document.getElementById("hundiAmount").value);
-      const date = document.getElementById("hundiDate").value || todayKey();
-
-      if (!amount) {
-        showToast("Enter amount");
-        return;
-      }
-
-      state.hundi.push({
-        id: newId(),
-        devoteeId,
-        amount,
-        date,
-        settled: false,
-        _updated: Date.now()
-      });
-
-      saveState();
-      renderEntryList();
-      renderStats();
-      renderDevoteeStats(devoteeId);
-      renderSevaSummary();
-      showToast("Hundi added");
-    };
+    // (handled by event delegation below)
 
     return;
   }
@@ -1566,7 +1467,7 @@ function renderEntryList() {
   if (activeDevoteeTab === "settled") {
     const hasTemplate = Boolean(state.settings.invitationMessage);
     const noTemplateBanner = !hasTemplate
-      ? `<div style="background:#fff4df;border:1px solid #f0c46a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7a5300">
+      ? `<div class="notice-banner">
            ⚠️ No invitation template set. <strong>Admin: go to Setup → WhatsApp Invitation Template</strong> to create one.
          </div>`
       : "";
@@ -1616,13 +1517,7 @@ function renderEntryList() {
     </div>
   `;
 
-    // Wire up individual send buttons
-    els.entryList.querySelectorAll("[data-wa-coupon]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
-        openWhatsAppForBuyer(coupon);
-      });
-    });
+    // (handled by event delegation below)
     return; // 🔥 VERY IMPORTANT (stops card rendering)
   }
   if (status === "sold") coupons = coupons.filter(isSold);
@@ -1696,23 +1591,114 @@ function renderEntryList() {
     "goToEntryPage"
   );
 
-  els.entryList.querySelectorAll("[data-field]").forEach((field) => {
-    // ✅ FIX: Use 'input' for text inputs (real-time), 'change' only for <select>
-    if (field.tagName === "SELECT") {
-      field.addEventListener("change", updateCouponField);
-    } else {
-      field.addEventListener("input", updateCouponField);
+  setupEntryListDelegation();
+}
+
+function setupEntryListDelegation() {
+  if (els.entryList.dataset.hasEntryListener) return;
+  els.entryList.dataset.hasEntryListener = "1";
+
+  els.entryList.addEventListener("click", (e) => {
+    const target = e.target;
+
+    if (target.id === "addHundiBtn") {
+      const devoteeId = els.entryDevotee.value;
+      if (!devoteeId) { showToast("Select a devotee first"); return; }
+      const amount = Number(document.getElementById("hundiAmount")?.value);
+      const date = document.getElementById("hundiDate")?.value || todayKey();
+      if (!amount) { showToast("Enter amount"); return; }
+      state.hundi.push({ id: newId(), devoteeId, amount, date, settled: false, _updated: Date.now() });
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(devoteeId);
+      renderSevaSummary();
+      showToast("Hundi added");
+      return;
+    }
+
+    const settleBtn = target.closest("[data-hundi-settle]");
+    if (settleBtn) {
+      if (session?.role !== "admin") { showToast("Only admin can settle hundi"); return; }
+      const hundi = state.hundi.find(h => h.id === settleBtn.dataset.hundiSettle);
+      if (!hundi) return;
+      hundi.settled = !hundi.settled;
+      hundi._updated = Date.now();
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(hundi.devoteeId);
+      renderSevaSummary();
+      showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
+      return;
+    }
+
+    const editBtn = target.closest("[data-hundi-edit]");
+    if (editBtn) {
+      if (session?.role !== "admin") { showToast("Only admin can edit hundi"); return; }
+      const hundi = state.hundi.find(h => h.id === editBtn.dataset.hundiEdit);
+      if (!hundi) return;
+      const date = window.prompt("Enter hundi date (YYYY-MM-DD)", hundi.date || todayKey());
+      if (date === null) return;
+      const amountInput = window.prompt("Enter hundi amount", String(hundi.amount || ""));
+      if (amountInput === null) return;
+      const amount = Number(amountInput);
+      if (!date.trim() || !amount || amount < 0) { showToast("Enter a valid date and amount"); return; }
+      hundi.date = date.trim();
+      hundi.amount = amount;
+      hundi._updated = Date.now();
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(hundi.devoteeId);
+      renderSevaSummary();
+      showToast("Hundi entry updated");
+      return;
+    }
+
+    const deleteBtn = target.closest("[data-hundi-delete]");
+    if (deleteBtn) {
+      if (session?.role !== "admin") { showToast("Only admin can delete hundi"); return; }
+      const hundi = state.hundi.find(h => h.id === deleteBtn.dataset.hundiDelete);
+      if (!hundi) return;
+      if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
+      state.hundi = state.hundi.filter(h => h.id !== hundi.id);
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(hundi.devoteeId);
+      renderSevaSummary();
+      showToast("Hundi entry deleted");
+      return;
+    }
+
+    const waBtn = target.closest("[data-wa-coupon]");
+    if (waBtn) {
+      const coupon = state.coupons[Number(waBtn.dataset.waCoupon) - 1];
+      openWhatsAppForBuyer(coupon);
+      return;
     }
   });
 
-  // ✅ Buyer contact 10-digit validation on blur
-  els.entryList.querySelectorAll("[data-field='buyerContact']").forEach((input) => {
-    input.addEventListener("blur", () => {
-      const val = input.value.replace(/\D/g, "");
-      if (val && val.length !== 10) {
-        showToast("Contact number should be 10 digits");
-      }
-    });
+  els.entryList.addEventListener("input", (e) => {
+    const field = e.target.closest("[data-field]");
+    if (!field || field.tagName === "SELECT") return;
+    updateCouponField(e);
+  });
+
+  els.entryList.addEventListener("change", (e) => {
+    const field = e.target.closest("[data-field]");
+    if (!field || field.tagName !== "SELECT") return;
+    updateCouponField(e);
+  });
+
+  els.entryList.addEventListener("focusout", (e) => {
+    const field = e.target.closest("[data-field='buyerContact']");
+    if (!field) return;
+    const val = field.value.replace(/\D/g, "");
+    if (val && val.length !== 10) {
+      showToast("Contact number should be 10 digits");
+    }
   });
 }
 
@@ -2546,7 +2532,7 @@ function previewInvitationMessage() {
     overlay.innerHTML = `
       <div class="modal-card" role="dialog" aria-modal="true" aria-label="Message preview">
         <h3>📲 Message Preview</h3>
-        <p class="hint" style="margin-bottom:10px">Sample preview using placeholder values.</p>
+        <p class="hint mb-sm">Sample preview using placeholder values.</p>
         <div class="message-preview" id="invitationPreviewText"></div>
         <div class="inline-fields">
           <button type="button" id="invitationPreviewClose">Close</button>
@@ -2970,61 +2956,6 @@ saveState = function () {
 };
 
 // ═══════════════════════════════════════════════
-// 🌐 MULTI-LANGUAGE (i18n)
-// ═══════════════════════════════════════════════
-
-const i18n = {
-  en: {
-    lang: "हि", totalCoupons: "Total Coupons", assigned: "Assigned", sold: "Sold",
-    couponsSettled: "Coupons Settled", hundiSettled: "Hundi Settled", totalSettled: "Total Settled",
-    unsettled: "Unsettled Amount", settledCoupons: "Settled Coupons", templeTransfer: "Temple Transfer",
-    cashTotal: "Cash Total", login: "Login", logout: "Logout", admin: "Admin",
-    viewer: "Viewer", devotee: "Devotee", password: "Password", export: "Export",
-    import: "Import", csv: "CSV", dashboard: "Dashboard", setup: "Setup",
-    reset: "Reset", devoteeEntry: "Devotee Entry", allCoupons: "All Coupons",
-    addDevotee: "Add Devotee", name: "Name", contact: "Contact Number",
-    assignCoupons: "Assign Coupons", from: "From", to: "To", assignDate: "Assign Date",
-    sendWhatsApp: "Send WhatsApp message", couponSettings: "Coupon Settings",
-    totalCouponsLabel: "Total Coupons",
-  },
-  hi: {
-    lang: "EN", totalCoupons: "कुल कूपन", assigned: "आवंटित", sold: "बेचे गए",
-    couponsSettled: "कूपन निपटान", hundiSettled: "हुंडी निपटान", totalSettled: "कुल निपटान",
-    unsettled: "अनसैटल्ड राशि", settledCoupons: "निपटाए गए कूपन", templeTransfer: "मंदिर हस्तांतरण",
-    cashTotal: "नकद कुल", login: "लॉगिन", logout: "लॉगआउट", admin: "प्रशासक",
-    viewer: "दर्शक", devotee: "भक्त", password: "पासवर्ड", export: "निर्यात",
-    import: "आयात", csv: "CSV", dashboard: "डैशबोर्ड", setup: "सेटअप",
-    reset: "रीसेट", devoteeEntry: "भक्त प्रविष्टि", allCoupons: "सभी कूपन",
-    addDevotee: "भक्त जोड़ें", name: "नाम", contact: "संपर्क नंबर",
-    assignCoupons: "कूपन आवंटित करें", from: "से", to: "तक", assignDate: "आवंटन तिथि",
-    sendWhatsApp: "व्हाट्सएप संदेश भेजें", couponSettings: "कूपन सेटिंग्स",
-    totalCouponsLabel: "कुल कूपन",
-  }
-};
-
-let currentLang = "en";
-
-function toggleLanguage() {
-  currentLang = currentLang === "en" ? "hi" : "en";
-  els.langToggle.textContent = i18n[currentLang].lang;
-  try { localStorage.setItem("coupon-seva-lang", currentLang); } catch {}
-  showToast(currentLang === "hi" ? "भाषा बदली: हिंदी" : "Language switched: English");
-}
-
-function loadLangPreference() {
-  const stored = localStorage.getItem("coupon-seva-lang");
-  if (stored === "hi" || stored === "en") {
-    currentLang = stored;
-    els.langToggle.textContent = i18n[currentLang].lang;
-  }
-}
-
-function t(key) {
-  return i18n[currentLang][key] || key;
-}
-
-
-// ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON REPORT
 // ═══════════════════════════════════════════════
 
@@ -3091,7 +3022,7 @@ function showPrintSlip(coupon) {
           <div class="slip-row"><span class="slip-label">Amount</span><span class="slip-value">${formatMoney(amountValue(coupon.amount))}</span></div>
           <div class="slip-row"><span class="slip-label">Date</span><span class="slip-value">${coupon.soldAt || "-"}</span></div>
           <div class="slip-divider"></div>
-          <div style="font-size:11px;color:#666">Devotee: ${escapeHtml(devoteeName(coupon.devoteeId))}</div>
+          <div class="slip-note">Devotee: ${escapeHtml(devoteeName(coupon.devoteeId))}</div>
         </div>
         <div class="slip-actions">
           <button type="button" id="doPrintSlip" class="primary">🖨️ Print</button>
@@ -3472,13 +3403,8 @@ function loadScript(src) {
 // 🚀 INIT NEW FEATURES
 // ═══════════════════════════════════════════════
 
-function initNewFeatures() {
-  loadLangPreference();
-}
-
 // Defer init until after Firebase loads
 setTimeout(() => {
-  initNewFeatures();
   try {
     loadFromIndexedDB().then(data => {
       if (data && !hasStateData(state)) {
