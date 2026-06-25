@@ -9,26 +9,24 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description"
     content="Coupon Seva Tracker — manage and track coupon assignments, collections, and settlements for your temple sevas.">
-  <meta name="theme-color" content="#0d9488">
+  <meta name="theme-color" content="#7c3aed">
   <link rel="manifest" href="manifest.json">
-  <title>Coupon Seva Tracker</title>
+  <link rel="icon" type="image/png" href="assets/iskcon-mangalagiri-logo.png">
+  <link rel="apple-touch-icon" href="assets/iskcon-mangalagiri-logo.png">
+  <title>ISKCON Mangalagiri Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-05-31-1">
+  <link rel="stylesheet" href="styles.css?v=2026-06-24-1">
 </head>
 
 <body>
   <section id="loginScreen" class="login-screen">
     <form id="loginForm" class="login-card">
       <div class="login-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <line x1="3" y1="9" x2="21" y2="9"/>
-          <line x1="9" y1="21" x2="9" y2="9"/>
-          <line x1="15" y1="21" x2="15" y2="9"/>
-        </svg>
+        <img src="assets/iskcon-mangalagiri-logo.png" alt="ISKCON Mangalagiri logo">
       </div>
-      <h1>Coupon Seva Tracker</h1>
+      <h1>ISKCON Mangalagiri</h1>
+      <h2>Coupon Seva Tracker</h2>
       <p>Login as admin or as a devotee to continue.</p>
       <label>
         Login Type
@@ -52,9 +50,12 @@
   </section>
 
   <header class="topbar">
-    <div>
-      <h1>Coupon Seva Tracker</h1>
-      <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
+    <div class="brand-mark">
+      <img src="assets/iskcon-mangalagiri-logo.png" alt="ISKCON Mangalagiri logo">
+      <div>
+        <h1>ISKCON Mangalagiri</h1>
+        <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
+      </div>
     </div>
     <div class="toolbar">
       <span id="syncBadge" class="user-badge">Local</span>
@@ -501,6 +502,7 @@
             <tbody id="checkinReportBody"></tbody>
           </table>
         </div>
+        <div id="checkinPagination" class="pagination no-print"></div>
       </section>
     </section>
   </main>
@@ -511,7 +513,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
-  <script src="app.js?v=2026-06-20-1"></script>
+  <script src="app.js?v=2026-06-24-1"></script>
 </body>
 
 </html>

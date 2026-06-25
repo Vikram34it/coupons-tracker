@@ -5,11 +5,16 @@ const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const APP_URL = "https://vikram34it.github.io/coupons-tracker/";
 const SHEET_SYNC_DEBOUNCE_MS = 2000;
 const SHEET_HOURLY_SYNC_MS = 60 * 60 * 1000;
+const ALL_COUPONS_PAGE_SIZE = 75;
+const ENTRY_PAGE_SIZE = 60;
+const CHECKIN_PAGE_SIZE = 100;
 
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
+let currentEntryPage = 1;
+let currentCheckinPage = 1;
 let isEditing = false;
 let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
@@ -72,7 +77,6 @@ const SEVA_TYPES = [
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
-  renderSelectors(); // ✅ ADD THIS
   render();
   configureHourlySheetSync();
 
@@ -311,7 +315,7 @@ function cacheElements() {
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
-    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
+    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPagination", "checkinPrintBtn",
     "checkinActionHeader"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
@@ -450,17 +454,35 @@ function bindEvents() {
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
-  els.entryDevotee.addEventListener("change", renderEntryList);
-  els.entrySearch.addEventListener("input", renderEntryList);
-  els.entryStatus.addEventListener("change", renderEntryList);
+  let entrySearchDebounce;
+  els.entryDevotee.addEventListener("change", () => {
+    currentEntryPage = 1;
+    renderEntryList();
+  });
+  els.entrySearch.addEventListener("input", () => {
+    clearTimeout(entrySearchDebounce);
+    entrySearchDebounce = setTimeout(() => {
+      currentEntryPage = 1;
+      renderEntryList();
+    }, 150);
+  });
+  els.entryStatus.addEventListener("change", () => {
+    currentEntryPage = 1;
+    renderEntryList();
+  });
   let searchDebounce;
   els.allSearch.addEventListener("input", () => {
     clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => { currentPage = 1; renderAllCoupons(); renderPagination(); }, 200);
+    searchDebounce = setTimeout(() => {
+      selectedCouponsForSettle.clear();
+      currentPage = 1;
+      renderAllCoupons();
+      renderPagination();
+    }, 200);
   });
-  els.allStatus.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
-  els.allSevaFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
-  els.allPaymentFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
+  els.allStatus.addEventListener("change", resetAllCouponsView);
+  els.allSevaFilter.addEventListener("change", resetAllCouponsView);
+  els.allPaymentFilter.addEventListener("change", resetAllCouponsView);
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
@@ -469,6 +491,10 @@ function bindEvents() {
   if (els.batchSettleBtn) els.batchSettleBtn.addEventListener("click", batchSettle);
   if (els.selectAllSettle) els.selectAllSettle.addEventListener("change", (e) => toggleSelectAll(e.target));
   if (els.selectAllSettleHead) els.selectAllSettleHead.addEventListener("change", (e) => toggleSelectAll(e.target));
+  if (els.allCouponsBody) {
+    els.allCouponsBody.addEventListener("click", handleAllCouponsTableClick);
+    els.allCouponsBody.addEventListener("change", handleAllCouponsTableChange);
+  }
   document.querySelectorAll(".sortable").forEach(th => {
     th.addEventListener("click", () => sortTable(th.dataset.sort));
   });
@@ -476,9 +502,7 @@ function bindEvents() {
     els.scrollTopBtn.classList.toggle("visible", window.scrollY > 400);
   });
   els.allDevoteeFilter.addEventListener("change", () => {
-    currentPage = 1;
-    renderAllCoupons();
-    renderPagination();
+    resetAllCouponsView();
     updateDevoteePendingDisplay();
   });
 
@@ -487,15 +511,20 @@ function bindEvents() {
   });
   els.checkinBtn.addEventListener("click", handleCheckin);
   els.checkinUndoBtn.addEventListener("click", handleUndoCheckin);
-  els.checkinDevoteeFilter.addEventListener("change", renderCheckinReport);
-  els.checkinSevaFilter.addEventListener("change", renderCheckinReport);
-  els.checkinStatusFilter.addEventListener("change", renderCheckinReport);
-  els.checkinSearch.addEventListener("input", renderCheckinReport);
+  els.checkinDevoteeFilter.addEventListener("change", resetCheckinReport);
+  els.checkinSevaFilter.addEventListener("change", resetCheckinReport);
+  els.checkinStatusFilter.addEventListener("change", resetCheckinReport);
+  let checkinSearchDebounce;
+  els.checkinSearch.addEventListener("input", () => {
+    clearTimeout(checkinSearchDebounce);
+    checkinSearchDebounce = setTimeout(resetCheckinReport, 150);
+  });
   els.checkinPrintBtn.addEventListener("click", () => window.print());
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
       activeDevoteeTab = tab.dataset.devoteeTab;
+      currentEntryPage = 1;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
       renderView();
@@ -511,6 +540,43 @@ function bindEvents() {
     });
   });
 
+}
+
+function resetAllCouponsView() {
+  selectedCouponsForSettle.clear();
+  currentPage = 1;
+  renderAllCoupons();
+  renderPagination();
+}
+
+function resetCheckinReport() {
+  currentCheckinPage = 1;
+  renderCheckinReport();
+}
+
+function handleAllCouponsTableClick(event) {
+  const settlementButton = event.target.closest("[data-settlement]");
+  if (settlementButton) {
+    toggleSettlement({ currentTarget: settlementButton });
+    return;
+  }
+
+  const whatsappButton = event.target.closest("[data-wa-coupon]");
+  if (whatsappButton) {
+    const coupon = state.coupons[Number(whatsappButton.dataset.waCoupon) - 1];
+    openWhatsAppForBuyer(coupon);
+  }
+}
+
+function handleAllCouponsTableChange(event) {
+  const checkbox = event.target.closest(".coupon-check");
+  if (!checkbox) return;
+
+  const num = Number(checkbox.dataset.check);
+  if (checkbox.checked) selectedCouponsForSettle.add(num);
+  else selectedCouponsForSettle.delete(num);
+  checkbox.closest("tr")?.classList.toggle("selected-row", checkbox.checked);
+  updateBulkSettleUi();
 }
 
 function activateView(viewId) {
@@ -553,6 +619,7 @@ function login(event) {
   }
 
   els.loginForm.reset();
+  activateView("adminView");
   render();
 }
 
@@ -872,24 +939,24 @@ function render() {
 
   const view = activeView();
 
-  if (view === "adminView" || !view) {
+  if (view === "adminView") {
     renderDevotees();
     renderSevaSummary();
+    if (activeAdminTab === "reset") renderResetCouponList();
   }
-  renderResetCouponList();
 
-  if (view === "devoteeView" || !view) {
+  if (view === "devoteeView") {
     renderEntryList();
   }
-  if (view === "allCouponsView" || !view) {
+  if (view === "allCouponsView") {
     renderAllCoupons();
     renderPagination();
   }
-  if (view === "checkinView" || !view) {
+  if (view === "checkinView") {
     renderCheckinView();
   }
   updateAdminView();
-  loadInvitationTemplate(); // ✅ populate textarea from saved state
+  loadInvitationTemplate();
 
   const topStats = document.querySelector(".stats-grid");
 
@@ -907,19 +974,15 @@ function renderView() {
   applyRoleAccess();
   renderStats();
 
-  if (view === "adminView" || !view) {
+  if (view === "adminView") {
     renderDevotees();
     renderSevaSummary();
-  }
-
-  if (view === "devoteeView") {
+  } else if (view === "devoteeView") {
     renderEntryList();
-  }
-  if (view === "allCouponsView") {
+  } else if (view === "allCouponsView") {
     renderAllCoupons();
     renderPagination();
-  }
-  if (view === "checkinView") {
+  } else if (view === "checkinView") {
     renderCheckinView();
   }
 
@@ -1108,8 +1171,6 @@ function renderStats() {
 }
 
 function renderDevotees() {
-
-  // 🔒 Prevent devotees from seeing admin dashboard
   if (session?.role === "devotee") {
     if (els.devoteeList) els.devoteeList.innerHTML = "";
     return;
@@ -1123,334 +1184,145 @@ function renderDevotees() {
     return true;
   });
 
-  // ✅ SORT DEVOTEES BY NAME (ASCENDING)
-  devotees.sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  devotees.sort((a, b) => a.name.localeCompare(b.name));
 
-  // ✅ HUNDI PERIOD TOTAL
   const hundiPeriod = (state.hundi || [])
     .filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period))
     .reduce((sum, h) => sum + h.amount, 0);
 
-  // ✅ COUPON PERIOD TOTAL
   const periodTotal = state.coupons
-    .filter((coupon) =>
-      coupon.settled &&
-      inSettlementPeriod(coupon, period)
-    )
-    .reduce((sum, coupon) =>
-      sum + amountValue(coupon.amount), 0
-    ) + hundiPeriod;
+    .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
+    .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0) + hundiPeriod;
 
-  els.adminPeriodSummary.textContent =
-    `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
+  els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
-  // ✅ EMPTY STATE
   if (!devotees.length) {
-    els.devoteeList.innerHTML =
-      `<div class="empty">No devotees found.</div>`;
+    els.devoteeList.innerHTML = `<div class="empty">No devotees found.</div>`;
     return;
   }
 
-  // ✅ RENDER DEVOTEES
   els.devoteeList.innerHTML = devotees.map((devotee) => {
-
     const summary = devoteeSummary(devotee.id, period);
-
     const assigned = couponsForDevotee(devotee.id);
-
-    const ranges = summarizeCouponRanges(
-      assigned.map((coupon) => coupon.number)
-    );
+    const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
 
     return `
-      <article class="devotee-row">
-
+      <article class="devotee-row" data-devotee-id="${escapeAttr(devotee.id)}">
         <div>
           <strong>
             ${escapeHtml(devotee.name)}
-            <span class="pin-mask" title="Click to reveal PIN" data-pin="${escapeAttr(devotee.pin || '')}">
+            <span class="pin-mask" data-pin="${escapeAttr(devotee.pin || '')}">
               ${devotee.pin ? '••••' : 'No PIN'}
             </span>
           </strong>
-
-          <span class="small-stat">
-            ${escapeHtml(devotee.contact || "No contact number")}
-          </span>
-
-          <div>
-            ${ranges.map((range) =>
-      `<span class="coupon-pill">${range}</span>`
-    ).join("")
-      ||
-      '<span class="small-stat">No coupons assigned</span>'
-      }
-          </div>
+          <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
+          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
         </div>
-
-        <span>
-          <strong>${summary.issued}</strong>
-          <span class="small-stat"> issued</span>
-        </span>
-
-        <span>
-          <strong>${summary.sold}</strong>
-          <span class="small-stat"> sold</span>
-        </span>
-
-        <span>
-          <strong>${summary.left}</strong>
-          <span class="small-stat"> left</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.settledAmount)}</strong>
-          <span class="small-stat"> coupons</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.hundiAmount || 0)}</strong>
-          <span class="small-stat"> hundi</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.totalSettledAmount)}</strong>
-          <span class="small-stat"> total settled</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.templeTransferAmount || 0)}</strong>
-          <span class="small-stat"> temple transfer</span>
-        </span>
-
-        <span>
-          <strong>${formatMoney(summary.pendingAmount)}</strong>
-          <span class="small-stat"> pending</span>
-        </span>
-
+        <span><strong>${summary.issued}</strong> <span class="small-stat">issued</span></span>
+        <span><strong>${summary.sold}</strong> <span class="small-stat">sold</span></span>
+        <span><strong>${summary.left}</strong> <span class="small-stat">left</span></span>
+        <span><strong>${formatMoney(summary.settledAmount)}</strong> <span class="small-stat">coupons</span></span>
+        <span><strong>${formatMoney(summary.hundiAmount || 0)}</strong> <span class="small-stat">hundi</span></span>
+        <span><strong>${formatMoney(summary.totalSettledAmount)}</strong> <span class="small-stat">total</span></span>
+        <span><strong>${formatMoney(summary.templeTransferAmount || 0)}</strong> <span class="small-stat">transfer</span></span>
+        <span><strong>${formatMoney(summary.pendingAmount)}</strong> <span class="small-stat">pending</span></span>
         ${session?.role === "viewer" ? "" : `
-        <label class="checkbox-line can-checkin-toggle" title="Allow this devotee to mark attendance on event day">
-          <input type="checkbox" data-can-checkin="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}>
-          Check-in
+        <label class="checkbox-line can-checkin-toggle">
+          <input type="checkbox" data-action="can-checkin" value="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}> Check-in
         </label>
-        <button
-          class="ghost"
-          type="button"
-          data-set-password="${escapeAttr(devotee.id)}">
-          Set Password
-        </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-send-whatsapp="${escapeAttr(devotee.id)}">
-          WhatsApp
-        </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-update-contact="${escapeAttr(devotee.id)}">
-          Update Contact
-        </button>
-
-        <button
-          class="danger"
-          data-delete-devotee="${escapeAttr(devotee.id)}">
-          Delete
-        </button>
-
-        <button
-          class="ghost"
-          type="button"
-          data-open-devotee="${escapeAttr(devotee.id)}">
-          Open
-        </button>
+        <button class="ghost" type="button" data-action="set-password" value="${escapeAttr(devotee.id)}">Password</button>
+        <button class="ghost" type="button" data-action="send-whatsapp" value="${escapeAttr(devotee.id)}">WhatsApp</button>
+        <button class="ghost" type="button" data-action="update-contact" value="${escapeAttr(devotee.id)}">Contact</button>
+        <button class="danger" type="button" data-action="delete-devotee" value="${escapeAttr(devotee.id)}">Delete</button>
+        <button class="ghost" type="button" data-action="open-devotee" value="${escapeAttr(devotee.id)}">Open</button>
         `}
-
-      </article>
-    `;
-
+      </article>`;
   }).join("");
 
-  // ✅ PIN REVEAL ON CLICK
-  els.devoteeList.querySelectorAll(".pin-mask")
-    .forEach((span) => {
-      let revealed = false;
-      span.addEventListener("click", () => {
-        revealed = !revealed;
-        span.textContent = revealed
-          ? (span.dataset.pin || 'Not set')
-          : (span.dataset.pin ? '••••' : 'No PIN');
-        span.title = revealed ? 'Click to hide PIN' : 'Click to reveal PIN';
-      });
+  // Single event delegation listener
+  if (!els.devoteeList.dataset.hasListener) {
+    els.devoteeList.dataset.hasListener = "1";
+    els.devoteeList.addEventListener("click", (e) => {
+      const actionBtn = e.target.closest("[data-action]");
+      if (actionBtn) {
+        handleDevoteeAction(actionBtn.dataset.action, actionBtn.value, actionBtn);
+        return;
+      }
+      const pinMask = e.target.closest(".pin-mask");
+      if (pinMask) {
+        const revealed = pinMask.dataset.revealed === "1";
+        pinMask.dataset.revealed = revealed ? "0" : "1";
+        pinMask.textContent = revealed
+          ? (pinMask.dataset.pin ? '••••' : 'No PIN')
+          : (pinMask.dataset.pin || 'Not set');
+        pinMask.title = revealed ? 'Click to reveal PIN' : 'Click to hide PIN';
+      }
     });
-
-  // ✅ OPEN DEVOTEE
-  els.devoteeList.querySelectorAll("[data-open-devotee]")
-    .forEach((button) => {
-
-      button.addEventListener("click", () => {
-
-        els.entryDevotee.value = button.dataset.openDevotee;
-
-        document
-          .querySelector('[data-view="devoteeView"]')
-          .click();
-      });
-    });
-
-  // ✅ CAN CHECK-IN TOGGLE
-  els.devoteeList.querySelectorAll("[data-can-checkin]")
-    .forEach((checkbox) => {
-      checkbox.addEventListener("change", () => {
-        const devotee = state.devotees.find(
-          (item) => item.id === checkbox.dataset.canCheckin
-        );
+    els.devoteeList.addEventListener("change", (e) => {
+      const checkinCb = e.target.closest("[data-action='can-checkin']");
+      if (checkinCb) {
+        const devotee = state.devotees.find((d) => d.id === checkinCb.value);
         if (!devotee) return;
-        devotee.canCheckin = checkbox.checked;
+        devotee.canCheckin = checkinCb.checked;
         saveState();
-        showToast(`${devotee.name} check-in ${checkbox.checked ? "enabled" : "disabled"}`);
-      });
+        showToast(`${devotee.name} check-in ${checkinCb.checked ? "enabled" : "disabled"}`);
+      }
     });
+  }
+}
 
-  // ✅ SET PASSWORD
-  els.devoteeList.querySelectorAll("[data-set-password]")
-    .forEach((button) => {
+function handleDevoteeAction(action, value, btn) {
+  const devotee = state.devotees.find((d) => d.id === value);
+  if (!devotee) return;
 
-      button.addEventListener("click", () => {
+  if (action === "open-devotee") {
+    els.entryDevotee.value = value;
+    document.querySelector('[data-view="devoteeView"]').click();
+    return;
+  }
 
-        const devotee = state.devotees.find(
-          (item) => item.id === button.dataset.setPassword
-        );
+  if (action === "delete-devotee") {
+    deleteDevotee(value);
+    return;
+  }
 
-        if (!devotee) return;
+  if (action === "set-password") {
+    const password = window.prompt(`Enter new password for ${devotee.name}`);
+    if (password === null || password.trim().length < 4) {
+      if (password !== null) showToast("Use at least 4 characters");
+      return;
+    }
+    devotee.pin = password.trim();
+    saveState();
+    renderDevotees();
+    renderSelectors();
+    showToast(`Password updated for ${devotee.name}`);
+    return;
+  }
 
-        const password = window.prompt(
-          `Enter new password for ${devotee.name}`
-        );
+  if (action === "update-contact") {
+    const newContact = window.prompt(`Enter new contact for ${devotee.name}`, devotee.contact || "");
+    if (newContact === null) return;
+    const cleaned = cleanIndianMobile(newContact);
+    if (!cleaned) { showToast("Enter valid 10-digit mobile number"); return; }
+    devotee.contact = cleaned;
+    saveState();
+    render();
+    showToast(`Contact updated for ${devotee.name}`);
+    return;
+  }
 
-        if (password === null) return;
-
-        if (password.trim().length < 4) {
-          showToast("Use at least 4 characters");
-          return;
-        }
-
-        devotee.pin = password.trim();
-
-        saveState();
-        renderDevotees();
-        renderSelectors();
-
-        showToast(`Password updated for ${devotee.name}`);
-      });
-    });
-
-  // ✅ WHATSAPP
-  els.devoteeList.querySelectorAll("[data-send-whatsapp]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-
-        const devotee = state.devotees.find(
-          d => d.id === btn.dataset.sendWhatsapp
-        );
-
-        if (!devotee) return;
-
-        const period = settlementPeriod();
-
-        const summary = devoteeSummary(devotee.id, period);
-
-        const assigned = couponsForDevotee(devotee.id).length;
-
-        const message =
-          `Hare Krishna 🙏
-
-${devotee.name},
-
-Here is your seva summary:
-
-🔐 PIN: ${devotee.pin || "Not set"}
-
-🎟 Coupons Assigned: ${assigned}
-🟢 Sold Coupons: ${summary.sold}
-🟡 Pending Coupons: ${summary.left}
-
-💰 Amount Settled: ${formatMoney(summary.settledAmount)}
-⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}
-
-Please continue your seva enthusiastically 🙏
-
-Use the following link to update your coupons:
-https://vikram34it.github.io/coupons-tracker/
-`;
-
-        const phone = (devotee.contact || "")
-          .replace(/\D/g, "");
-
-        if (!phone) {
-          showToast("No contact number for this devotee");
-          return;
-        }
-
-        const url = buildWhatsAppUrl(phone, message);
-        if (!url) {
-          showToast("Enter valid contact number for this devotee");
-          return;
-        }
-
-        window.open(url, "_blank");
-
-      });
-    });
-
-  // ✅ UPDATE CONTACT
-  els.devoteeList.querySelectorAll("[data-update-contact]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-
-        const devotee = state.devotees.find(
-          d => d.id === btn.dataset.updateContact
-        );
-
-        if (!devotee) return;
-
-        const newContact = window.prompt(
-          `Enter new contact for ${devotee.name}`,
-          devotee.contact || ""
-        );
-
-        if (newContact === null) return;
-
-        const cleaned = cleanIndianMobile(newContact);
-
-        if (!cleaned) {
-          showToast("Enter valid 10-digit mobile number");
-          return;
-        }
-
-        devotee.contact = cleaned;
-
-        saveState();
-        render();
-
-        showToast(`Contact updated for ${devotee.name}`);
-      });
-    });
-
-  // ✅ DELETE DEVOTEE
-  els.devoteeList.querySelectorAll("[data-delete-devotee]")
-    .forEach(btn => {
-
-      btn.addEventListener("click", () => {
-        deleteDevotee(btn.dataset.deleteDevotee);
-      });
-
-    });
+  if (action === "send-whatsapp") {
+    const period = settlementPeriod();
+    const summary = devoteeSummary(devotee.id, period);
+    const assigned = couponsForDevotee(devotee.id).length;
+    const message = `Hare Krishna 🙏\n\n${devotee.name},\n\nHere is your seva summary:\n\n🔐 PIN: ${devotee.pin || "Not set"}\n\n🎟 Coupons Assigned: ${assigned}\n🟢 Sold Coupons: ${summary.sold}\n🟡 Pending Coupons: ${summary.left}\n\n💰 Amount Settled: ${formatMoney(summary.settledAmount)}\n⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}\n\nPlease continue your seva enthusiastically 🙏\n\nUse the following link to update your coupons:\nhttps://vikram34it.github.io/coupons-tracker/`;
+    const phone = (devotee.contact || "").replace(/\D/g, "");
+    if (!phone) { showToast("No contact number for this devotee"); return; }
+    const url = buildWhatsAppUrl(phone, message);
+    if (!url) { showToast("Enter valid contact number for this devotee"); return; }
+    window.open(url, "_blank");
+  }
 }
 
 function deleteDevotee(devoteeId) {
@@ -1766,7 +1638,12 @@ function renderEntryList() {
     return;
   }
 
-  els.entryList.innerHTML = coupons.map((coupon) => {
+  const totalPages = Math.max(1, Math.ceil(coupons.length / ENTRY_PAGE_SIZE));
+  currentEntryPage = Math.max(1, Math.min(currentEntryPage, totalPages));
+  const pageStart = (currentEntryPage - 1) * ENTRY_PAGE_SIZE;
+  const visibleCoupons = coupons.slice(pageStart, pageStart + ENTRY_PAGE_SIZE);
+
+  els.entryList.innerHTML = visibleCoupons.map((coupon) => {
     const locked = session?.role === "viewer" || (session?.role === "devotee" && coupon.settled) ? "disabled" : "";
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
@@ -1812,7 +1689,12 @@ function renderEntryList() {
         </div>
       </article>
     `;
-  }).join("");
+  }).join("") + buildPaginationHtml(
+    coupons.length,
+    currentEntryPage,
+    ENTRY_PAGE_SIZE,
+    "goToEntryPage"
+  );
 
   els.entryList.querySelectorAll("[data-field]").forEach((field) => {
     // ✅ FIX: Use 'input' for text inputs (real-time), 'change' only for <select>
@@ -1844,7 +1726,6 @@ function renderAllCoupons() {
   if (els.bulkSettleBar) els.bulkSettleBar.style.display = isAdmin ? "flex" : "none";
   if (els.bulkSettleTh) els.bulkSettleTh.style.display = isAdmin ? "" : "none";
 
-  selectedCouponsForSettle.clear();
   updateBulkSettleUi();
 
   const devoteeFilter = els.allDevoteeFilter?.value;
@@ -1862,7 +1743,7 @@ function renderAllCoupons() {
         if (status === "assigned" && !c.devoteeId) return false;
         if (status === "sold" && !isSold(c)) return false;
         if (status === "settled" && !c.settled) return false;
-        if (status === "unsettled" && (!c.devoteeId || c.settled)) return false;
+        if (status === "unsettled" && (!c.devoteeId || !isSold(c) || c.settled)) return false;
         if (status === "sold_unsettled" && (!c.devoteeId || !isSold(c) || c.settled || amountValue(c.amount) <= 0)) return false;
       }
       if (hasDevFilter && c.devoteeId !== devoteeFilter) return false;
@@ -1896,7 +1777,17 @@ function renderAllCoupons() {
     els.allCouponCount.textContent = `${label}: ${coupons.length.toLocaleString("en-IN")}`;
   }
 
-  els.allCouponsBody.innerHTML = couponDataCache.map((coupon) => {
+  const totalPages = Math.max(1, Math.ceil(couponDataCache.length / ALL_COUPONS_PAGE_SIZE));
+  currentPage = Math.max(1, Math.min(currentPage, totalPages));
+  const pageStart = (currentPage - 1) * ALL_COUPONS_PAGE_SIZE;
+  const visibleCoupons = couponDataCache.slice(pageStart, pageStart + ALL_COUPONS_PAGE_SIZE);
+
+  if (!visibleCoupons.length) {
+    els.allCouponsBody.innerHTML = `<tr><td colspan="${isAdmin ? 14 : 13}"><div class="empty">No coupons match the filters.</div></td></tr>`;
+    return;
+  }
+
+  els.allCouponsBody.innerHTML = visibleCoupons.map((coupon) => {
     const isViewer = session?.role === "viewer";
     const checked = selectedCouponsForSettle.has(coupon.number);
     return `
@@ -1934,27 +1825,6 @@ function renderAllCoupons() {
   `;
   }).join("");
 
-  els.allCouponsBody.querySelectorAll("[data-settlement]").forEach((button) => {
-    button.addEventListener("click", toggleSettlement);
-  });
-
-  // Wire up WhatsApp send buttons in All Coupons table (admin)
-  els.allCouponsBody.querySelectorAll("[data-wa-coupon]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
-      openWhatsAppForBuyer(coupon);
-    });
-  });
-
-  els.allCouponsBody.querySelectorAll(".coupon-check").forEach(cb => {
-    cb.addEventListener("change", () => {
-      const num = Number(cb.dataset.check);
-      if (cb.checked) selectedCouponsForSettle.add(num);
-      else selectedCouponsForSettle.delete(num);
-      cb.closest("tr")?.classList.toggle("selected-row", cb.checked);
-      updateBulkSettleUi();
-    });
-  });
 }
 
 let currentSortColumn = null;
@@ -2034,8 +1904,6 @@ function batchSettle() {
 
   showToast(`Settled ${unsettled.length} coupons`);
 }
-const PAGE_SIZE = 50;
-
 function toggleSettlement(event) {
 
   if (session?.role !== "admin") {
@@ -2114,7 +1982,7 @@ function updateCouponField(event) {
   coupon[field.dataset.field] = field.value.trimStart();
 
   if (!coupon.soldAt && isSold(coupon)) {
-    coupon.soldAt = new Date().toISOString();
+    coupon.soldAt = todayKey();
   }
   markCouponUpdated(coupon);
   pendingLocalCouponNumbers.add(coupon.number);
@@ -3265,15 +3133,54 @@ function sortTable(column) {
 // ═══════════════════════════════════════════════
 
 function renderPagination() {
-  if (els.allPagination) els.allPagination.innerHTML = "";
+  if (!els.allPagination) return;
+  els.allPagination.innerHTML = buildPaginationHtml(
+    couponDataCache.length,
+    currentPage,
+    ALL_COUPONS_PAGE_SIZE,
+    "goToPage"
+  );
 }
 
 function goToPage(page) {
-  const totalPages = Math.ceil(couponDataCache.length / PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(couponDataCache.length / ALL_COUPONS_PAGE_SIZE));
   currentPage = Math.max(1, Math.min(page, totalPages));
   renderAllCoupons();
   renderPagination();
   els.allCouponsBody.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function goToEntryPage(page) {
+  currentEntryPage = Math.max(1, Number(page) || 1);
+  renderEntryList();
+  els.entryList?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function buildPaginationHtml(totalItems, current, pageSize, callbackName) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  if (totalPages <= 1) return "";
+
+  const pages = new Set([1, totalPages, current - 1, current, current + 1]);
+  const sortedPages = [...pages]
+    .filter(page => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+
+  let lastPage = 0;
+  const pageButtons = sortedPages.map((page) => {
+    const gap = page - lastPage > 1 ? `<span class="page-gap">...</span>` : "";
+    lastPage = page;
+    return `${gap}<button type="button" class="${page === current ? "active-page" : ""}" onclick="${callbackName}(${page})">${page}</button>`;
+  }).join("");
+
+  const firstItem = (current - 1) * pageSize + 1;
+  const lastItem = Math.min(totalItems, current * pageSize);
+
+  return `
+    <button type="button" onclick="${callbackName}(${current - 1})" ${current === 1 ? "disabled" : ""}>Prev</button>
+    ${pageButtons}
+    <button type="button" onclick="${callbackName}(${current + 1})" ${current === totalPages ? "disabled" : ""}>Next</button>
+    <span class="page-info">${firstItem.toLocaleString("en-IN")}-${lastItem.toLocaleString("en-IN")} of ${totalItems.toLocaleString("en-IN")}</span>
+  `;
 }
 
 // ═══════════════════════════════════════════════
@@ -3297,8 +3204,8 @@ function renderCheckinView() {
   els.checkinResult.classList.toggle("hidden", !canCheckin);
   if (els.checkinActionHeader) els.checkinActionHeader.classList.toggle("hidden", !canCheckin);
   renderCheckinStats();
-  renderCheckinReport();
   populateCheckinFilters();
+  renderCheckinReport();
   els.checkinInput.value = "";
   if (canCheckin) els.checkinInput.focus();
   els.checkinResult.className = "checkin-result";
@@ -3308,12 +3215,19 @@ function renderCheckinView() {
 }
 
 function populateCheckinFilters() {
+  const currentDevotee = els.checkinDevoteeFilter.value || "all";
+  const currentSeva = els.checkinSevaFilter.value || "all";
   const sorted = [...state.devotees].sort((a, b) => a.name.localeCompare(b.name));
   els.checkinDevoteeFilter.innerHTML = '<option value="all">All Devotees</option>' +
     sorted.map(d => `<option value="${escapeAttr(d.id)}">${escapeHtml(d.name)}</option>`).join("");
 
   els.checkinSevaFilter.innerHTML = '<option value="all">All Seva Types</option>' +
     SEVA_TYPES.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
+
+  els.checkinDevoteeFilter.value = currentDevotee;
+  if (els.checkinDevoteeFilter.value !== currentDevotee) els.checkinDevoteeFilter.value = "all";
+  els.checkinSevaFilter.value = currentSeva;
+  if (els.checkinSevaFilter.value !== currentSeva) els.checkinSevaFilter.value = "all";
 }
 
 function handleCheckin() {
@@ -3422,8 +3336,12 @@ function renderCheckinReport() {
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
 
   const canCheckin = canCurrentUserCheckin();
+  const totalPages = Math.max(1, Math.ceil(coupons.length / CHECKIN_PAGE_SIZE));
+  currentCheckinPage = Math.max(1, Math.min(currentCheckinPage, totalPages));
+  const pageStart = (currentCheckinPage - 1) * CHECKIN_PAGE_SIZE;
+  const visibleCoupons = coupons.slice(pageStart, pageStart + CHECKIN_PAGE_SIZE);
 
-  els.checkinReportBody.innerHTML = coupons.map(c => {
+  els.checkinReportBody.innerHTML = visibleCoupons.map(c => {
     const attended = c.attended;
     return `
       <tr>
@@ -3444,6 +3362,15 @@ function renderCheckinReport() {
       </tr>
     `;
   }).join("") || '<tr><td colspan="8"><div class="empty">No coupons match the filters.</div></td></tr>';
+
+  if (els.checkinPagination) {
+    els.checkinPagination.innerHTML = buildPaginationHtml(
+      coupons.length,
+      currentCheckinPage,
+      CHECKIN_PAGE_SIZE,
+      "goToCheckinPage"
+    );
+  }
 }
 
 function checkinFromReport(num) {
@@ -3454,6 +3381,12 @@ function checkinFromReport(num) {
 function undoCheckinFromReport(num) {
   lastCheckinNumber = num;
   handleUndoCheckin();
+}
+
+function goToCheckinPage(page) {
+  currentCheckinPage = Math.max(1, Number(page) || 1);
+  renderCheckinReport();
+  els.checkinReportBody?.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // ═══════════════════════════════════════════════
