@@ -248,7 +248,7 @@
             Apps Script Web App URL
             <input id="sheetWebhookUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
           </label>
-          <div class="inline-fields" style="align-items:center">
+          <div class="inline-fields flex-center">
             <button type="submit">Save Sheet Settings</button>
             <button id="sheetSyncNowBtn" type="button" class="ghost">Update Now</button>
           </div>
@@ -267,7 +267,7 @@
 
         <form id="viewerPasswordForm" class="panel">
           <h2>Viewer Password</h2>
-          <p class="hint" style="margin-bottom:8px">Viewer can see the admin dashboard and all coupons but cannot edit
+          <p class="hint mb-sm">Viewer can see the admin dashboard and all coupons but cannot edit
             anything.</p>
           <label>
             New Password
@@ -276,9 +276,9 @@
           <button type="submit">Set Viewer Password</button>
         </form>
 
-        <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
+        <form id="invitationForm" class="panel full-width">
           <h2>📲 WhatsApp Invitation Template</h2>
-          <p class="hint" style="margin-bottom:12px">Write the message devotees will send to their buyers. Use
+          <p class="hint mb-md">Write the message devotees will send to their buyers. Use
             <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong>
             for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
           <label>
@@ -286,11 +286,10 @@
             <textarea id="invitationMessageInput" rows="8"
               placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to our seva event..."></textarea>
           </label>
-          <div class="inline-fields" style="align-items:center">
+          <div class="inline-fields flex-center">
             <button type="submit">Save Template</button>
             <button type="button" id="previewInvitationBtn" class="ghost">Preview</button>
-            <span id="invitationSavedBadge" class="hidden user-badge"
-              style="background:#e6f4ec;border-color:#a8d8be;color:#1e7a45">✓ Saved</span>
+            <span id="invitationSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
           </div>
         </form>
       </div>
@@ -348,7 +347,7 @@
           </section>
           <div id="devoteeList" class="devotee-list"></div>
         </section>
-        <section class="panel" style="margin-top:16px">
+        <section class="panel mt-md">
         </section>
       </div>
     </section>
@@ -412,12 +411,12 @@
             <span id="allCouponCount" class="small-stat">
               Coupons: 0
             </span>
-            <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
+            <span id="devoteePendingDisplay" class="small-stat ml-sm">
               Pending: ₹0
             </span>
           </div>
         </div>
-        <div id="bulkSettleBar" class="bulk-settle-bar no-print" style="display:none">
+        <div id="bulkSettleBar" class="bulk-settle-bar no-print init-hidden">
           <label class="bulk-check-label">
             <input type="checkbox" id="selectAllSettle"> Select All
           </label>
@@ -428,7 +427,7 @@
           <table>
             <thead>
               <tr>
-                <th id="bulkSettleTh" style="display:none"><input type="checkbox" id="selectAllSettleHead"></th>
+                <th id="bulkSettleTh" class="init-hidden"><input type="checkbox" id="selectAllSettleHead"></th>
                 <th class="sortable" data-sort="number">Coupon</th>
                 <th class="sortable" data-sort="devotee">Assigned To</th>
                 <th class="sortable" data-sort="buyerName">Buyer</th>
@@ -444,7 +443,9 @@
                 <th class="sortable" data-sort="settledAt">Settled Date</th>
               </tr>
             </thead>
-            <tbody id="allCouponsBody"></tbody>
+            <tbody id="allCouponsBody">
+              <tr class="skeleton-row"><td colspan="14"><div class="skeleton">Loading</div></td></tr>
+            </tbody>
           </table>
         </div>
         <div id="allPagination" class="pagination no-print"></div>
@@ -460,7 +461,7 @@
         <div class="checkin-scanner">
           <input id="checkinInput" type="number" min="1" placeholder="Enter coupon number..." autofocus>
           <button id="checkinBtn" type="button" class="primary">Check In</button>
-          <button id="checkinUndoBtn" type="button" class="ghost" style="display:none">Undo</button>
+          <button id="checkinUndoBtn" type="button" class="ghost init-hidden">Undo</button>
         </div>
         <div id="checkinResult" class="checkin-result"></div>
         <div class="stats-grid compact-stats checkin-stats">
@@ -469,7 +470,7 @@
           <article><span>Pending</span><strong id="checkinPending">0</strong></article>
         </div>
       </section>
-      <section class="panel" style="margin-top:16px">
+      <section class="panel mt-md">
         <div class="section-head">
           <h2>Attendance Report</h2>
           <div class="entry-controls compact">
@@ -480,7 +481,7 @@
               <option value="checked_in">Checked In</option>
               <option value="not_checked_in">Not Checked In</option>
             </select>
-            <input id="checkinSearch" type="search" placeholder="Search coupon #" style="max-width:140px">
+            <input id="checkinSearch" type="search" placeholder="Search coupon #" class="input-sm">
             <span id="checkinCount" class="small-stat">Coupons: 0</span>
             <button id="checkinPrintBtn" type="button" class="ghost no-print" title="Print attendance report">🖨️ Print</button>
           </div>
