@@ -2737,6 +2737,32 @@ body.dark-mode tr.selected-row td {
   font-size: 12px;
 }
 
+#couponJump {
+  width: 80px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.copy-contact {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--line-dark);
+  transition: border-color var(--transition);
+}
+
+.copy-contact:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@keyframes highlightFade {
+  0% { background: rgba(124, 58, 237, 0.15); }
+  100% { background: transparent; }
+}
+
+.highlight-row {
+  animation: highlightFade 2.5s ease-out;
+}
+
 .attended-badge.missed {
   background: var(--warning-light);
   color: var(--warning);

@@ -312,7 +312,7 @@ function cacheElements() {
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "couponJump",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPagination", "checkinPrintBtn",
@@ -506,6 +506,10 @@ function bindEvents() {
     updateDevoteePendingDisplay();
   });
 
+  els.couponJump.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleCouponJump();
+  });
+
   els.checkinInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") handleCheckin();
   });
@@ -520,6 +524,15 @@ function bindEvents() {
     checkinSearchDebounce = setTimeout(resetCheckinReport, 150);
   });
   els.checkinPrintBtn.addEventListener("click", () => window.print());
+  els.checkinReportBody.addEventListener("click", (e) => {
+    const copyEl = e.target.closest("[data-copy]");
+    if (copyEl) {
+      const text = copyEl.dataset.copy;
+      if (text) {
+        navigator.clipboard.writeText(text).then(() => showToast("Copied: " + text)).catch(() => showToast("Could not copy to clipboard"));
+      }
+    }
+  });
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -565,6 +578,19 @@ function handleAllCouponsTableClick(event) {
   if (whatsappButton) {
     const coupon = state.coupons[Number(whatsappButton.dataset.waCoupon) - 1];
     openWhatsAppForBuyer(coupon);
+    return;
+  }
+
+  const copyEl = event.target.closest("[data-copy]");
+  if (copyEl) {
+    const text = copyEl.dataset.copy;
+    if (text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied: " + text);
+      }).catch(() => {
+        showToast("Could not copy to clipboard");
+      });
+    }
   }
 }
 
@@ -1230,6 +1256,7 @@ function renderDevotees() {
         <label class="checkbox-line can-checkin-toggle">
           <input type="checkbox" data-action="can-checkin" value="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}> Check-in
         </label>
+        <button class="ghost" type="button" data-action="edit-name" value="${escapeAttr(devotee.id)}" title="Edit devotee name">Rename</button>
         <button class="ghost" type="button" data-action="set-password" value="${escapeAttr(devotee.id)}">Password</button>
         <button class="ghost" type="button" data-action="send-whatsapp" value="${escapeAttr(devotee.id)}">WhatsApp</button>
         <button class="ghost" type="button" data-action="update-contact" value="${escapeAttr(devotee.id)}">Contact</button>
@@ -1283,6 +1310,20 @@ function handleDevoteeAction(action, value, btn) {
 
   if (action === "delete-devotee") {
     deleteDevotee(value);
+    return;
+  }
+
+  if (action === "edit-name") {
+    const newName = window.prompt(`Enter new name for ${devotee.name}`, devotee.name);
+    if (newName === null || !newName.trim()) {
+      if (newName !== null) showToast("Name cannot be empty");
+      return;
+    }
+    devotee.name = newName.trim();
+    saveState();
+    renderDevotees();
+    renderSelectors();
+    showToast(`Devotee renamed to ${devotee.name}`);
     return;
   }
 
@@ -1495,11 +1536,11 @@ function renderEntryList() {
             <tr>
               <td>#${coupon.number}</td>
               <td>${escapeHtml(coupon.buyerName || "-")}</td>
-              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+              <td>${coupon.buyerContact ? `<span class="copy-contact" data-copy="${escapeAttr(coupon.buyerContact)}" title="Click to copy">${escapeHtml(coupon.buyerContact)}</span>` : '-'}</td>
               <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
               <td>
                 ${coupon.buyerContact
-        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}" title="Send WhatsApp invitation to buyer">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                       Send
                     </button>`
@@ -1782,11 +1823,11 @@ function renderAllCoupons() {
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
-      <td>${escapeHtml(coupon.buyerContact || "-")}</td>
+      <td>${coupon.buyerContact ? `<span class="copy-contact" data-copy="${escapeAttr(coupon.buyerContact)}" title="Click to copy">${escapeHtml(coupon.buyerContact)}</span>` : '-'}</td>
       <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
       <td>
         ${(!isViewer && coupon.settled && coupon.buyerContact)
-        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}" title="Send WhatsApp invitation to buyer">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
               Send
             </button>`
@@ -3073,6 +3114,36 @@ function renderPagination() {
   );
 }
 
+function handleCouponJump() {
+  const jumpVal = els.couponJump?.value;
+  if (!jumpVal) return;
+  const num = Number(jumpVal);
+  if (isNaN(num) || num < 1 || num > couponTotal()) {
+    showToast(`Enter a coupon number from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  els.allSearch.value = "";
+  els.allStatus.value = "all";
+  els.allSevaFilter.value = "all";
+  els.allPaymentFilter.value = "all";
+  els.allDevoteeFilter.value = "all";
+  resetAllCouponsView();
+
+  const targetRow = els.allCouponsBody.querySelector(`tr:has(td:nth-child(2))`);
+  const rows = els.allCouponsBody.querySelectorAll("tr");
+  for (const row of rows) {
+    const cell = row.querySelector("td");
+    if (cell && cell.textContent.trim() === `#${num}`) {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.classList.add("highlight-row");
+      setTimeout(() => row.classList.remove("highlight-row"), 2500);
+      break;
+    }
+  }
+  els.couponJump.value = "";
+}
+
 function goToPage(page) {
   const totalPages = Math.max(1, Math.ceil(couponDataCache.length / ALL_COUPONS_PAGE_SIZE));
   currentPage = Math.max(1, Math.min(page, totalPages));
@@ -3278,7 +3349,7 @@ function renderCheckinReport() {
       <tr>
         <td>#${c.number}</td>
         <td>${escapeHtml(c.buyerName || "-")}</td>
-        <td>${escapeHtml(c.buyerContact || "-")}</td>
+        <td><span class="copy-contact" data-copy="${escapeHtml(c.buyerContact || "-")}">${escapeHtml(c.buyerContact || "-")}</span></td>
         <td>${escapeHtml(devoteeName(c.devoteeId))}</td>
         <td>${escapeHtml(c.description || "-")}</td>
         <td><span class="attended-badge ${attended ? '' : 'missed'}">${attended ? "✓ Checked In" : "○ Not Yet"}</span></td>
