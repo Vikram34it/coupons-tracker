@@ -77,6 +77,7 @@ const SEVA_TYPES = [
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
+  renderLoginRole();
   render();
   configureHourlySheetSync();
 
@@ -652,6 +653,7 @@ function logout() {
 }
 
 function renderLoginRole() {
+  if (!els.loginRole || !els.loginDevoteeLabel) return;
   const isDevotee = els.loginRole.value === "devotee";
   els.loginDevoteeLabel.classList.toggle("hidden", !isDevotee);
 }
