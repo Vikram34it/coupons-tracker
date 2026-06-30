@@ -310,6 +310,7 @@ function cacheElements() {
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
     "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
+    "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
@@ -448,6 +449,7 @@ function bindEvents() {
   els.resetSelectedCouponsBtn.addEventListener("click", resetSelectedCoupons);
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
+  els.resetRangeBtn.addEventListener("click", resetCouponRange);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
@@ -844,6 +846,31 @@ function resetDevoteeCoupons() {
   }
 
   resetCouponNumbers(numbers, `Reset all ${numbers.length} coupon(s) assigned to ${devoteeName(devoteeId)}?`);
+}
+
+function resetCouponRange() {
+  const from = positiveInteger(els.resetFrom.value);
+  const to = positiveInteger(els.resetTo.value);
+  if (!from || !to || from > to || from < 1 || to > couponTotal()) {
+    showToast(`Enter a valid range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  const numbers = [];
+  for (let i = from; i <= to; i++) {
+    if (state.coupons[i - 1].devoteeId || state.coupons[i - 1].buyerName) {
+      numbers.push(i);
+    }
+  }
+
+  if (!numbers.length) {
+    showToast(`No assigned/sold coupons in range ${from}-${to}`);
+    return;
+  }
+
+  resetCouponNumbers(numbers, `Reset ${numbers.length} coupon(s) from ${from} to ${to}? This will clear their assignment and sale details.`);
+  els.resetFrom.value = "";
+  els.resetTo.value = "";
 }
 
 function resetAllCoupons() {
