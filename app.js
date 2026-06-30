@@ -3296,11 +3296,13 @@ function renderCheckinReport() {
   if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
   else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
 
-  const searchQuery = els.checkinSearch?.value.trim();
+  const searchQuery = els.checkinSearch?.value.trim().toLowerCase();
   if (searchQuery) {
-    const searchNum = Number(searchQuery);
-    if (!isNaN(searchNum)) coupons = coupons.filter(c => c.number === searchNum);
-    else coupons = coupons.filter(c => String(c.number).includes(searchQuery));
+    coupons = coupons.filter(c =>
+      String(c.number).includes(searchQuery) ||
+      (c.buyerName || "").toLowerCase().includes(searchQuery) ||
+      (c.buyerContact || "").includes(searchQuery)
+    );
   }
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
