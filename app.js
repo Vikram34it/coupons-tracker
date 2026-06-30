@@ -308,7 +308,9 @@ function cacheElements() {
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "syncBadge", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",
+    "transferForm", "transferFromDevotee", "transferToDevotee", "transferFrom", "transferTo", "transferHint",
+    "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
     "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
@@ -441,6 +443,7 @@ function bindEvents() {
   els.logoutBtn.addEventListener("click", logout);
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
+  els.transferForm.addEventListener("submit", transferCouponRange);
   els.couponSettingsForm.addEventListener("submit", updateTotalCoupons);
   els.resetCouponForm.addEventListener("submit", resetOneCoupon);
   els.resetDevotee.addEventListener("change", renderResetCouponList);
@@ -552,6 +555,55 @@ function bindEvents() {
     });
   });
 
+}
+
+function transferCouponRange(event) {
+  event.preventDefault();
+  const fromDevId = els.transferFromDevotee.value;
+  const toDevId = els.transferToDevotee.value;
+  const from = Number(els.transferFrom.value);
+  const to = Number(els.transferTo.value);
+
+  if (!fromDevId || !toDevId) {
+    showToast("Select both source and target devotee");
+    return;
+  }
+
+  if (fromDevId === toDevId) {
+    showToast("Source and target devotee must be different");
+    return;
+  }
+
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
+    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  const toTransfer = state.coupons.filter(c =>
+    c.number >= from && c.number <= to && c.devoteeId === fromDevId
+  );
+
+  if (!toTransfer.length) {
+    showToast(`No coupons assigned to selected devotee in range ${from}-${to}`);
+    return;
+  }
+
+  const fromName = devoteeName(fromDevId);
+  const toName = devoteeName(toDevId);
+
+  if (!window.confirm(`Transfer ${toTransfer.length} coupon(s) from ${fromName} to ${toName} (range ${from}-${to})?`)) return;
+
+  toTransfer.forEach(c => {
+    c.devoteeId = toDevId;
+    markCouponUpdated(c);
+  });
+
+  els.transferForm.reset();
+  els.transferHint.textContent = "";
+  invalidateCaches();
+  saveState();
+  render();
+  showToast(`Transferred ${toTransfer.length} coupon(s) from ${fromName} to ${toName}`);
 }
 
 function resetAllCouponsView() {
@@ -1079,6 +1131,20 @@ function renderSelectors() {
     )
   ) {
     els.resetDevotee.value = currentResetValue;
+  }
+
+  // ✅ TRANSFER FROM DROPDOWN
+  const currentTransferFromValue = els.transferFromDevotee.value;
+  els.transferFromDevotee.innerHTML = empty + options;
+  if (state.devotees.some(d => d.id === currentTransferFromValue)) {
+    els.transferFromDevotee.value = currentTransferFromValue;
+  }
+
+  // ✅ TRANSFER TO DROPDOWN
+  const currentTransferToValue = els.transferToDevotee.value;
+  els.transferToDevotee.innerHTML = empty + options;
+  if (state.devotees.some(d => d.id === currentTransferToValue)) {
+    els.transferToDevotee.value = currentTransferToValue;
   }
 
   // ✅ ENTRY DROPDOWN
