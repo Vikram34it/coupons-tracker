@@ -316,6 +316,23 @@
             <span id="invitationSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
           </div>
         </form>
+
+        <form id="smsTemplateForm" class="panel full-width">
+          <h2>💬 SMS Invitation Template</h2>
+          <p class="hint mb-md">Write the default message for sending SMS. Use
+            <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong>
+            for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
+          <label>
+            Message Body
+            <textarea id="smsTemplateInput" rows="8"
+              placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;Thank you for your seva. Your coupon number is #{coupon}. Seva: {seva}, Amount: {amount}. Devotee: {devotee}.&#10;&#10;https://vikram34it.github.io/coupons-tracker/"></textarea>
+          </label>
+          <div class="inline-fields flex-center">
+            <button type="submit">Save SMS Template</button>
+            <button type="button" id="previewSmsBtn" class="ghost">Preview</button>
+            <span id="smsSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
+          </div>
+        </form>
       </div>
 
       <div data-admin-section="reset">
@@ -452,6 +469,7 @@
           </label>
           <span id="selectedCount" class="small-stat">0 selected</span>
           <button id="batchSettleBtn" class="primary" type="button">Mark Selected as Settled</button>
+          <button id="batchSmsBtn" class="primary sms-btn" type="button" style="margin-left: 8px;">💬 Send SMS</button>
         </div>
         <div class="table-wrap">
           <table>

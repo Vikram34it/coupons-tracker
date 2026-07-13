@@ -2853,3 +2853,55 @@ body.dark-mode tr.selected-row td {
   font-size: 11px;
   color: #666;
 }
+
+/* ================= BULK SMS MODAL STYLES ================= */
+.sms-btn {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  transition: all 0.2s ease-in-out;
+}
+.sms-btn:hover {
+  background: var(--accent-hover) !important;
+  border-color: var(--accent-hover) !important;
+  transform: translateY(-1px);
+}
+
+.sms-tabs .tab-btn {
+  transition: all 0.2s ease-in-out;
+}
+.sms-tabs .tab-btn:hover {
+  color: var(--primary) !important;
+}
+
+.sms-recipient-check {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+#smsRecipientsBody tr {
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.15s ease;
+}
+
+#smsRecipientsBody tr:hover {
+  background-color: rgba(13, 148, 136, 0.03);
+}
+
+#smsRecipientsBody td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+#smsRecipientsBody textarea {
+  border-color: var(--line);
+  color: var(--ink);
+  transition: border-color 0.15s ease;
+}
+
+#smsRecipientsBody textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+

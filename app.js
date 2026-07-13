@@ -146,6 +146,7 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       adminPassword: DEFAULT_ADMIN_PASSWORD,
       totalCoupons,
       invitationMessage: "",
+      smsTemplate: "Hare Krishna 🙏\n\nDear {name},\n\nThank you for your seva. Your coupon number is #{coupon}. Seva: {seva}, Amount: {amount}. Devotee: {devotee}.\n\nhttps://vikram34it.github.io/coupons-tracker/",
       viewerPassword: "",
       sheetAutoUpdate: false,
       sheetHourlyUpdate: false,
@@ -162,6 +163,7 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
     adminPassword: settings.adminPassword || DEFAULT_ADMIN_PASSWORD,
     totalCoupons: positiveInteger(settings.totalCoupons) || fallbackTotal || DEFAULT_TOTAL_COUPONS,
     invitationMessage: settings.invitationMessage || "",
+    smsTemplate: settings.smsTemplate || "Hare Krishna 🙏\n\nDear {name},\n\nThank you for your seva. Your coupon number is #{coupon}. Seva: {seva}, Amount: {amount}. Devotee: {devotee}.\n\nhttps://vikram34it.github.io/coupons-tracker/",
     viewerPassword: settings.viewerPassword || "",
     sheetAutoUpdate: Boolean(settings.sheetAutoUpdate),
     sheetHourlyUpdate: Boolean(settings.sheetHourlyUpdate),
@@ -315,6 +317,7 @@ function cacheElements() {
     "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
+    "smsTemplateForm", "smsTemplateInput", "previewSmsBtn", "smsSavedBadge", "batchSmsBtn",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
@@ -459,6 +462,9 @@ function bindEvents() {
   els.sheetSyncNowBtn.addEventListener("click", syncSheetNow);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
+  if (els.smsTemplateForm) els.smsTemplateForm.addEventListener("submit", saveSmsTemplate);
+  if (els.previewSmsBtn) els.previewSmsBtn.addEventListener("click", previewSmsMessage);
+  if (els.batchSmsBtn) els.batchSmsBtn.addEventListener("click", openBulkSmsModal);
   els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
   let entrySearchDebounce;
   els.entryDevotee.addEventListener("change", () => {
@@ -1060,6 +1066,7 @@ function render() {
   }
   updateAdminView();
   loadInvitationTemplate();
+  loadSmsTemplate();
 
   const topStats = document.querySelector(".stats-grid");
 
@@ -1840,9 +1847,12 @@ function renderAllCoupons() {
   const sevaFilter = els.allSevaFilter?.value || "all";
   const paymentFilter = els.allPaymentFilter?.value || "all";
   const isAdmin = session?.role === "admin";
+  const isViewer = session?.role === "viewer";
+  const canSelect = isAdmin || isViewer;
 
-  if (els.bulkSettleBar) els.bulkSettleBar.style.display = isAdmin ? "flex" : "none";
-  if (els.bulkSettleTh) els.bulkSettleTh.style.display = isAdmin ? "" : "none";
+  if (els.bulkSettleBar) els.bulkSettleBar.style.display = canSelect ? "flex" : "none";
+  if (els.bulkSettleTh) els.bulkSettleTh.style.display = canSelect ? "" : "none";
+  if (els.batchSettleBtn) els.batchSettleBtn.style.display = isAdmin ? "" : "none";
 
   updateBulkSettleUi();
 
@@ -1901,16 +1911,15 @@ function renderAllCoupons() {
   const visibleCoupons = couponDataCache.slice(pageStart, pageStart + ALL_COUPONS_PAGE_SIZE);
 
   if (!visibleCoupons.length) {
-    els.allCouponsBody.innerHTML = `<tr><td colspan="${isAdmin ? 14 : 13}"><div class="empty">No coupons match the filters.</div></td></tr>`;
+    els.allCouponsBody.innerHTML = `<tr><td colspan="${(isAdmin || isViewer) ? 14 : 13}"><div class="empty">No coupons match the filters.</div></td></tr>`;
     return;
   }
 
   els.allCouponsBody.innerHTML = visibleCoupons.map((coupon) => {
-    const isViewer = session?.role === "viewer";
     const checked = selectedCouponsForSettle.has(coupon.number);
     return `
     <tr class="${checked ? 'selected-row' : ''}">
-      ${isAdmin ? `<td><input type="checkbox" class="coupon-check" data-check="${coupon.number}" ${checked ? 'checked' : ''}></td>` : ''}
+      ${(isAdmin || isViewer) ? `<td><input type="checkbox" class="coupon-check" data-check="${coupon.number}" ${checked ? 'checked' : ''}></td>` : ''}
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
@@ -2691,6 +2700,427 @@ function previewInvitationMessage() {
 
   document.getElementById("invitationPreviewText").textContent = sample;
   overlay.classList.remove("hidden");
+}
+
+// ═══════════════════════════════════════════════
+// 💬  SMS INVITATION FEATURE & BULK SENDER
+// ═══════════════════════════════════════════════
+
+let smsTargetMethod = "selected";
+let generatedSmsRecipients = [];
+
+function saveSmsTemplate(event) {
+  event.preventDefault();
+  const message = els.smsTemplateInput.value.trim();
+  if (!message) {
+    showToast("Enter an SMS message template");
+    return;
+  }
+  state.settings.smsTemplate = message;
+  saveState();
+
+  // Show "Saved" badge briefly
+  if (els.smsSavedBadge) {
+    els.smsSavedBadge.classList.remove("hidden");
+    clearTimeout(saveSmsTemplate._timer);
+    saveSmsTemplate._timer = setTimeout(() => {
+      els.smsSavedBadge.classList.add("hidden");
+    }, 2500);
+  }
+  showToast("SMS template saved ✓");
+}
+
+function loadSmsTemplate() {
+  if (els.smsTemplateInput) {
+    els.smsTemplateInput.value = state.settings.smsTemplate || "";
+  }
+}
+
+function previewSmsMessage() {
+  const template = els.smsTemplateInput?.value.trim();
+  if (!template) {
+    showToast("Write an SMS message template first");
+    return;
+  }
+
+  // Build a sample substitution
+  const sample = template
+    .replace(/{name}/g, "Ramesh Kumar")
+    .replace(/{coupon}/g, "42")
+    .replace(/{seva}/g, "Deepa Seva")
+    .replace(/{amount}/g, "₹500")
+    .replace(/{devotee}/g, "Devotee Name");
+
+  // Create/reuse modal
+  let overlay = document.getElementById("smsPreviewOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "smsPreviewOverlay";
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="SMS Message preview">
+        <h3>💬 SMS Message Preview</h3>
+        <p class="hint mb-sm">Sample preview using placeholder values.</p>
+        <div class="message-preview" id="smsPreviewText" style="white-space: pre-wrap; font-family: monospace; background: var(--bg); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line); margin-bottom: 12px;"></div>
+        <div class="inline-fields">
+          <button type="button" id="smsPreviewClose">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Close on button click
+    overlay.querySelector("#smsPreviewClose").addEventListener("click", () => {
+      overlay.classList.add("hidden");
+    });
+    // Close on backdrop click
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.classList.add("hidden");
+    });
+    // Close on Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+        overlay.classList.add("hidden");
+      }
+    });
+  }
+
+  document.getElementById("smsPreviewText").textContent = sample;
+  overlay.classList.remove("hidden");
+}
+
+function openBulkSmsModal() {
+  const count = selectedCouponsForSettle.size;
+  
+  // Create/reuse modal
+  let overlay = document.getElementById("bulkSmsOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "bulkSmsOverlay";
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal-card" style="max-width: 800px; width: 95%;">
+        <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+          <span>💬 Send SMS to Devotees/Buyers</span>
+        </h3>
+        <p class="hint mb-md">Compose your message and select recipient contacts using checkboxes or a coupon range.</p>
+
+        <div class="sms-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--line); padding-bottom: 8px;">
+          <button type="button" id="smsTabSelected" class="tab-btn active" style="flex: 1; padding: 8px; border: none; background: none; border-bottom: 3px solid var(--primary); font-weight: 600; cursor: pointer;">Selected Coupons (<span id="smsSelectedCount">0</span>)</button>
+          <button type="button" id="smsTabRange" class="tab-btn" style="flex: 1; padding: 8px; border: none; background: none; font-weight: 600; cursor: pointer; color: var(--ink-secondary);">Coupon Range</button>
+        </div>
+
+        <div id="smsRangeContainer" style="display: none; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">From Coupon #</label>
+            <input type="number" id="smsRangeFrom" min="1" placeholder="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">To Coupon #</label>
+            <input type="number" id="smsRangeTo" min="1" placeholder="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">SMS Message Template</label>
+          <textarea id="smsModalTemplate" rows="4" style="width: 100%; padding: 10px; font-family: inherit; border: 1px solid var(--line); border-radius: var(--radius); resize: vertical;" placeholder="Enter message body... Use placeholders: {name}, {coupon}, {seva}, {amount}, {devotee}"></textarea>
+          <p class="hint" style="margin-top: 4px; font-size: 11px;">Placeholders: <strong>{name}</strong>, <strong>{coupon}</strong>, <strong>{seva}</strong>, <strong>{amount}</strong>, <strong>{devotee}</strong></p>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <button type="button" id="smsGenerateBtn" class="primary" style="flex: 1;">🔍 Generate Recipients & Messages</button>
+        </div>
+
+        <div id="smsRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
+          <div class="table-wrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 0;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+              <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
+                <tr>
+                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="smsSelectAllRecipients" checked></th>
+                  <th style="width: 80px;">Coupon</th>
+                  <th>Name & Phone</th>
+                  <th>Message Preview</th>
+                  <th style="width: 120px; text-align: center;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="smsRecipientsBody">
+                <!-- Rows will be injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
+            <span id="smsRecipientsCount">0 recipients ready</span>
+            <span id="smsPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
+          </div>
+        </div>
+
+        <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
+          <button type="button" id="smsCopyAllNumbers" class="secondary init-hidden" style="background: var(--bg-hover);">📋 Copy Numbers</button>
+          <button type="button" id="smsSendGroup" class="primary init-hidden" style="background: var(--primary); border-color: var(--primary);">📲 Send Group SMS</button>
+          <button type="button" id="smsModalClose" class="ghost">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Bind event listeners for dynamic modal
+    const selectAllCheck = overlay.querySelector("#smsSelectAllRecipients");
+    selectAllCheck.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      overlay.querySelectorAll(".sms-recipient-check:not([disabled])").forEach(cb => {
+        cb.checked = checked;
+      });
+    });
+
+    const tabSelected = overlay.querySelector("#smsTabSelected");
+    const tabRange = overlay.querySelector("#smsTabRange");
+    const rangeContainer = overlay.querySelector("#smsRangeContainer");
+
+    tabSelected.addEventListener("click", () => {
+      smsTargetMethod = "selected";
+      tabSelected.classList.add("active");
+      tabSelected.style.borderBottom = "3px solid var(--primary)";
+      tabSelected.style.color = "";
+      tabRange.classList.remove("active");
+      tabRange.style.borderBottom = "none";
+      tabRange.style.color = "var(--ink-secondary)";
+      rangeContainer.style.display = "none";
+    });
+
+    tabRange.addEventListener("click", () => {
+      smsTargetMethod = "range";
+      tabRange.classList.add("active");
+      tabRange.style.borderBottom = "3px solid var(--primary)";
+      tabRange.style.color = "";
+      tabSelected.classList.remove("active");
+      tabSelected.style.borderBottom = "none";
+      tabSelected.style.color = "var(--ink-secondary)";
+      rangeContainer.style.display = "flex";
+    });
+
+    overlay.querySelector("#smsGenerateBtn").addEventListener("click", generateBulkSmsRecipients);
+
+    overlay.querySelector("#smsRecipientsBody").addEventListener("click", (e) => {
+      const sendBtn = e.target.closest(".sms-single-send-btn");
+      const copyBtn = e.target.closest(".sms-single-copy-btn");
+
+      if (sendBtn) {
+        const couponNum = Number(sendBtn.dataset.coupon);
+        const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
+        if (item && item.phone) {
+          triggerSingleSms(item.phone, item.message);
+        }
+      }
+      if (copyBtn) {
+        const couponNum = Number(copyBtn.dataset.coupon);
+        const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
+        if (item) {
+          navigator.clipboard.writeText(item.message).then(() => {
+            showToast(`Copied message for Coupon #${couponNum}`);
+          });
+        }
+      }
+    });
+
+    overlay.querySelector("#smsCopyAllNumbers").addEventListener("click", () => {
+      const phones = getCheckedPhones();
+      if (phones.length === 0) {
+        showToast("No recipients checked.");
+        return;
+      }
+      navigator.clipboard.writeText(phones.join(",")).then(() => {
+        showToast(`Copied ${phones.length} phone numbers to clipboard.`);
+      });
+    });
+
+    overlay.querySelector("#smsSendGroup").addEventListener("click", () => {
+      const phones = getCheckedPhones();
+      if (phones.length === 0) {
+        showToast("No recipients checked.");
+        return;
+      }
+
+      // Separator based on OS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const separator = isIOS ? ';' : ',';
+
+      const template = document.getElementById("smsModalTemplate").value;
+      const genericMsg = template
+        .replace(/{name}/g, "Devotee")
+        .replace(/{coupon}/g, "coupons")
+        .replace(/{seva}/g, "seva")
+        .replace(/{amount}/g, "your amount")
+        .replace(/{devotee}/g, "the organizer");
+
+      const smsUrl = `sms:${phones.join(separator)}?body=${encodeURIComponent(genericMsg)}`;
+      window.open(smsUrl, "_self");
+    });
+
+    overlay.querySelector("#smsModalClose").addEventListener("click", () => {
+      overlay.classList.add("hidden");
+    });
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.classList.add("hidden");
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+        overlay.classList.add("hidden");
+      }
+    });
+  }
+
+  // Pre-fill fields
+  document.getElementById("smsSelectedCount").textContent = count;
+  document.getElementById("smsModalTemplate").value = state.settings.smsTemplate || "";
+
+  document.getElementById("smsRangeFrom").value = "1";
+  document.getElementById("smsRangeTo").value = String(state.coupons.length || 100);
+
+  // Set default active tab
+  if (count > 0) {
+    document.getElementById("smsTabSelected").click();
+  } else {
+    document.getElementById("smsTabRange").click();
+  }
+
+  // Reset generated container
+  document.getElementById("smsRecipientsSection").style.display = "none";
+  document.getElementById("smsCopyAllNumbers").classList.add("init-hidden");
+  document.getElementById("smsSendGroup").classList.add("init-hidden");
+
+  overlay.classList.remove("hidden");
+}
+
+function generateBulkSmsRecipients() {
+  const method = smsTargetMethod;
+  const template = document.getElementById("smsModalTemplate").value;
+
+  // Save changes to settings
+  state.settings.smsTemplate = template;
+  saveState();
+  if (els.smsTemplateInput) {
+    els.smsTemplateInput.value = template;
+  }
+
+  let targetCoupons = [];
+  if (method === "selected") {
+    const nums = Array.from(selectedCouponsForSettle).sort((a, b) => a - b);
+    targetCoupons = nums.map(n => state.coupons[n - 1]).filter(Boolean);
+    if (targetCoupons.length === 0) {
+      showToast("No coupons selected in the table. Use checkboxes or select the Range tab.");
+      return;
+    }
+  } else {
+    const fromVal = Number(document.getElementById("smsRangeFrom").value);
+    const toVal = Number(document.getElementById("smsRangeTo").value);
+    if (!fromVal || !toVal || fromVal < 1 || toVal < 1 || fromVal > toVal) {
+      showToast("Please enter a valid coupon range (From <= To)");
+      return;
+    }
+    const maxCoupons = state.coupons.length;
+    if (fromVal > maxCoupons) {
+      showToast(`From value cannot be greater than total coupons (${maxCoupons})`);
+      return;
+    }
+    const actualTo = Math.min(toVal, maxCoupons);
+    targetCoupons = state.coupons.slice(fromVal - 1, actualTo);
+  }
+
+  const tbody = document.getElementById("smsRecipientsBody");
+  tbody.innerHTML = "";
+
+  let withPhoneCount = 0;
+  let hasMissingPhone = false;
+  generatedSmsRecipients = [];
+
+  targetCoupons.forEach(coupon => {
+    const phone = coupon.buyerContact ? String(coupon.buyerContact).trim() : "";
+    const hasPhone = phone.length >= 4;
+
+    const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
+    const msgText = template
+      .replace(/{name}/g, coupon.buyerName || "Devotee")
+      .replace(/{coupon}/g, String(coupon.number))
+      .replace(/{seva}/g, coupon.description || "Seva")
+      .replace(/{amount}/g, formatMoney(amountValue(coupon.amount)))
+      .replace(/{devotee}/g, devotee ? devotee.name : "");
+
+    if (hasPhone) {
+      withPhoneCount++;
+    } else {
+      hasMissingPhone = true;
+    }
+
+    generatedSmsRecipients.push({
+      coupon,
+      phone,
+      hasPhone,
+      message: msgText
+    });
+
+    const row = document.createElement("tr");
+    if (!hasPhone) row.style.opacity = "0.6";
+
+    row.innerHTML = `
+      <td style="text-align: center;">
+        <input type="checkbox" class="sms-recipient-check" data-coupon="${coupon.number}" ${hasPhone ? 'checked' : 'disabled'}>
+      </td>
+      <td>#${coupon.number}</td>
+      <td>
+        <strong style="display:block; font-size:13px;">${escapeHtml(coupon.buyerName || "-")}</strong>
+        <span style="font-size:12px; color: var(--ink-secondary);">${escapeHtml(phone || "No phone number")}</span>
+      </td>
+      <td>
+        <textarea readonly style="width: 100%; font-size: 11px; padding: 4px; border: 1px solid var(--line); border-radius: 4px; resize: none; background: var(--bg); height: 45px; font-family: monospace;">${escapeHtml(msgText)}</textarea>
+      </td>
+      <td style="text-align: center;">
+        <div style="display: flex; gap: 4px; justify-content: center;">
+          <button type="button" class="sms-single-send-btn wa-btn" data-coupon="${coupon.number}" ${hasPhone ? '' : 'disabled'} style="padding: 4px 8px; font-size: 11px; background: var(--primary); border-color: var(--primary);">Send</button>
+          <button type="button" class="sms-single-copy-btn wa-btn ghost" data-coupon="${coupon.number}" style="padding: 4px 8px; font-size: 11px; border: 1px solid var(--line);">Copy</button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.getElementById("smsRecipientsSection").style.display = "block";
+  document.getElementById("smsRecipientsCount").textContent = `${withPhoneCount} recipient(s) with phone numbers`;
+  document.getElementById("smsPhoneWarning").style.display = hasMissingPhone ? "inline" : "none";
+
+  // Force selectAll check to match the generated state
+  const selectAllRecipients = document.getElementById("smsSelectAllRecipients");
+  if (selectAllRecipients) selectAllRecipients.checked = true;
+
+  if (withPhoneCount > 0) {
+    document.getElementById("smsCopyAllNumbers").classList.remove("init-hidden");
+    document.getElementById("smsSendGroup").classList.remove("init-hidden");
+  } else {
+    document.getElementById("smsCopyAllNumbers").classList.add("init-hidden");
+    document.getElementById("smsSendGroup").classList.add("init-hidden");
+  }
+}
+
+function getCheckedPhones() {
+  const overlay = document.getElementById("bulkSmsOverlay");
+  if (!overlay) return [];
+  const checkedCheckboxes = overlay.querySelectorAll(".sms-recipient-check:checked");
+  const phones = [];
+  checkedCheckboxes.forEach(cb => {
+    const couponNum = Number(cb.dataset.coupon);
+    const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
+    if (item && item.phone) {
+      phones.push(item.phone.trim());
+    }
+  });
+  return phones;
+}
+
+function triggerSingleSms(phone, message) {
+  const cleanPhone = String(phone).replace(/\D/g, "");
+  const smsUrl = `sms:${cleanPhone}?body=${encodeURIComponent(message)}`;
+  window.open(smsUrl, "_self");
 }
 
 
