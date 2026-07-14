@@ -1437,8 +1437,8 @@ function applyRoleAccess() {
   // Check-in tab — visible to all logged-in users
   document.querySelector('[data-view="checkinView"]')?.classList.toggle("hidden", !session);
 
-  // Communication tab — admin only
-  document.querySelector('[data-view="communicationView"]')?.classList.toggle("hidden", !isAdmin);
+  // Communication tab — visible to all logged-in users
+  document.querySelector('[data-view="communicationView"]')?.classList.toggle("hidden", !session);
 
   // Admin sub-tabs: viewer sees Dashboard only (no Setup / Reset)
   document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
@@ -4123,12 +4123,23 @@ let generatedCommSmsRecipients = [];
 let generatedCommWaRecipients = [];
 
 function renderCommunicationView() {
+  const isAdmin = currentRole() === "admin";
+
   document.querySelectorAll("[data-comm-tab]").forEach(tab => {
+    if (tab.dataset.commTab === "settings") tab.classList.toggle("hidden", !isAdmin);
     tab.classList.toggle("active", tab.dataset.commTab === activeCommTab);
   });
   document.querySelectorAll("[data-comm-section]").forEach(section => {
     section.style.display = section.dataset.commSection === activeCommTab ? "" : "none";
   });
+
+  // Hide template panels for non-admins
+  if (!isAdmin) {
+    document.querySelectorAll("[data-comm-section] > section.panel").forEach(panel => {
+      const heading = panel.querySelector("h2")?.textContent || "";
+      if (heading.includes("Template")) panel.classList.add("hidden");
+    });
+  }
   if (activeCommTab === "sms") {
     loadSmsTemplate();
     document.getElementById("commSmsSelectedCount").textContent = selectedCouponsForSettle.size;
