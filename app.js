@@ -464,7 +464,12 @@ function bindEvents() {
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
   if (els.smsTemplateForm) els.smsTemplateForm.addEventListener("submit", saveSmsTemplate);
   if (els.previewSmsBtn) els.previewSmsBtn.addEventListener("click", previewSmsMessage);
-  if (els.batchSmsBtn) els.batchSmsBtn.addEventListener("click", openBulkSmsModal);
+  if (els.batchSmsBtn) {
+    els.batchSmsBtn.addEventListener("click", () => openBulkSmsModal());
+  } else {
+    const btn = document.getElementById("batchSmsBtn");
+    if (btn) btn.addEventListener("click", () => openBulkSmsModal());
+  }
   els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
   let entrySearchDebounce;
   els.entryDevotee.addEventListener("change", () => {
@@ -539,6 +544,13 @@ function bindEvents() {
       if (text) {
         navigator.clipboard.writeText(text).then(() => showToast("Copied: " + text)).catch(() => showToast("Could not copy to clipboard"));
       }
+      return;
+    }
+    const whatsappButton = e.target.closest("[data-wa-coupon]");
+    if (whatsappButton) {
+      const coupon = state.coupons[Number(whatsappButton.dataset.waCoupon) - 1];
+      openWhatsAppForBuyer(coupon);
+      return;
     }
   });
 
@@ -1853,6 +1865,10 @@ function renderAllCoupons() {
   if (els.bulkSettleBar) els.bulkSettleBar.style.display = canSelect ? "flex" : "none";
   if (els.bulkSettleTh) els.bulkSettleTh.style.display = canSelect ? "" : "none";
   if (els.batchSettleBtn) els.batchSettleBtn.style.display = isAdmin ? "" : "none";
+  const smsBtn = els.batchSmsBtn || document.getElementById("batchSmsBtn");
+  if (smsBtn) smsBtn.style.display = canSelect ? "" : "none";
+  const filterBarSmsBtn = document.getElementById("filterBarSmsBtn");
+  if (filterBarSmsBtn) filterBarSmsBtn.style.display = canSelect ? "" : "none";
 
   updateBulkSettleUi();
 
@@ -2789,208 +2805,210 @@ function previewSmsMessage() {
   overlay.classList.remove("hidden");
 }
 
-function openBulkSmsModal() {
-  const count = selectedCouponsForSettle.size;
-  
-  // Create/reuse modal
-  let overlay = document.getElementById("bulkSmsOverlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "bulkSmsOverlay";
-    overlay.className = "modal-overlay";
-    overlay.innerHTML = `
-      <div class="modal-card" style="max-width: 800px; width: 95%;">
-        <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-          <span>💬 Send SMS to Devotees/Buyers</span>
-        </h3>
-        <p class="hint mb-md">Compose your message and select recipient contacts using checkboxes or a coupon range.</p>
+function openBulkSmsModal(startWithRange) {
+  try {
+    const count = selectedCouponsForSettle.size;
 
-        <div class="sms-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--line); padding-bottom: 8px;">
-          <button type="button" id="smsTabSelected" class="tab-btn active" style="flex: 1; padding: 8px; border: none; background: none; border-bottom: 3px solid var(--primary); font-weight: 600; cursor: pointer;">Selected Coupons (<span id="smsSelectedCount">0</span>)</button>
-          <button type="button" id="smsTabRange" class="tab-btn" style="flex: 1; padding: 8px; border: none; background: none; font-weight: 600; cursor: pointer; color: var(--ink-secondary);">Coupon Range</button>
-        </div>
+    // Create/reuse modal
+    let overlay = document.getElementById("bulkSmsOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "bulkSmsOverlay";
+      overlay.className = "modal-overlay hidden";
+      overlay.innerHTML = `
+        <div class="modal-card" style="max-width: 800px; width: 95%;">
+          <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span>💬 Send SMS to Devotees/Buyers</span>
+          </h3>
+          <p class="hint mb-md">Compose your message and select recipient contacts using checkboxes or a coupon range.</p>
 
-        <div id="smsRangeContainer" style="display: none; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);">
-          <div style="flex: 1;">
-            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">From Coupon #</label>
-            <input type="number" id="smsRangeFrom" min="1" placeholder="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+          <div class="sms-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--line); padding-bottom: 8px;">
+            <button type="button" id="smsTabSelected" class="tab-btn active" style="flex: 1; padding: 8px; border: none; background: none; border-bottom: 3px solid var(--primary); font-weight: 600; cursor: pointer;">Selected Coupons (<span id="smsSelectedCount">0</span>)</button>
+            <button type="button" id="smsTabRange" class="tab-btn" style="flex: 1; padding: 8px; border: none; background: none; font-weight: 600; cursor: pointer; color: var(--ink-secondary);">Coupon Range</button>
           </div>
-          <div style="flex: 1;">
-            <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">To Coupon #</label>
-            <input type="number" id="smsRangeTo" min="1" placeholder="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+
+          <div id="smsRangeContainer" style="display: none; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">From Coupon #</label>
+              <input type="number" id="smsRangeFrom" min="1" placeholder="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">To Coupon #</label>
+              <input type="number" id="smsRangeTo" min="1" placeholder="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+          </div>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">SMS Message Template</label>
+            <textarea id="smsModalTemplate" rows="4" style="width: 100%; padding: 10px; font-family: inherit; border: 1px solid var(--line); border-radius: var(--radius); resize: vertical;" placeholder="Enter message body... Use placeholders: {name}, {coupon}, {seva}, {amount}, {devotee}"></textarea>
+            <p class="hint" style="margin-top: 4px; font-size: 11px;">Placeholders: <strong>{name}</strong>, <strong>{coupon}</strong>, <strong>{seva}</strong>, <strong>{amount}</strong>, <strong>{devotee}</strong></p>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button type="button" id="smsGenerateBtn" class="primary" style="flex: 1;">🔍 Generate Recipients & Messages</button>
+          </div>
+
+          <div id="smsRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
+            <div class="table-wrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 0;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
+                  <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="smsSelectAllRecipients" checked></th>
+                    <th style="width: 80px;">Coupon</th>
+                    <th>Name & Phone</th>
+                    <th>Message Preview</th>
+                    <th style="width: 120px; text-align: center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="smsRecipientsBody">
+                </tbody>
+              </table>
+            </div>
+            <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
+              <span id="smsRecipientsCount">0 recipients ready</span>
+              <span id="smsPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
+            </div>
+          </div>
+
+          <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
+            <button type="button" id="smsCopyAllNumbers" class="secondary init-hidden" style="background: var(--bg-hover);">📋 Copy Numbers</button>
+            <button type="button" id="smsSendGroup" class="primary init-hidden" style="background: var(--primary); border-color: var(--primary);">📲 Send Group SMS</button>
+            <button type="button" id="smsModalClose" class="ghost">Close</button>
           </div>
         </div>
+      `;
+      document.body.appendChild(overlay);
 
-        <div style="margin-bottom: 15px;">
-          <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">SMS Message Template</label>
-          <textarea id="smsModalTemplate" rows="4" style="width: 100%; padding: 10px; font-family: inherit; border: 1px solid var(--line); border-radius: var(--radius); resize: vertical;" placeholder="Enter message body... Use placeholders: {name}, {coupon}, {seva}, {amount}, {devotee}"></textarea>
-          <p class="hint" style="margin-top: 4px; font-size: 11px;">Placeholders: <strong>{name}</strong>, <strong>{coupon}</strong>, <strong>{seva}</strong>, <strong>{amount}</strong>, <strong>{devotee}</strong></p>
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-          <button type="button" id="smsGenerateBtn" class="primary" style="flex: 1;">🔍 Generate Recipients & Messages</button>
-        </div>
-
-        <div id="smsRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
-          <div class="table-wrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 0;">
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
-              <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
-                <tr>
-                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="smsSelectAllRecipients" checked></th>
-                  <th style="width: 80px;">Coupon</th>
-                  <th>Name & Phone</th>
-                  <th>Message Preview</th>
-                  <th style="width: 120px; text-align: center;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="smsRecipientsBody">
-                <!-- Rows will be injected dynamically -->
-              </tbody>
-            </table>
-          </div>
-          <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
-            <span id="smsRecipientsCount">0 recipients ready</span>
-            <span id="smsPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
-          </div>
-        </div>
-
-        <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
-          <button type="button" id="smsCopyAllNumbers" class="secondary init-hidden" style="background: var(--bg-hover);">📋 Copy Numbers</button>
-          <button type="button" id="smsSendGroup" class="primary init-hidden" style="background: var(--primary); border-color: var(--primary);">📲 Send Group SMS</button>
-          <button type="button" id="smsModalClose" class="ghost">Close</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    // Bind event listeners for dynamic modal
-    const selectAllCheck = overlay.querySelector("#smsSelectAllRecipients");
-    selectAllCheck.addEventListener("change", (e) => {
-      const checked = e.target.checked;
-      overlay.querySelectorAll(".sms-recipient-check:not([disabled])").forEach(cb => {
-        cb.checked = checked;
+      const selectAllCheck = overlay.querySelector("#smsSelectAllRecipients");
+      selectAllCheck.addEventListener("change", (e) => {
+        const checked = e.target.checked;
+        overlay.querySelectorAll(".sms-recipient-check:not([disabled])").forEach(cb => {
+          cb.checked = checked;
+        });
       });
-    });
 
-    const tabSelected = overlay.querySelector("#smsTabSelected");
-    const tabRange = overlay.querySelector("#smsTabRange");
-    const rangeContainer = overlay.querySelector("#smsRangeContainer");
+      const tabSelected = overlay.querySelector("#smsTabSelected");
+      const tabRange = overlay.querySelector("#smsTabRange");
+      const rangeContainer = overlay.querySelector("#smsRangeContainer");
 
-    tabSelected.addEventListener("click", () => {
-      smsTargetMethod = "selected";
-      tabSelected.classList.add("active");
-      tabSelected.style.borderBottom = "3px solid var(--primary)";
-      tabSelected.style.color = "";
-      tabRange.classList.remove("active");
-      tabRange.style.borderBottom = "none";
-      tabRange.style.color = "var(--ink-secondary)";
-      rangeContainer.style.display = "none";
-    });
-
-    tabRange.addEventListener("click", () => {
-      smsTargetMethod = "range";
-      tabRange.classList.add("active");
-      tabRange.style.borderBottom = "3px solid var(--primary)";
-      tabRange.style.color = "";
-      tabSelected.classList.remove("active");
-      tabSelected.style.borderBottom = "none";
-      tabSelected.style.color = "var(--ink-secondary)";
-      rangeContainer.style.display = "flex";
-    });
-
-    overlay.querySelector("#smsGenerateBtn").addEventListener("click", generateBulkSmsRecipients);
-
-    overlay.querySelector("#smsRecipientsBody").addEventListener("click", (e) => {
-      const sendBtn = e.target.closest(".sms-single-send-btn");
-      const copyBtn = e.target.closest(".sms-single-copy-btn");
-
-      if (sendBtn) {
-        const couponNum = Number(sendBtn.dataset.coupon);
-        const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
-        if (item && item.phone) {
-          triggerSingleSms(item.phone, item.message);
+      function activateSmsTab(method) {
+        smsTargetMethod = method;
+        if (method === "selected") {
+          tabSelected.classList.add("active");
+          tabSelected.style.borderBottom = "3px solid var(--primary)";
+          tabSelected.style.color = "";
+          tabRange.classList.remove("active");
+          tabRange.style.borderBottom = "none";
+          tabRange.style.color = "var(--ink-secondary)";
+          rangeContainer.style.display = "none";
+        } else {
+          tabRange.classList.add("active");
+          tabRange.style.borderBottom = "3px solid var(--primary)";
+          tabRange.style.color = "";
+          tabSelected.classList.remove("active");
+          tabSelected.style.borderBottom = "none";
+          tabSelected.style.color = "var(--ink-secondary)";
+          rangeContainer.style.display = "flex";
         }
       }
-      if (copyBtn) {
-        const couponNum = Number(copyBtn.dataset.coupon);
-        const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
-        if (item) {
-          navigator.clipboard.writeText(item.message).then(() => {
-            showToast(`Copied message for Coupon #${couponNum}`);
-          });
+
+      tabSelected.addEventListener("click", () => activateSmsTab("selected"));
+      tabRange.addEventListener("click", () => activateSmsTab("range"));
+
+      overlay.querySelector("#smsGenerateBtn").addEventListener("click", generateBulkSmsRecipients);
+
+      overlay.querySelector("#smsRecipientsBody").addEventListener("click", (e) => {
+        const sendBtn = e.target.closest(".sms-single-send-btn");
+        const copyBtn = e.target.closest(".sms-single-copy-btn");
+
+        if (sendBtn) {
+          const couponNum = Number(sendBtn.dataset.coupon);
+          const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
+          if (item && item.phone) {
+            triggerSingleSms(item.phone, item.message);
+          }
         }
-      }
-    });
-
-    overlay.querySelector("#smsCopyAllNumbers").addEventListener("click", () => {
-      const phones = getCheckedPhones();
-      if (phones.length === 0) {
-        showToast("No recipients checked.");
-        return;
-      }
-      navigator.clipboard.writeText(phones.join(",")).then(() => {
-        showToast(`Copied ${phones.length} phone numbers to clipboard.`);
+        if (copyBtn) {
+          const couponNum = Number(copyBtn.dataset.coupon);
+          const item = generatedSmsRecipients.find(r => r.coupon.number === couponNum);
+          if (item) {
+            navigator.clipboard.writeText(item.message).then(() => {
+              showToast(`Copied message for Coupon #${couponNum}`);
+            });
+          }
+        }
       });
-    });
 
-    overlay.querySelector("#smsSendGroup").addEventListener("click", () => {
-      const phones = getCheckedPhones();
-      if (phones.length === 0) {
-        showToast("No recipients checked.");
-        return;
-      }
+      overlay.querySelector("#smsCopyAllNumbers").addEventListener("click", () => {
+        const phones = getCheckedPhones();
+        if (phones.length === 0) {
+          showToast("No recipients checked.");
+          return;
+        }
+        navigator.clipboard.writeText(phones.join(",")).then(() => {
+          showToast(`Copied ${phones.length} phone numbers to clipboard.`);
+        });
+      });
 
-      // Separator based on OS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const separator = isIOS ? ';' : ',';
+      overlay.querySelector("#smsSendGroup").addEventListener("click", () => {
+        const phones = getCheckedPhones();
+        if (phones.length === 0) {
+          showToast("No recipients checked.");
+          return;
+        }
 
-      const template = document.getElementById("smsModalTemplate").value;
-      const genericMsg = template
-        .replace(/{name}/g, "Devotee")
-        .replace(/{coupon}/g, "coupons")
-        .replace(/{seva}/g, "seva")
-        .replace(/{amount}/g, "your amount")
-        .replace(/{devotee}/g, "the organizer");
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const separator = isIOS ? ';' : ',';
 
-      const smsUrl = `sms:${phones.join(separator)}?body=${encodeURIComponent(genericMsg)}`;
-      window.open(smsUrl, "_self");
-    });
+        const template = document.getElementById("smsModalTemplate").value;
+        const genericMsg = template
+          .replace(/{name}/g, "Devotee")
+          .replace(/{coupon}/g, "coupons")
+          .replace(/{seva}/g, "seva")
+          .replace(/{amount}/g, "your amount")
+          .replace(/{devotee}/g, "the organizer");
 
-    overlay.querySelector("#smsModalClose").addEventListener("click", () => {
-      overlay.classList.add("hidden");
-    });
+        const smsUrl = `sms:${phones.join(separator)}?body=${encodeURIComponent(genericMsg)}`;
+        window.open(smsUrl, "_self");
+      });
 
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.classList.add("hidden");
-    });
-
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+      overlay.querySelector("#smsModalClose").addEventListener("click", () => {
         overlay.classList.add("hidden");
-      }
-    });
+      });
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) overlay.classList.add("hidden");
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+          overlay.classList.add("hidden");
+        }
+      });
+
+      overlay._activateSmsTab = activateSmsTab;
+    }
+
+    document.getElementById("smsSelectedCount").textContent = count;
+    document.getElementById("smsModalTemplate").value = state.settings.smsTemplate || "";
+    document.getElementById("smsRangeFrom").value = "1";
+    document.getElementById("smsRangeTo").value = String(state.coupons.length || 100);
+
+    if (startWithRange === true || count === 0) {
+      overlay._activateSmsTab("range");
+    } else {
+      overlay._activateSmsTab("selected");
+    }
+
+    document.getElementById("smsRecipientsSection").style.display = "none";
+    document.getElementById("smsCopyAllNumbers").classList.add("init-hidden");
+    document.getElementById("smsSendGroup").classList.add("init-hidden");
+
+    overlay.classList.remove("hidden");
+  } catch (err) {
+    console.error("openBulkSmsModal error:", err);
+    showToast("Failed to open SMS modal: " + err.message);
   }
-
-  // Pre-fill fields
-  document.getElementById("smsSelectedCount").textContent = count;
-  document.getElementById("smsModalTemplate").value = state.settings.smsTemplate || "";
-
-  document.getElementById("smsRangeFrom").value = "1";
-  document.getElementById("smsRangeTo").value = String(state.coupons.length || 100);
-
-  // Set default active tab
-  if (count > 0) {
-    document.getElementById("smsTabSelected").click();
-  } else {
-    document.getElementById("smsTabRange").click();
-  }
-
-  // Reset generated container
-  document.getElementById("smsRecipientsSection").style.display = "none";
-  document.getElementById("smsCopyAllNumbers").classList.add("init-hidden");
-  document.getElementById("smsSendGroup").classList.add("init-hidden");
-
-  overlay.classList.remove("hidden");
 }
 
 function generateBulkSmsRecipients() {
@@ -3847,6 +3865,8 @@ function renderCheckinReport() {
         <td>${escapeHtml(c.description || "-")}</td>
         <td><span class="attended-badge ${attended ? '' : 'missed'}">${attended ? "✓ Checked In" : "○ Not Yet"}</span></td>
         <td>${attended ? escapeHtml(c.attendedAt) : "-"}</td>
+        <td class="no-print">${c.buyerContact ? `<a href="tel:${escapeAttr(c.buyerContact)}" class="call-btn" title="Call ${escapeAttr(c.buyerContact)}">📞</a>` : '-'}</td>
+        <td class="no-print">${c.buyerContact ? `<button class="wa-btn" type="button" data-wa-coupon="${c.number}" title="Send WhatsApp invitation to buyer"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg> Send</button>` : '-'}</td>
         ${canCheckin ? `
         <td class="no-print">
           ${attended
@@ -3856,7 +3876,7 @@ function renderCheckinReport() {
         </td>` : ""}
       </tr>
     `;
-  }).join("") || '<tr><td colspan="8"><div class="empty">No coupons match the filters.</div></td></tr>';
+  }).join("") || '<tr><td colspan="10"><div class="empty">No coupons match the filters.</div></td></tr>';
 
   if (els.checkinPagination) {
     els.checkinPagination.innerHTML = buildPaginationHtml(

@@ -462,6 +462,7 @@
           </select>
           <span id="allCouponCount" class="small-stat">Coupons: 0</span>
           <span id="devoteePendingDisplay" class="small-stat">Pending: ₹0</span>
+          <button id="filterBarSmsBtn" class="primary sms-btn no-print init-hidden" type="button" onclick="openBulkSmsModal(true)">💬 Send SMS</button>
         </div>
         <div id="bulkSettleBar" class="bulk-settle-bar no-print init-hidden">
           <label class="bulk-check-label">
@@ -545,6 +546,8 @@
                 <th>Seva</th>
                 <th>Status</th>
                 <th>Checked In At</th>
+                <th class="no-print">Call</th>
+                <th class="no-print">Message</th>
                 <th id="checkinActionHeader" class="no-print">Action</th>
               </tr>
             </thead>
