@@ -171,6 +171,10 @@
         <span class="tab-icon">✅</span>
         <span class="tab-label">Check-in</span>
       </button>
+      <button class="tab" type="button" data-view="communicationView">
+        <span class="tab-icon">💬</span>
+        <span class="tab-label">Communication</span>
+      </button>
     </nav>
 
     <section id="adminView" class="view active">
@@ -298,40 +302,6 @@
             <input id="viewerPasswordInput" type="password" minlength="4" required placeholder="Minimum 4 characters">
           </label>
           <button type="submit">Set Viewer Password</button>
-        </form>
-
-        <form id="invitationForm" class="panel full-width">
-          <h2>📲 WhatsApp Invitation Template</h2>
-          <p class="hint mb-md">Write the message devotees will send to their buyers. Use
-            <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong>
-            for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
-          <label>
-            Message Body
-            <textarea id="invitationMessageInput" rows="8"
-              placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to our seva event..."></textarea>
-          </label>
-          <div class="inline-fields flex-center">
-            <button type="submit">Save Template</button>
-            <button type="button" id="previewInvitationBtn" class="ghost">Preview</button>
-            <span id="invitationSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
-          </div>
-        </form>
-
-        <form id="smsTemplateForm" class="panel full-width">
-          <h2>💬 SMS Invitation Template</h2>
-          <p class="hint mb-md">Write the default message for sending SMS. Use
-            <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong>
-            for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
-          <label>
-            Message Body
-            <textarea id="smsTemplateInput" rows="8"
-              placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;Thank you for your seva. Your coupon number is #{coupon}. Seva: {seva}, Amount: {amount}. Devotee: {devotee}.&#10;&#10;https://vikram34it.github.io/coupons-tracker/"></textarea>
-          </label>
-          <div class="inline-fields flex-center">
-            <button type="submit">Save SMS Template</button>
-            <button type="button" id="previewSmsBtn" class="ghost">Preview</button>
-            <span id="smsSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
-          </div>
         </form>
       </div>
 
@@ -532,8 +502,6 @@
             </select>
             <input id="checkinSearch" type="search" placeholder="Search by #, name or contact" class="input-sm">
             <span id="checkinCount" class="small-stat">Coupons: 0</span>
-            <span id="checkinSelectedCount" class="small-stat init-hidden" style="color: var(--primary); font-weight: 600;">0 selected</span>
-            <button id="checkinWhatsappBtn" type="button" class="primary wa-btn no-print init-hidden" style="gap: 6px;">📲 WhatsApp</button>
             <button id="checkinPrintBtn" type="button" class="ghost no-print" title="Print attendance report">🖨️ Print</button>
           </div>
         </div>
@@ -541,7 +509,6 @@
           <table>
             <thead>
               <tr>
-                <th id="checkinSelectAllTh" class="no-print init-hidden"><input type="checkbox" id="checkinSelectAll"></th>
                 <th>Coupon</th>
                 <th>Buyer</th>
                 <th>Contact</th>
@@ -559,6 +526,146 @@
         </div>
         <div id="checkinPagination" class="pagination no-print"></div>
       </section>
+    </section>
+
+    <section id="communicationView" class="view">
+      <nav class="subtabs" aria-label="Communication sections">
+        <button class="subtab active" type="button" data-comm-tab="sms">💬 SMS</button>
+        <button class="subtab" type="button" data-comm-tab="whatsapp">📲 WhatsApp</button>
+        <button class="subtab" type="button" data-comm-tab="settings">⚙️ Settings</button>
+      </nav>
+
+      <div data-comm-section="sms" class="mt-md">
+        <section class="panel">
+          <div class="section-head">
+            <h2>💬 SMS Templates</h2>
+            <p class="hint">Configure different messages for different coupon number ranges.</p>
+          </div>
+          <div id="commSmsTemplatesBody"></div>
+          <div class="inline-fields mt-md" style="justify-content: flex-start; gap: 8px;">
+            <button type="button" id="commSmsAddRange" class="ghost" style="font-size: 13px;">+ Add Range</button>
+            <button type="button" id="commSmsSaveBtn" class="primary">Save SMS Templates</button>
+            <span id="commSmsSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
+          </div>
+        </section>
+
+        <section class="panel mt-md">
+          <div class="section-head">
+            <h2>📤 Bulk SMS</h2>
+            <p class="hint">Send SMS to selected buyers or a coupon range. Each coupon uses its matching template.</p>
+          </div>
+          <div class="sms-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--line); padding-bottom: 8px;">
+            <button type="button" id="commSmsTabSelected" class="tab-btn active" style="flex: 1; padding: 8px; border: none; background: none; border-bottom: 3px solid var(--primary); font-weight: 600; cursor: pointer;">Selected Coupons (<span id="commSmsSelectedCount">0</span>)</button>
+            <button type="button" id="commSmsTabRange" class="tab-btn" style="flex: 1; padding: 8px; border: none; background: none; font-weight: 600; cursor: pointer; color: var(--ink-secondary);">Coupon Range</button>
+          </div>
+          <div id="commSmsRangeContainer" style="display: none; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">From Coupon #</label>
+              <input type="number" id="commSmsRangeFrom" min="1" placeholder="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">To Coupon #</label>
+              <input type="number" id="commSmsRangeTo" min="1" placeholder="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button type="button" id="commSmsGenerateBtn" class="primary" style="flex: 1;">🔍 Generate Recipients & Messages</button>
+          </div>
+          <div id="commSmsRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
+            <div class="table-wrap" style="max-height: 250px; overflow-y: auto; margin-bottom: 0;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
+                  <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="commSmsSelectAll" checked></th>
+                    <th style="width: 80px;">Coupon</th>
+                    <th>Name & Phone</th>
+                    <th>Message Preview</th>
+                    <th style="width: 120px; text-align: center;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="commSmsRecipientsBody"></tbody>
+              </table>
+            </div>
+            <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
+              <span id="commSmsRecipientsCount">0 recipients ready</span>
+              <span id="commSmsPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
+            </div>
+          </div>
+          <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
+            <button type="button" id="commSmsCopyNumbers" class="secondary init-hidden" style="background: var(--bg-hover);">📋 Copy Numbers</button>
+            <button type="button" id="commSmsSendGroup" class="primary sms-btn init-hidden">📲 Send Group SMS</button>
+          </div>
+        </section>
+      </div>
+
+      <div data-comm-section="whatsapp" class="mt-md" style="display: none;">
+        <section class="panel">
+          <div class="section-head">
+            <h2>📲 WhatsApp Templates</h2>
+            <p class="hint">Configure different messages for different coupon number ranges.</p>
+          </div>
+          <div id="commWaTemplatesBody"></div>
+          <div class="inline-fields mt-md" style="justify-content: flex-start; gap: 8px;">
+            <button type="button" id="commWaAddRange" class="ghost" style="font-size: 13px;">+ Add Range</button>
+            <button type="button" id="commWaSaveBtn" class="primary wa-btn" style="gap: 6px;">Save WhatsApp Templates</button>
+            <span id="commWaSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
+          </div>
+        </section>
+
+        <section class="panel mt-md">
+          <div class="section-head">
+            <h2>📤 Bulk WhatsApp</h2>
+            <p class="hint">Send WhatsApp messages to selected buyers or a coupon range. Each coupon uses its matching template.</p>
+          </div>
+          <div class="sms-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid var(--line); padding-bottom: 8px;">
+            <button type="button" id="commWaTabSelected" class="tab-btn active" style="flex: 1; padding: 8px; border: none; background: none; border-bottom: 3px solid var(--primary); font-weight: 600; cursor: pointer;">Selected Coupons (<span id="commWaSelectedCount">0</span>)</button>
+            <button type="button" id="commWaTabRange" class="tab-btn" style="flex: 1; padding: 8px; border: none; background: none; font-weight: 600; cursor: pointer; color: var(--ink-secondary);">Coupon Range</button>
+          </div>
+          <div id="commWaRangeContainer" style="display: none; gap: 15px; margin-bottom: 15px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: var(--radius); border: 1px solid var(--line);">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">From Coupon #</label>
+              <input type="number" id="commWaRangeFrom" min="1" placeholder="1" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px;">To Coupon #</label>
+              <input type="number" id="commWaRangeTo" min="1" placeholder="100" style="width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius);">
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button type="button" id="commWaGenerateBtn" class="primary" style="flex: 1;">🔍 Preview Messages</button>
+          </div>
+          <div id="commWaRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
+            <div class="table-wrap" style="max-height: 300px; overflow-y: auto; margin-bottom: 0;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
+                  <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="commWaSelectAll" checked></th>
+                    <th style="width: 80px;">Coupon</th>
+                    <th>Name & Phone</th>
+                    <th>Message Preview</th>
+                    <th style="width: 80px; text-align: center;">Send</th>
+                  </tr>
+                </thead>
+                <tbody id="commWaRecipientsBody"></tbody>
+              </table>
+            </div>
+            <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
+              <span id="commWaRecipientsCount">0 recipients ready</span>
+              <span id="commWaPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
+            </div>
+          </div>
+          <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
+            <button type="button" id="commWaSendAll" class="primary wa-btn init-hidden" style="gap: 6px;">📲 Send All</button>
+          </div>
+        </section>
+      </div>
+
+      <div data-comm-section="settings" class="mt-md" style="display: none;">
+        <section class="panel">
+          <h2>⚙️ Communication Settings</h2>
+          <p class="hint">Additional communication settings will appear here.</p>
+        </section>
+      </div>
     </section>
   </main>
 
