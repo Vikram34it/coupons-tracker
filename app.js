@@ -15,6 +15,7 @@ let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
 let currentEntryPage = 1;
 let currentCheckinPage = 1;
+const selectedCheckinCoupons = new Set();
 let isEditing = false;
 let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
@@ -323,7 +324,7 @@ function cacheElements() {
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
     "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPagination", "checkinPrintBtn",
-    "checkinActionHeader"
+    "checkinActionHeader", "checkinSelectAllTh", "checkinSelectAll", "checkinSelectedCount", "checkinWhatsappBtn"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
   });
@@ -553,6 +554,31 @@ function bindEvents() {
       return;
     }
   });
+  els.checkinReportBody.addEventListener("change", (e) => {
+    const checkbox = e.target.closest(".checkin-coupon-check");
+    if (!checkbox) return;
+    const num = Number(checkbox.dataset.check);
+    if (checkbox.checked) selectedCheckinCoupons.add(num);
+    else selectedCheckinCoupons.delete(num);
+    checkbox.closest("tr")?.classList.toggle("selected-row", checkbox.checked);
+    updateCheckinSelectionUi();
+  });
+  if (els.checkinSelectAll) {
+    els.checkinSelectAll.addEventListener("change", (e) => {
+      const checked = e.target.checked;
+      els.checkinReportBody.querySelectorAll(".checkin-coupon-check").forEach(cb => {
+        cb.checked = checked;
+        const num = Number(cb.dataset.check);
+        if (checked) selectedCheckinCoupons.add(num);
+        else selectedCheckinCoupons.delete(num);
+        cb.closest("tr")?.classList.toggle("selected-row", checked);
+      });
+      updateCheckinSelectionUi();
+    });
+  }
+  if (els.checkinWhatsappBtn) {
+    els.checkinWhatsappBtn.addEventListener("click", () => openBulkCheckinWhatsappModal());
+  }
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -3709,11 +3735,23 @@ function canCurrentUserCheckin() {
   return false;
 }
 
+function updateCheckinSelectionUi() {
+  const count = selectedCheckinCoupons.size;
+  if (els.checkinSelectedCount) {
+    els.checkinSelectedCount.textContent = `${count} selected`;
+    els.checkinSelectedCount.classList.toggle("init-hidden", count === 0);
+  }
+  if (els.checkinWhatsappBtn) {
+    els.checkinWhatsappBtn.classList.toggle("init-hidden", count === 0);
+  }
+}
+
 function renderCheckinView() {
   const canCheckin = canCurrentUserCheckin();
   els.checkinInput.closest(".checkin-scanner")?.classList.toggle("hidden", !canCheckin);
   els.checkinResult.classList.toggle("hidden", !canCheckin);
   if (els.checkinActionHeader) els.checkinActionHeader.classList.toggle("hidden", !canCheckin);
+  if (els.checkinSelectAllTh) els.checkinSelectAllTh.classList.toggle("hidden", !canCheckin);
   renderCheckinStats();
   populateCheckinFilters();
   renderCheckinReport();
@@ -3856,8 +3894,11 @@ function renderCheckinReport() {
 
   els.checkinReportBody.innerHTML = visibleCoupons.map(c => {
     const attended = c.attended;
+    const checked = selectedCheckinCoupons.has(c.number);
+    const canCheck = canCurrentUserCheckin();
     return `
-      <tr>
+      <tr class="${checked ? 'selected-row' : ''}">
+        ${canCheck ? `<td class="no-print"><input type="checkbox" class="checkin-coupon-check" data-check="${c.number}" ${checked ? 'checked' : ''}></td>` : ''}
         <td>#${c.number}</td>
         <td>${escapeHtml(c.buyerName || "-")}</td>
         <td><span class="copy-contact" data-copy="${escapeHtml(c.buyerContact || "-")}">${escapeHtml(c.buyerContact || "-")}</span></td>
@@ -3876,7 +3917,7 @@ function renderCheckinReport() {
         </td>` : ""}
       </tr>
     `;
-  }).join("") || '<tr><td colspan="10"><div class="empty">No coupons match the filters.</div></td></tr>';
+  }).join("") || `<tr><td colspan="${canCheckin ? 12 : 11}"><div class="empty">No coupons match the filters.</div></td></tr>`;
 
   if (els.checkinPagination) {
     els.checkinPagination.innerHTML = buildPaginationHtml(
@@ -3902,6 +3943,205 @@ function goToCheckinPage(page) {
   currentCheckinPage = Math.max(1, Number(page) || 1);
   renderCheckinReport();
   els.checkinReportBody?.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openBulkCheckinWhatsappModal() {
+  try {
+    const count = selectedCheckinCoupons.size;
+    if (count === 0) {
+      showToast("No coupons selected. Use checkboxes in the report table first.");
+      return;
+    }
+
+    let overlay = document.getElementById("bulkCheckinWaOverlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "bulkCheckinWaOverlay";
+      overlay.className = "modal-overlay hidden";
+      overlay.innerHTML = `
+        <div class="modal-card" style="max-width: 800px; width: 95%;">
+          <h3 style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span>📲 Send WhatsApp to Selected Buyers</span>
+          </h3>
+          <p class="hint mb-md">Compose your message and send personalized WhatsApp invitations to selected coupon buyers.</p>
+
+          <div style="margin-bottom: 15px;">
+            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;">WhatsApp Message Template</label>
+            <textarea id="checkinWaTemplate" rows="4" style="width: 100%; padding: 10px; font-family: inherit; border: 1px solid var(--line); border-radius: var(--radius); resize: vertical;" placeholder="Enter message... Use placeholders: {name}, {coupon}, {seva}, {amount}, {devotee}"></textarea>
+            <p class="hint" style="margin-top: 4px; font-size: 11px;">Placeholders: <strong>{name}</strong>, <strong>{coupon}</strong>, <strong>{seva}</strong>, <strong>{amount}</strong>, <strong>{devotee}</strong></p>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <button type="button" id="checkinWaGenerateBtn" class="primary" style="flex: 1;">🔍 Preview Messages</button>
+          </div>
+
+          <div id="checkinWaRecipientsSection" style="display: none; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 15px;">
+            <div class="table-wrap" style="max-height: 300px; overflow-y: auto; margin-bottom: 0;">
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
+                <thead style="position: sticky; top: 0; background: var(--surface); box-shadow: 0 1px 0 var(--line); z-index: 10;">
+                  <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="checkinWaSelectAll" checked></th>
+                    <th style="width: 80px;">Coupon</th>
+                    <th>Name & Phone</th>
+                    <th>Message Preview</th>
+                    <th style="width: 80px; text-align: center;">Send</th>
+                  </tr>
+                </thead>
+                <tbody id="checkinWaRecipientsBody"></tbody>
+              </table>
+            </div>
+            <div style="background: rgba(0,0,0,0.01); padding: 8px 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink-secondary);">
+              <span id="checkinWaRecipientsCount">0 recipients ready</span>
+              <span id="checkinWaPhoneWarning" style="color: var(--danger); font-weight: 600; display: none;">⚠️ Some selected coupons have no phone number</span>
+            </div>
+          </div>
+
+          <div class="inline-fields" style="justify-content: flex-end; gap: 8px;">
+            <button type="button" id="checkinWaSendAll" class="primary wa-btn init-hidden" style="gap: 6px;">📲 Send All</button>
+            <button type="button" id="checkinWaModalClose" class="ghost">Close</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      overlay.querySelector("#checkinWaSelectAll").addEventListener("change", (e) => {
+        const checked = e.target.checked;
+        overlay.querySelectorAll(".checkin-wa-recipient-check:not([disabled])").forEach(cb => {
+          cb.checked = checked;
+        });
+      });
+
+      overlay.querySelector("#checkinWaGenerateBtn").addEventListener("click", generateCheckinWhatsappRecipients);
+
+      overlay.querySelector("#checkinWaRecipientsBody").addEventListener("click", (e) => {
+        const sendBtn = e.target.closest(".checkin-wa-single-send");
+        if (sendBtn) {
+          const couponNum = Number(sendBtn.dataset.coupon);
+          const coupon = state.coupons[couponNum - 1];
+          if (coupon) openWhatsAppForBuyer(coupon);
+        }
+      });
+
+      overlay.querySelector("#checkinWaSendAll").addEventListener("click", () => {
+        const checked = overlay.querySelectorAll(".checkin-wa-recipient-check:checked");
+        let sentCount = 0;
+        checked.forEach(cb => {
+          const couponNum = Number(cb.dataset.coupon);
+          const coupon = state.coupons[couponNum - 1];
+          if (coupon && coupon.buyerContact) {
+            const url = buildWhatsAppUrl(coupon.buyerContact, buildInvitationMessage(coupon));
+            if (url) {
+              window.open(url, "_blank");
+              sentCount++;
+            }
+          }
+        });
+        if (sentCount > 0) {
+          showToast(`Opening WhatsApp for ${sentCount} buyer(s). Send each message individually.`);
+        } else {
+          showToast("No valid recipients to send to.");
+        }
+      });
+
+      overlay.querySelector("#checkinWaModalClose").addEventListener("click", () => {
+        overlay.classList.add("hidden");
+      });
+
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) overlay.classList.add("hidden");
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+          overlay.classList.add("hidden");
+        }
+      });
+    }
+
+    const targetCoupons = Array.from(selectedCheckinCoupons).sort((a, b) => a - b).map(n => state.coupons[n - 1]).filter(Boolean);
+    document.getElementById("checkinWaTemplate").value = state.settings.invitationMessage || "";
+    document.getElementById("checkinWaRecipientsSection").style.display = "none";
+    document.getElementById("checkinWaSendAll").classList.add("init-hidden");
+
+    overlay.classList.remove("hidden");
+  } catch (err) {
+    console.error("openBulkCheckinWhatsappModal error:", err);
+    showToast("Failed to open WhatsApp modal: " + err.message);
+  }
+}
+
+function generateCheckinWhatsappRecipients() {
+  const template = document.getElementById("checkinWaTemplate").value;
+  if (!template.trim()) {
+    showToast("Enter a message template first.");
+    return;
+  }
+
+  state.settings.invitationMessage = template;
+  saveState();
+
+  const targetCoupons = Array.from(selectedCheckinCoupons).sort((a, b) => a - b).map(n => state.coupons[n - 1]).filter(Boolean);
+  if (targetCoupons.length === 0) {
+    showToast("No coupons selected.");
+    return;
+  }
+
+  const tbody = document.getElementById("checkinWaRecipientsBody");
+  tbody.innerHTML = "";
+
+  let withPhoneCount = 0;
+  let hasMissingPhone = false;
+
+  targetCoupons.forEach(coupon => {
+    const phone = coupon.buyerContact ? String(coupon.buyerContact).trim() : "";
+    const hasPhone = phone.length >= 4;
+    const devotee = state.devotees.find(d => d.id === coupon.devoteeId);
+    const msgText = template
+      .replace(/{name}/g, coupon.buyerName || "Devotee")
+      .replace(/{coupon}/g, String(coupon.number))
+      .replace(/{seva}/g, coupon.description || "Seva")
+      .replace(/{amount}/g, formatMoney(amountValue(coupon.amount)))
+      .replace(/{devotee}/g, devotee ? devotee.name : "");
+
+    if (hasPhone) withPhoneCount++;
+    else hasMissingPhone = true;
+
+    const row = document.createElement("tr");
+    if (!hasPhone) row.style.opacity = "0.6";
+
+    row.innerHTML = `
+      <td style="text-align: center;">
+        <input type="checkbox" class="checkin-wa-recipient-check" data-coupon="${coupon.number}" ${hasPhone ? 'checked' : 'disabled'}>
+      </td>
+      <td>#${coupon.number}</td>
+      <td>
+        <strong style="display:block; font-size:13px;">${escapeHtml(coupon.buyerName || "-")}</strong>
+        <span style="font-size:12px; color: var(--ink-secondary);">${escapeHtml(phone || "No phone number")}</span>
+      </td>
+      <td>
+        <textarea readonly style="width: 100%; font-size: 11px; padding: 4px; border: 1px solid var(--line); border-radius: 4px; resize: none; background: var(--bg); height: 45px; font-family: monospace;">${escapeHtml(msgText)}</textarea>
+      </td>
+      <td style="text-align: center;">
+        <button type="button" class="checkin-wa-single-send wa-btn" data-coupon="${coupon.number}" ${hasPhone ? '' : 'disabled'} style="padding: 4px 10px; font-size: 11px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  });
+
+  document.getElementById("checkinWaRecipientsSection").style.display = "block";
+  document.getElementById("checkinWaRecipientsCount").textContent = `${withPhoneCount} recipient(s) with phone numbers`;
+  document.getElementById("checkinWaPhoneWarning").style.display = hasMissingPhone ? "inline" : "none";
+
+  const selectAllCheck = document.getElementById("checkinWaSelectAll");
+  if (selectAllCheck) selectAllCheck.checked = true;
+
+  if (withPhoneCount > 0) {
+    document.getElementById("checkinWaSendAll").classList.remove("init-hidden");
+  } else {
+    document.getElementById("checkinWaSendAll").classList.add("init-hidden");
+  }
 }
 
 // ═══════════════════════════════════════════════

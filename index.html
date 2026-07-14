@@ -532,6 +532,8 @@
             </select>
             <input id="checkinSearch" type="search" placeholder="Search by #, name or contact" class="input-sm">
             <span id="checkinCount" class="small-stat">Coupons: 0</span>
+            <span id="checkinSelectedCount" class="small-stat init-hidden" style="color: var(--primary); font-weight: 600;">0 selected</span>
+            <button id="checkinWhatsappBtn" type="button" class="primary wa-btn no-print init-hidden" style="gap: 6px;">📲 WhatsApp</button>
             <button id="checkinPrintBtn" type="button" class="ghost no-print" title="Print attendance report">🖨️ Print</button>
           </div>
         </div>
@@ -539,6 +541,7 @@
           <table>
             <thead>
               <tr>
+                <th id="checkinSelectAllTh" class="no-print init-hidden"><input type="checkbox" id="checkinSelectAll"></th>
                 <th>Coupon</th>
                 <th>Buyer</th>
                 <th>Contact</th>
