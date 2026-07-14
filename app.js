@@ -752,18 +752,33 @@ function bindEvents() {
 
   const commWaSendAll = document.getElementById("commWaSendAll");
   if (commWaSendAll) commWaSendAll.addEventListener("click", () => {
-    let sentCount = 0;
+    const urls = [];
     document.querySelectorAll(".comm-wa-recipient-check:checked").forEach(cb => {
       const item = generatedCommWaRecipients.find(r => r.coupon.number === Number(cb.dataset.coupon));
       if (item && item.coupon && item.coupon.buyerContact) {
         const url = buildWhatsAppUrl(item.coupon.buyerContact, buildInvitationMessage(item.coupon));
-        if (url) { window.open(url, "_blank"); sentCount++; }
+        if (url) urls.push(url);
       }
     });
-    if (sentCount > 0) showToast(`Opening WhatsApp for ${sentCount} buyer(s).`);
-    else showToast("No valid recipients to send to.");
+    if (urls.length === 0) { showToast("No valid recipients to send to."); return; }
+    showToast(`Opening WhatsApp for ${urls.length} buyer(s). Tap back after each to open the next.`);
+    openWhatsAppSequentially(urls, 0);
   });
 
+}
+
+function openWhatsAppSequentially(urls, index) {
+  if (index >= urls.length) return;
+  window.open(urls[index], "_blank");
+  if (index + 1 < urls.length) {
+    const onReturn = () => {
+      document.removeEventListener("visibilitychange", onReturn);
+      window.removeEventListener("focus", onReturn);
+      setTimeout(() => openWhatsAppSequentially(urls, index + 1), 500);
+    };
+    document.addEventListener("visibilitychange", onReturn);
+    window.addEventListener("focus", onReturn);
+  }
 }
 
 function transferCouponRange(event) {
