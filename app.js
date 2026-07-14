@@ -1461,10 +1461,10 @@ function applyRoleAccess() {
     }
   }
 
-  // Devotee: land on devotee entry view (but allow switching to check-in)
+  // Devotee: land on devotee entry view (but allow switching to check-in and communication)
   if (isDevotee) {
     const activeViewId = document.querySelector(".view.active")?.id;
-    if (activeViewId !== "checkinView") {
+    if (activeViewId !== "checkinView" && activeViewId !== "communicationView") {
       document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
       document.querySelector('[data-view="devoteeView"]')?.classList.add("active");
       document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
