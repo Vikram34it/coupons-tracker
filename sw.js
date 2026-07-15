@@ -4,6 +4,7 @@ const ASSETS = [
   "styles.css",
   "app.js",
   "firebase-config.js",
+  "excel-upload.js",
   "manifest.json"
 ];
 
@@ -25,6 +26,15 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).catch(() => cached))
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      const url = new URL(event.request.url);
+      // Strip query string for cache matching to handle versioned assets
+      const strippedUrl = url.origin + url.pathname;
+      return caches.match(strippedUrl).then((strippedCached) => {
+        if (strippedCached) return strippedCached;
+        return fetch(event.request).catch(() => strippedCached);
+      });
+    })
   );
 });

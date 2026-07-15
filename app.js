@@ -112,10 +112,17 @@ window.addEventListener("load", () => {
     }
   });
   // Wait until Firebase function exists
+  let waitFirebaseAttempts = 0;
   const waitFirebase = setInterval(() => {
     if (typeof initFirebaseSync === "function") {
       clearInterval(waitFirebase);
       initFirebaseSync();
+    }
+    waitFirebaseAttempts++;
+    if (waitFirebaseAttempts > 30) {
+      clearInterval(waitFirebase);
+      updateSyncBadge("Local");
+      updateLoginSyncHint("local");
     }
   }, 200);
 });
@@ -268,7 +275,7 @@ function renderSevaSummary() {
   }
 
   for (const h of (state.hundi || [])) {
-    if (h.settled) {
+    if (h.settled && inSettlementPeriod({ settledAt: h.date }, period)) {
       const seva = "Hundi Donation";
       if (!sevaMap[seva]) sevaMap[seva] = { count: 0, amount: 0 };
       sevaMap[seva].count += 1;
@@ -316,7 +323,7 @@ function cacheElements() {
     "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
+    "adminPeriodSummary", "settledFromDate", "settledToDate", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
     "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
@@ -689,7 +696,11 @@ function login(event) {
     saveSession({ role: "viewer", devoteeId: "" });
   } else {
     const devotee = state.devotees.find((item) => item.id === els.loginDevotee.value);
-    if (!devotee || password !== devotee.pin) {
+    if (!devotee) {
+      showToast("Please select a devotee from the list");
+      return;
+    }
+    if (password !== devotee.pin) {
       showToast("Devotee password is incorrect");
       return;
     }
@@ -1384,6 +1395,7 @@ function renderDevotees() {
         const devotee = state.devotees.find((d) => d.id === checkinCb.value);
         if (!devotee) return;
         devotee.canCheckin = checkinCb.checked;
+        devotee._updated = Date.now();
         saveState();
         showToast(`${devotee.name} check-in ${checkinCb.checked ? "enabled" : "disabled"}`);
       }
@@ -1413,6 +1425,7 @@ function handleDevoteeAction(action, value, btn) {
       return;
     }
     devotee.name = newName.trim();
+    devotee._updated = Date.now();
     saveState();
     renderDevotees();
     renderSelectors();
@@ -1427,6 +1440,7 @@ function handleDevoteeAction(action, value, btn) {
       return;
     }
     devotee.pin = password.trim();
+    devotee._updated = Date.now();
     saveState();
     renderDevotees();
     renderSelectors();
@@ -1440,6 +1454,7 @@ function handleDevoteeAction(action, value, btn) {
     const cleaned = cleanIndianMobile(newContact);
     if (!cleaned) { showToast("Enter valid 10-digit mobile number"); return; }
     devotee.contact = cleaned;
+    devotee._updated = Date.now();
     saveState();
     render();
     showToast(`Contact updated for ${devotee.name}`);
@@ -2802,17 +2817,27 @@ function mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers = new Set()) {
 }
 
 function mergeRemoteDevotees(remoteDevotees) {
+  const localById = new Map(state.devotees.map((devotee) => [devotee.id, devotee]));
   const remoteById = new Map(remoteDevotees.map((devotee) => [devotee.id, devotee]));
   // Remove locally deleted devotees so stale snapshots don't resurrect them
   for (const id of locallyDeletedDevoteeIds) {
     remoteById.delete(id);
   }
-  // Add back local-only entries (truly new, not yet pushed to Firebase)
-  state.devotees.forEach((localDevotee) => {
-    if (!remoteById.has(localDevotee.id)) {
-      remoteById.set(localDevotee.id, localDevotee);
+  // Merge: prefer whichever has the newer _updated timestamp
+  for (const [id, local] of localById) {
+    if (!remoteById.has(id)) {
+      // Local-only entry: include it (not yet pushed to Firebase)
+      remoteById.set(id, local);
+    } else {
+      const remote = remoteById.get(id);
+      const localUpd = Number(local._updated) || 0;
+      const remoteUpd = Number(remote._updated) || 0;
+      if (localUpd > remoteUpd) {
+        remoteById.set(id, local);
+      }
+      // Equal or remote newer: keep remote (already in map)
     }
-  });
+  }
   return Array.from(remoteById.values());
 }
 
@@ -2872,7 +2897,12 @@ function flushPendingFirebaseWrite() {
   dbRef.update(buildFirebaseUpdates()).then(() => {
     locallyDeletedDevoteeIds.clear();
     locallyDeletedHundiIds.clear();
-  }).catch(() => {});
+    updateSyncBadge("Realtime");
+  }).catch((err) => {
+    console.error("Firebase write failed (flush):", err);
+    pendingFirebaseWrite = true;
+    updateSyncBadge("Sync error");
+  });
 }
 
 function applyFirebaseData(data, options = {}) {
@@ -3023,7 +3053,13 @@ function initFirebaseSync() {
             firebaseHasLoaded = true;
             firebaseCanWrite = true;
             if (hasStateData(state)) {
-              dbRef.set(state);
+              // Use update() for atomicity — include full coupons array for first init
+              const initialUpdates = buildFirebaseUpdates();
+              initialUpdates.coupons = state.coupons;
+              dbRef.update(initialUpdates).catch((err) => {
+                console.error("Firebase first-time push failed:", err);
+                updateSyncBadge("Sync error");
+              });
             }
             updateLoginSyncHint("ready");
             flushPendingFirebaseWrite();
@@ -3147,7 +3183,12 @@ saveState = function () {
       dbRef.update(buildFirebaseUpdates()).then(() => {
         locallyDeletedDevoteeIds.clear();
         locallyDeletedHundiIds.clear();
-      }).catch(() => {});
+        updateSyncBadge("Realtime");
+      }).catch((err) => {
+        console.error("Firebase write failed:", err);
+        pendingFirebaseWrite = true;
+        updateSyncBadge("Sync error");
+      });
     } else {
       pendingFirebaseWrite = true;
       updateSyncBadge("Sync pending");
