@@ -19,6 +19,8 @@ let isEditing = false;
 let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
 const dirtyCouponNumbers = new Set();
+const locallyDeletedDevoteeIds = new Set();
+const locallyDeletedHundiIds = new Set();
 let saveTimer = null;
 let sheetSyncTimer = null;
 let sheetHourlyTimer = null;
@@ -194,7 +196,6 @@ function loadState() {
 
 function saveState() {
   invalidateCaches();
-  lastEditTime = Date.now();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
@@ -229,8 +230,8 @@ function saveQueuedLocalEdits() {
     applyFirebaseData(data, { preserveCouponNumbers, skipRender: true });
   }
 
-  pendingLocalCouponNumbers.clear();
   saveState();
+  pendingLocalCouponNumbers.clear();
 }
 
 function loadSession() {
@@ -308,8 +309,11 @@ function cacheElements() {
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "syncBadge", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",
+    "transferForm", "transferFromDevotee", "transferToDevotee", "transferFrom", "transferTo", "transferHint",
+    "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
+    "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
@@ -440,6 +444,7 @@ function bindEvents() {
   els.logoutBtn.addEventListener("click", logout);
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
+  els.transferForm.addEventListener("submit", transferCouponRange);
   els.couponSettingsForm.addEventListener("submit", updateTotalCoupons);
   els.resetCouponForm.addEventListener("submit", resetOneCoupon);
   els.resetDevotee.addEventListener("change", renderResetCouponList);
@@ -448,6 +453,7 @@ function bindEvents() {
   els.resetSelectedCouponsBtn.addEventListener("click", resetSelectedCoupons);
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
+  els.resetRangeBtn.addEventListener("click", resetCouponRange);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
@@ -550,6 +556,55 @@ function bindEvents() {
     });
   });
 
+}
+
+function transferCouponRange(event) {
+  event.preventDefault();
+  const fromDevId = els.transferFromDevotee.value;
+  const toDevId = els.transferToDevotee.value;
+  const from = Number(els.transferFrom.value);
+  const to = Number(els.transferTo.value);
+
+  if (!fromDevId || !toDevId) {
+    showToast("Select both source and target devotee");
+    return;
+  }
+
+  if (fromDevId === toDevId) {
+    showToast("Source and target devotee must be different");
+    return;
+  }
+
+  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
+    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  const toTransfer = state.coupons.filter(c =>
+    c.number >= from && c.number <= to && c.devoteeId === fromDevId
+  );
+
+  if (!toTransfer.length) {
+    showToast(`No coupons assigned to selected devotee in range ${from}-${to}`);
+    return;
+  }
+
+  const fromName = devoteeName(fromDevId);
+  const toName = devoteeName(toDevId);
+
+  if (!window.confirm(`Transfer ${toTransfer.length} coupon(s) from ${fromName} to ${toName} (range ${from}-${to})?`)) return;
+
+  toTransfer.forEach(c => {
+    c.devoteeId = toDevId;
+    markCouponUpdated(c);
+  });
+
+  els.transferForm.reset();
+  els.transferHint.textContent = "";
+  invalidateCaches();
+  saveState();
+  render();
+  showToast(`Transferred ${toTransfer.length} coupon(s) from ${fromName} to ${toName}`);
 }
 
 function resetAllCouponsView() {
@@ -678,7 +733,8 @@ function addDevotee(event) {
     name,
     contact,
     pin: password,
-    canCheckin: els.devoteeCanCheckin.checked
+    canCheckin: els.devoteeCanCheckin.checked,
+    _updated: Date.now()
   });
 
   els.devoteeForm.reset();
@@ -844,6 +900,31 @@ function resetDevoteeCoupons() {
   }
 
   resetCouponNumbers(numbers, `Reset all ${numbers.length} coupon(s) assigned to ${devoteeName(devoteeId)}?`);
+}
+
+function resetCouponRange() {
+  const from = positiveInteger(els.resetFrom.value);
+  const to = positiveInteger(els.resetTo.value);
+  if (!from || !to || from > to || from < 1 || to > couponTotal()) {
+    showToast(`Enter a valid range from 1 to ${couponTotal()}`);
+    return;
+  }
+
+  const numbers = [];
+  for (let i = from; i <= to; i++) {
+    if (state.coupons[i - 1].devoteeId || state.coupons[i - 1].buyerName) {
+      numbers.push(i);
+    }
+  }
+
+  if (!numbers.length) {
+    showToast(`No assigned/sold coupons in range ${from}-${to}`);
+    return;
+  }
+
+  resetCouponNumbers(numbers, `Reset ${numbers.length} coupon(s) from ${from} to ${to}? This will clear their assignment and sale details.`);
+  els.resetFrom.value = "";
+  els.resetTo.value = "";
 }
 
 function resetAllCoupons() {
@@ -1052,6 +1133,20 @@ function renderSelectors() {
     )
   ) {
     els.resetDevotee.value = currentResetValue;
+  }
+
+  // ✅ TRANSFER FROM DROPDOWN
+  const currentTransferFromValue = els.transferFromDevotee.value;
+  els.transferFromDevotee.innerHTML = empty + options;
+  if (state.devotees.some(d => d.id === currentTransferFromValue)) {
+    els.transferFromDevotee.value = currentTransferFromValue;
+  }
+
+  // ✅ TRANSFER TO DROPDOWN
+  const currentTransferToValue = els.transferToDevotee.value;
+  els.transferToDevotee.innerHTML = empty + options;
+  if (state.devotees.some(d => d.id === currentTransferToValue)) {
+    els.transferToDevotee.value = currentTransferToValue;
   }
 
   // ✅ ENTRY DROPDOWN
@@ -1378,6 +1473,7 @@ function deleteDevotee(devoteeId) {
   }
 
   // Remove devotee
+  locallyDeletedDevoteeIds.add(devoteeId);
   state.devotees = state.devotees.filter(d => d.id !== devoteeId);
 
   // Unassign coupons
@@ -1701,6 +1797,7 @@ function setupEntryListDelegation() {
       const hundi = state.hundi.find(h => h.id === deleteBtn.dataset.hundiDelete);
       if (!hundi) return;
       if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
+      locallyDeletedHundiIds.add(hundi.id);
       state.hundi = state.hundi.filter(h => h.id !== hundi.id);
       saveState();
       renderEntryList();
@@ -2094,6 +2191,21 @@ function hasCouponData(coupon) {
     coupon.settled ||
     coupon.settledAt
   );
+}
+
+function countPopulatedFields(coupon) {
+  let count = 0;
+  if (coupon.devoteeId) count++;
+  if (coupon.assignedAt) count++;
+  if (coupon.buyerName) count++;
+  if (coupon.buyerContact) count++;
+  if (coupon.amount) count++;
+  if (coupon.description) count++;
+  if (coupon.settled) count++;
+  if (coupon.settledAt) count++;
+  if (coupon.soldAt) count++;
+  if (coupon.paymentMode && coupon.paymentMode !== "cash") count++;
+  return count;
 }
 
 function renderDevoteeStats(devoteeId) {
@@ -2640,7 +2752,8 @@ function normalizeDevotee(devotee) {
     name: devotee.name || "",
     contact: devotee.contact || "",
     pin: devotee.pin || "",
-    canCheckin: Boolean(devotee.canCheckin)
+    canCheckin: Boolean(devotee.canCheckin),
+    _updated: Number(devotee._updated) || 0
   };
 }
 // ================= FIREBASE SYNC (ADD ONLY THIS) =================
@@ -2673,19 +2786,58 @@ function mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers = new Set()) {
     if (hasCouponData(localCoupon) && !hasCouponData(remoteCoupon)) {
       return localCoupon;
     }
+    if (hasCouponData(remoteCoupon) && !hasCouponData(localCoupon)) {
+      return remoteCoupon;
+    }
 
-    return remoteCoupon;
+    // Equal timestamps, both have data: prefer the one with more fields filled
+    const localFields = countPopulatedFields(localCoupon);
+    const remoteFields = countPopulatedFields(remoteCoupon);
+    if (localFields > remoteFields) return localCoupon;
+    if (remoteFields > localFields) return remoteCoupon;
+
+    // Fully tied: prefer local (user is actively working on it)
+    return localCoupon;
   });
 }
 
 function mergeRemoteDevotees(remoteDevotees) {
-  const devoteesById = new Map(remoteDevotees.map((devotee) => [devotee.id, devotee]));
+  const remoteById = new Map(remoteDevotees.map((devotee) => [devotee.id, devotee]));
+  // Remove locally deleted devotees so stale snapshots don't resurrect them
+  for (const id of locallyDeletedDevoteeIds) {
+    remoteById.delete(id);
+  }
+  // Add back local-only entries (truly new, not yet pushed to Firebase)
   state.devotees.forEach((localDevotee) => {
-    if (!devoteesById.has(localDevotee.id)) {
-      devoteesById.set(localDevotee.id, localDevotee);
+    if (!remoteById.has(localDevotee.id)) {
+      remoteById.set(localDevotee.id, localDevotee);
     }
   });
-  return Array.from(devoteesById.values());
+  return Array.from(remoteById.values());
+}
+
+function mergeRemoteHundi(remoteHundi) {
+  const remoteById = new Map(remoteHundi.map((h) => [h.id, h]));
+  // Remove locally deleted entries so stale snapshots don't resurrect them
+  for (const id of locallyDeletedHundiIds) {
+    remoteById.delete(id);
+  }
+  // Merge with local: prefer whichever has the newer _updated timestamp
+  const localById = new Map((state.hundi || []).map((h) => [h.id, h]));
+  for (const [id, local] of localById) {
+    if (!remoteById.has(id)) {
+      // Local-only entry: include it (not yet pushed to Firebase)
+      remoteById.set(id, local);
+    } else {
+      const remote = remoteById.get(id);
+      const localUpd = Number(local._updated) || 0;
+      const remoteUpd = Number(remote._updated) || 0;
+      if (localUpd > remoteUpd) {
+        remoteById.set(id, local);
+      }
+    }
+  }
+  return Array.from(remoteById.values());
 }
 
 function hasStateData(candidateState = state) {
@@ -2717,7 +2869,10 @@ function buildFirebaseUpdates() {
 function flushPendingFirebaseWrite() {
   if (!pendingFirebaseWrite || !firebaseCanWrite || !firebaseReady || !dbRef) return;
   pendingFirebaseWrite = false;
-  dbRef.update(buildFirebaseUpdates());
+  dbRef.update(buildFirebaseUpdates()).then(() => {
+    locallyDeletedDevoteeIds.clear();
+    locallyDeletedHundiIds.clear();
+  }).catch(() => {});
 }
 
 function applyFirebaseData(data, options = {}) {
@@ -2725,7 +2880,8 @@ function applyFirebaseData(data, options = {}) {
   invalidateCaches();
   // ✅ FIX: Skip Firebase echo/updates if a devotee edited a field recently
   // This prevents data rollback when Firebase echoes the saved state back
-  if (!options.skipRender && !options.preserveCouponNumbers?.size) {
+  // On first load, always apply (there are no local edits to protect)
+  if (!options.firstLoad && !options.skipRender && !options.preserveCouponNumbers?.size) {
     const timeSinceEdit = Date.now() - lastEditTime;
     if (timeSinceEdit < EDIT_GUARD_MS) {
       // Store as pending — will be applied after edit guard expires
@@ -2748,16 +2904,15 @@ function applyFirebaseData(data, options = {}) {
   }
   if (Array.isArray(data.devotees) && (data.devotees.length || !state.devotees.length)) {
     const remoteDevotees = data.devotees.map(normalizeDevotee);
-    state.devotees = pendingFirebaseWrite
-      ? mergeRemoteDevotees(remoteDevotees)
-      : remoteDevotees;
+    state.devotees = mergeRemoteDevotees(remoteDevotees);
   }
   if (Array.isArray(data.coupons)) {
     const remoteCoupons = normalizeCoupons(data.coupons, couponTotal());
     state.coupons = mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers);
   }
   if (Array.isArray(data.hundi) && (data.hundi.length || !state.hundi.length)) {
-    state.hundi = data.hundi.map(h => ({ settled: false, ...h }));
+    const remoteHundi = data.hundi.map(h => ({ settled: false, ...h }));
+    state.hundi = mergeRemoteHundi(remoteHundi);
   }
 
   // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
@@ -2837,12 +2992,17 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
 
-          // ✅ FIX: Mark Firebase as loaded on first data arrival
+          const data = snapshot.val();
+
+          // ✅ FIX: Always apply first Firebase load (bypass isEditing guard)
+          // so the login page devotee dropdown is populated on all devices
           if (!firebaseHasLoaded) {
             firebaseHasLoaded = true;
             firebaseCanWrite = true;
-            // Refresh the login dropdown with real devotee data
             updateLoginSyncHint("ready");
+            applyFirebaseData(data, { firstLoad: true });
+            flushPendingFirebaseWrite();
+            return;
           }
 
           // 🚫 Don't re-render while typing
@@ -2850,8 +3010,6 @@ function initFirebaseSync() {
             pendingFirebaseData = snapshot.val();
             return;
           }
-
-          const data = snapshot.val();
 
           applyFirebaseData(data);
           flushPendingFirebaseWrite();
@@ -2986,7 +3144,10 @@ saveState = function () {
 
   if (firebaseReady && dbRef) {
     if (firebaseCanWrite) {
-      dbRef.update(buildFirebaseUpdates());
+      dbRef.update(buildFirebaseUpdates()).then(() => {
+        locallyDeletedDevoteeIds.clear();
+        locallyDeletedHundiIds.clear();
+      }).catch(() => {});
     } else {
       pendingFirebaseWrite = true;
       updateSyncBadge("Sync pending");
@@ -3296,11 +3457,13 @@ function renderCheckinReport() {
   if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
   else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
 
-  const searchQuery = els.checkinSearch?.value.trim();
+  const searchQuery = els.checkinSearch?.value.trim().toLowerCase();
   if (searchQuery) {
-    const searchNum = Number(searchQuery);
-    if (!isNaN(searchNum)) coupons = coupons.filter(c => c.number === searchNum);
-    else coupons = coupons.filter(c => String(c.number).includes(searchQuery));
+    coupons = coupons.filter(c =>
+      String(c.number).includes(searchQuery) ||
+      (c.buyerName || "").toLowerCase().includes(searchQuery) ||
+      (c.buyerContact || "").includes(searchQuery)
+    );
   }
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
