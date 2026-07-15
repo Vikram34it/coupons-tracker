@@ -3,7 +3,6 @@
   "short_name": "Coupon Tracker",
   "description": "Track coupon assignments, collections, and settlements for ISKCON Mangalagiri temple sevas",
   "start_url": "index.html",
-  "scope": ".",
   "display": "standalone",
   "background_color": "#fff7ed",
   "theme_color": "#7c3aed",
