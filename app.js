@@ -308,11 +308,8 @@ function cacheElements() {
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
     "logoutBtn", "userBadge", "syncBadge", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",
-    "transferForm", "transferFromDevotee", "transferToDevotee", "transferFrom", "transferTo", "transferHint",
-    "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
     "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
@@ -443,7 +440,6 @@ function bindEvents() {
   els.logoutBtn.addEventListener("click", logout);
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
-  els.transferForm.addEventListener("submit", transferCouponRange);
   els.couponSettingsForm.addEventListener("submit", updateTotalCoupons);
   els.resetCouponForm.addEventListener("submit", resetOneCoupon);
   els.resetDevotee.addEventListener("change", renderResetCouponList);
@@ -452,7 +448,6 @@ function bindEvents() {
   els.resetSelectedCouponsBtn.addEventListener("click", resetSelectedCoupons);
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
-  els.resetRangeBtn.addEventListener("click", resetCouponRange);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
@@ -555,55 +550,6 @@ function bindEvents() {
     });
   });
 
-}
-
-function transferCouponRange(event) {
-  event.preventDefault();
-  const fromDevId = els.transferFromDevotee.value;
-  const toDevId = els.transferToDevotee.value;
-  const from = Number(els.transferFrom.value);
-  const to = Number(els.transferTo.value);
-
-  if (!fromDevId || !toDevId) {
-    showToast("Select both source and target devotee");
-    return;
-  }
-
-  if (fromDevId === toDevId) {
-    showToast("Source and target devotee must be different");
-    return;
-  }
-
-  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
-    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  const toTransfer = state.coupons.filter(c =>
-    c.number >= from && c.number <= to && c.devoteeId === fromDevId
-  );
-
-  if (!toTransfer.length) {
-    showToast(`No coupons assigned to selected devotee in range ${from}-${to}`);
-    return;
-  }
-
-  const fromName = devoteeName(fromDevId);
-  const toName = devoteeName(toDevId);
-
-  if (!window.confirm(`Transfer ${toTransfer.length} coupon(s) from ${fromName} to ${toName} (range ${from}-${to})?`)) return;
-
-  toTransfer.forEach(c => {
-    c.devoteeId = toDevId;
-    markCouponUpdated(c);
-  });
-
-  els.transferForm.reset();
-  els.transferHint.textContent = "";
-  invalidateCaches();
-  saveState();
-  render();
-  showToast(`Transferred ${toTransfer.length} coupon(s) from ${fromName} to ${toName}`);
 }
 
 function resetAllCouponsView() {
@@ -900,31 +846,6 @@ function resetDevoteeCoupons() {
   resetCouponNumbers(numbers, `Reset all ${numbers.length} coupon(s) assigned to ${devoteeName(devoteeId)}?`);
 }
 
-function resetCouponRange() {
-  const from = positiveInteger(els.resetFrom.value);
-  const to = positiveInteger(els.resetTo.value);
-  if (!from || !to || from > to || from < 1 || to > couponTotal()) {
-    showToast(`Enter a valid range from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  const numbers = [];
-  for (let i = from; i <= to; i++) {
-    if (state.coupons[i - 1].devoteeId || state.coupons[i - 1].buyerName) {
-      numbers.push(i);
-    }
-  }
-
-  if (!numbers.length) {
-    showToast(`No assigned/sold coupons in range ${from}-${to}`);
-    return;
-  }
-
-  resetCouponNumbers(numbers, `Reset ${numbers.length} coupon(s) from ${from} to ${to}? This will clear their assignment and sale details.`);
-  els.resetFrom.value = "";
-  els.resetTo.value = "";
-}
-
 function resetAllCoupons() {
   if (!window.confirm("Reset all coupons? This will clear every assignment, buyer detail, amount, description, and settlement.")) return;
   const typed = window.prompt('Type RESET to confirm resetting all coupons.');
@@ -1131,20 +1052,6 @@ function renderSelectors() {
     )
   ) {
     els.resetDevotee.value = currentResetValue;
-  }
-
-  // ✅ TRANSFER FROM DROPDOWN
-  const currentTransferFromValue = els.transferFromDevotee.value;
-  els.transferFromDevotee.innerHTML = empty + options;
-  if (state.devotees.some(d => d.id === currentTransferFromValue)) {
-    els.transferFromDevotee.value = currentTransferFromValue;
-  }
-
-  // ✅ TRANSFER TO DROPDOWN
-  const currentTransferToValue = els.transferToDevotee.value;
-  els.transferToDevotee.innerHTML = empty + options;
-  if (state.devotees.some(d => d.id === currentTransferToValue)) {
-    els.transferToDevotee.value = currentTransferToValue;
   }
 
   // ✅ ENTRY DROPDOWN
@@ -3389,13 +3296,11 @@ function renderCheckinReport() {
   if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
   else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
 
-  const searchQuery = els.checkinSearch?.value.trim().toLowerCase();
+  const searchQuery = els.checkinSearch?.value.trim();
   if (searchQuery) {
-    coupons = coupons.filter(c =>
-      String(c.number).includes(searchQuery) ||
-      (c.buyerName || "").toLowerCase().includes(searchQuery) ||
-      (c.buyerContact || "").includes(searchQuery)
-    );
+    const searchNum = Number(searchQuery);
+    if (!isNaN(searchNum)) coupons = coupons.filter(c => c.number === searchNum);
+    else coupons = coupons.filter(c => String(c.number).includes(searchQuery));
   }
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
