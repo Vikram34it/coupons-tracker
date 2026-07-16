@@ -1046,11 +1046,7 @@ function render() {
   applyRoleAccess();
   renderStats();
 
-  // Show current admin password on login screen
-  const pwdHint = document.getElementById("adminPwdHint");
-  if (pwdHint) {
-    pwdHint.textContent = "Admin password: " + state.settings.adminPassword;
-  }
+
 
   const view = activeView();
 
