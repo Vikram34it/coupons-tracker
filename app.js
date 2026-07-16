@@ -5,16 +5,11 @@ const DEFAULT_ADMIN_PASSWORD = "hare krishna";
 const APP_URL = "https://vikram34it.github.io/coupons-tracker/";
 const SHEET_SYNC_DEBOUNCE_MS = 2000;
 const SHEET_HOURLY_SYNC_MS = 60 * 60 * 1000;
-const ALL_COUPONS_PAGE_SIZE = 75;
-const ENTRY_PAGE_SIZE = 60;
-const CHECKIN_PAGE_SIZE = 100;
 
 const state = loadState();
 let session = loadSession();
 let activeDevoteeTab = "pending";
 let activeAdminTab = "dashboard";
-let currentEntryPage = 1;
-let currentCheckinPage = 1;
 let isEditing = false;
 let pendingFirebaseData = null;
 const pendingLocalCouponNumbers = new Set();
@@ -77,7 +72,7 @@ const SEVA_TYPES = [
 window.addEventListener("load", () => {
   cacheElements();
   bindEvents();
-  renderLoginRole();
+  renderSelectors(); // ✅ ADD THIS
   render();
   configureHourlySheetSync();
 
@@ -149,7 +144,8 @@ function defaultState(totalCoupons = DEFAULT_TOTAL_COUPONS) {
       viewerPassword: "",
       sheetAutoUpdate: false,
       sheetHourlyUpdate: false,
-      sheetWebhookUrl: ""
+      sheetWebhookUrl: "",
+      autoReceipt: false
     },
     devotees: [],
     coupons: makeCoupons(totalCoupons),
@@ -165,7 +161,8 @@ function normalizeSettings(settings = {}, fallbackTotal = DEFAULT_TOTAL_COUPONS)
     viewerPassword: settings.viewerPassword || "",
     sheetAutoUpdate: Boolean(settings.sheetAutoUpdate),
     sheetHourlyUpdate: Boolean(settings.sheetHourlyUpdate),
-    sheetWebhookUrl: settings.sheetWebhookUrl || ""
+    sheetWebhookUrl: settings.sheetWebhookUrl || "",
+    autoReceipt: Boolean(settings.autoReceipt)
   };
 }
 
@@ -195,14 +192,7 @@ function loadState() {
 function saveState() {
   invalidateCaches();
   lastEditTime = Date.now();
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch (e) {
-    localStorage.removeItem(STORAGE_KEY);
-    try {
-      saveToIndexedDB(state);
-    } catch (e2) {}
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function queueStateSave(delay = 500) {
@@ -306,20 +296,17 @@ function renderSevaSummary() {
 function cacheElements() {
   [
     "loginScreen", "loginForm", "loginRole", "loginDevoteeLabel", "loginDevotee", "loginPassword", "couponSubtitle",
-    "logoutBtn", "userBadge", "syncBadge", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
+    "logoutBtn", "userBadge", "syncBadge", "darkToggle", "langToggle", "printViewBtn", "scrollTopBtn", "csvBtn", "exportBtn", "importFile", "totalCoupons", "assignedCoupons", "soldCoupons", "couponSettledMoney", "hundiSettledMoney", "moneyReceived", "settledCoupons", "unsettledMoney", "templeTransferMoney", "cashTotalMoney",
     "devoteeForm", "devoteeName", "devoteeContact", "devoteePassword", "devoteeCanCheckin", "assignForm", "assignDevotee", "assignFrom",
-    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",
-    "transferForm", "transferFromDevotee", "transferToDevotee", "transferFrom", "transferTo", "transferHint",
-    "couponSettingsForm", "totalCouponInput", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
+    "assignTo", "assignDate", "assignSendWhatsapp", "assignHint",     "couponSettingsForm", "totalCouponInput", "autoReceiptCheck", "resetCouponForm", "resetCouponNumber", "resetDevotee", "resetCouponList",
     "selectAllResetCouponsBtn", "clearResetSelectionBtn", "resetSelectedCouponsBtn", "resetDevoteeCouponsBtn", "resetAllCouponsBtn",
-    "resetFrom", "resetTo", "resetRangeBtn",
     "adminPasswordForm", "adminPassword", "viewerPasswordForm", "viewerPasswordInput", "sheetSyncForm", "sheetAutoUpdate", "sheetHourlyUpdate", "sheetWebhookUrl", "sheetSyncNowBtn", "sheetSyncStatus",
     "invitationForm", "invitationMessageInput", "previewInvitationBtn", "invitationSavedBadge",
-    "adminPeriodSummary", "dashboardDevoteeFilter", "devoteeList", "entryDevotee", "devoteeStats", "entrySearch",
-    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter", "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination",
+    "adminPeriodSummary", "devoteeSearch", "devoteeStatusFilter", "dashboardDevoteeFilter", "settledFromDate", "settledToDate", "devoteeList", "sevaChart", "trendChart", "perfChart", "auditLog", "entryDevotee", "devoteeStats", "entrySearch",
+    "entryStatus", "entryList", "allSearch", "allStatus", "allSevaFilter", "allPaymentFilter", "allDevoteeFilter",     "allCouponCount", "devoteePendingDisplay", "sevaSummary", "allCouponsBody", "allPagination", "bulkWhatsAppBtn", "bulkPdfBtn",
     "bulkSettleBar", "selectAllSettle", "selectedCount", "batchSettleBtn", "bulkSettleTh", "selectAllSettleHead", "toast",
     "checkinInput", "checkinBtn", "checkinUndoBtn", "checkinResult", "checkinTotalSold", "checkinCheckedIn", "checkinPending",
-    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPagination", "checkinPrintBtn",
+    "checkinDevoteeFilter", "checkinSevaFilter", "checkinStatusFilter", "checkinSearch", "checkinCount", "checkinReportBody", "checkinPrintBtn",
     "checkinActionHeader"
   ].forEach((id) => {
     els[id] = document.getElementById(id);
@@ -431,7 +418,7 @@ function bindEvents() {
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       activateView(tab.dataset.view);
-      renderView();
+      render();
     });
   });
 
@@ -443,8 +430,13 @@ function bindEvents() {
   els.logoutBtn.addEventListener("click", logout);
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
-  els.transferForm.addEventListener("submit", transferCouponRange);
   els.couponSettingsForm.addEventListener("submit", updateTotalCoupons);
+  if (els.autoReceiptCheck) {
+    els.autoReceiptCheck.addEventListener("change", () => {
+      state.settings.autoReceipt = els.autoReceiptCheck.checked;
+      saveState();
+    });
+  }
   els.resetCouponForm.addEventListener("submit", resetOneCoupon);
   els.resetDevotee.addEventListener("change", renderResetCouponList);
   els.selectAllResetCouponsBtn.addEventListener("click", selectAllResetCoupons);
@@ -452,55 +444,39 @@ function bindEvents() {
   els.resetSelectedCouponsBtn.addEventListener("click", resetSelectedCoupons);
   els.resetDevoteeCouponsBtn.addEventListener("click", resetDevoteeCoupons);
   els.resetAllCouponsBtn.addEventListener("click", resetAllCoupons);
-  els.resetRangeBtn.addEventListener("click", resetCouponRange);
   els.adminPasswordForm.addEventListener("submit", updateAdminPassword);
   els.viewerPasswordForm.addEventListener("submit", updateViewerPassword);
   els.sheetSyncForm.addEventListener("submit", saveSheetSyncSettings);
   els.sheetSyncNowBtn.addEventListener("click", syncSheetNow);
   els.invitationForm.addEventListener("submit", saveInvitationTemplate);
   els.previewInvitationBtn.addEventListener("click", previewInvitationMessage);
+  els.devoteeSearch.addEventListener("input", renderDevotees);
+  els.devoteeStatusFilter.addEventListener("change", renderDevotees);
   els.dashboardDevoteeFilter.addEventListener("change", renderDevotees);
-  let entrySearchDebounce;
-  els.entryDevotee.addEventListener("change", () => {
-    currentEntryPage = 1;
-    renderEntryList();
-  });
-  els.entrySearch.addEventListener("input", () => {
-    clearTimeout(entrySearchDebounce);
-    entrySearchDebounce = setTimeout(() => {
-      currentEntryPage = 1;
-      renderEntryList();
-    }, 150);
-  });
-  els.entryStatus.addEventListener("change", () => {
-    currentEntryPage = 1;
-    renderEntryList();
-  });
-  let searchDebounce;
-  els.allSearch.addEventListener("input", () => {
-    clearTimeout(searchDebounce);
-    searchDebounce = setTimeout(() => {
-      selectedCouponsForSettle.clear();
-      currentPage = 1;
-      renderAllCoupons();
-      renderPagination();
-    }, 200);
-  });
-  els.allStatus.addEventListener("change", resetAllCouponsView);
-  els.allSevaFilter.addEventListener("change", resetAllCouponsView);
-  els.allPaymentFilter.addEventListener("change", resetAllCouponsView);
+  els.settledFromDate.addEventListener("change", renderDevotees);
+  els.settledToDate.addEventListener("change", renderDevotees);
+  els.entryDevotee.addEventListener("change", renderEntryList);
+  els.entrySearch.addEventListener("input", renderEntryList);
+  els.entryStatus.addEventListener("change", renderEntryList);
+  els.allSearch.addEventListener("input", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
+  els.allStatus.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
+  els.allSevaFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
+  els.allPaymentFilter.addEventListener("change", () => { currentPage = 1; renderAllCoupons(); renderPagination(); });
   els.exportBtn.addEventListener("click", exportBackup);
   els.csvBtn.addEventListener("click", exportCsv);
   els.importFile.addEventListener("change", importBackup);
+  els.darkToggle.addEventListener("click", toggleDarkMode);
+  els.langToggle.addEventListener("click", toggleLanguage);
   els.printViewBtn.addEventListener("click", printCouponReport);
   els.scrollTopBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  els.bulkWhatsAppBtn.addEventListener("click", bulkWhatsApp);
+  els.bulkPdfBtn.addEventListener("click", bulkPdfReceipts);
   if (els.batchSettleBtn) els.batchSettleBtn.addEventListener("click", batchSettle);
   if (els.selectAllSettle) els.selectAllSettle.addEventListener("change", (e) => toggleSelectAll(e.target));
   if (els.selectAllSettleHead) els.selectAllSettleHead.addEventListener("change", (e) => toggleSelectAll(e.target));
-  if (els.allCouponsBody) {
-    els.allCouponsBody.addEventListener("click", handleAllCouponsTableClick);
-    els.allCouponsBody.addEventListener("change", handleAllCouponsTableChange);
-  }
+  document.querySelectorAll("[data-preset]").forEach(btn => {
+    btn.addEventListener("click", () => applyDatePreset(btn.dataset.preset));
+  });
   document.querySelectorAll(".sortable").forEach(th => {
     th.addEventListener("click", () => sortTable(th.dataset.sort));
   });
@@ -508,7 +484,9 @@ function bindEvents() {
     els.scrollTopBtn.classList.toggle("visible", window.scrollY > 400);
   });
   els.allDevoteeFilter.addEventListener("change", () => {
-    resetAllCouponsView();
+    currentPage = 1;
+    renderAllCoupons();
+    renderPagination();
     updateDevoteePendingDisplay();
   });
 
@@ -517,32 +495,18 @@ function bindEvents() {
   });
   els.checkinBtn.addEventListener("click", handleCheckin);
   els.checkinUndoBtn.addEventListener("click", handleUndoCheckin);
-  els.checkinDevoteeFilter.addEventListener("change", resetCheckinReport);
-  els.checkinSevaFilter.addEventListener("change", resetCheckinReport);
-  els.checkinStatusFilter.addEventListener("change", resetCheckinReport);
-  let checkinSearchDebounce;
-  els.checkinSearch.addEventListener("input", () => {
-    clearTimeout(checkinSearchDebounce);
-    checkinSearchDebounce = setTimeout(resetCheckinReport, 150);
-  });
+  els.checkinDevoteeFilter.addEventListener("change", renderCheckinReport);
+  els.checkinSevaFilter.addEventListener("change", renderCheckinReport);
+  els.checkinStatusFilter.addEventListener("change", renderCheckinReport);
+  els.checkinSearch.addEventListener("input", renderCheckinReport);
   els.checkinPrintBtn.addEventListener("click", () => window.print());
-  els.checkinReportBody.addEventListener("click", (e) => {
-    const copyEl = e.target.closest("[data-copy]");
-    if (copyEl) {
-      const text = copyEl.dataset.copy;
-      if (text) {
-        navigator.clipboard.writeText(text).then(() => showToast("Copied: " + text)).catch(() => showToast("Could not copy to clipboard"));
-      }
-    }
-  });
 
   document.querySelectorAll("[data-devotee-tab]").forEach((tab) => {
     tab.addEventListener("click", () => {
       activeDevoteeTab = tab.dataset.devoteeTab;
-      currentEntryPage = 1;
       document.querySelectorAll("[data-devotee-tab]").forEach((item) => item.classList.remove("active"));
       tab.classList.add("active");
-      renderView();
+      render();
     });
   });
 
@@ -555,105 +519,6 @@ function bindEvents() {
     });
   });
 
-}
-
-function transferCouponRange(event) {
-  event.preventDefault();
-  const fromDevId = els.transferFromDevotee.value;
-  const toDevId = els.transferToDevotee.value;
-  const from = Number(els.transferFrom.value);
-  const to = Number(els.transferTo.value);
-
-  if (!fromDevId || !toDevId) {
-    showToast("Select both source and target devotee");
-    return;
-  }
-
-  if (fromDevId === toDevId) {
-    showToast("Source and target devotee must be different");
-    return;
-  }
-
-  if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > couponTotal() || from > to) {
-    showToast(`Enter a valid coupon range from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  const toTransfer = state.coupons.filter(c =>
-    c.number >= from && c.number <= to && c.devoteeId === fromDevId
-  );
-
-  if (!toTransfer.length) {
-    showToast(`No coupons assigned to selected devotee in range ${from}-${to}`);
-    return;
-  }
-
-  const fromName = devoteeName(fromDevId);
-  const toName = devoteeName(toDevId);
-
-  if (!window.confirm(`Transfer ${toTransfer.length} coupon(s) from ${fromName} to ${toName} (range ${from}-${to})?`)) return;
-
-  toTransfer.forEach(c => {
-    c.devoteeId = toDevId;
-    markCouponUpdated(c);
-  });
-
-  els.transferForm.reset();
-  els.transferHint.textContent = "";
-  invalidateCaches();
-  saveState();
-  render();
-  showToast(`Transferred ${toTransfer.length} coupon(s) from ${fromName} to ${toName}`);
-}
-
-function resetAllCouponsView() {
-  selectedCouponsForSettle.clear();
-  currentPage = 1;
-  renderAllCoupons();
-  renderPagination();
-}
-
-function resetCheckinReport() {
-  currentCheckinPage = 1;
-  renderCheckinReport();
-}
-
-function handleAllCouponsTableClick(event) {
-  const settlementButton = event.target.closest("[data-settlement]");
-  if (settlementButton) {
-    toggleSettlement({ currentTarget: settlementButton });
-    return;
-  }
-
-  const whatsappButton = event.target.closest("[data-wa-coupon]");
-  if (whatsappButton) {
-    const coupon = state.coupons[Number(whatsappButton.dataset.waCoupon) - 1];
-    openWhatsAppForBuyer(coupon);
-    return;
-  }
-
-  const copyEl = event.target.closest("[data-copy]");
-  if (copyEl) {
-    const text = copyEl.dataset.copy;
-    if (text) {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast("Copied: " + text);
-      }).catch(() => {
-        showToast("Could not copy to clipboard");
-      });
-    }
-  }
-}
-
-function handleAllCouponsTableChange(event) {
-  const checkbox = event.target.closest(".coupon-check");
-  if (!checkbox) return;
-
-  const num = Number(checkbox.dataset.check);
-  if (checkbox.checked) selectedCouponsForSettle.add(num);
-  else selectedCouponsForSettle.delete(num);
-  checkbox.closest("tr")?.classList.toggle("selected-row", checkbox.checked);
-  updateBulkSettleUi();
 }
 
 function activateView(viewId) {
@@ -696,18 +561,18 @@ function login(event) {
   }
 
   els.loginForm.reset();
-  activateView("adminView");
   render();
+  addAuditEntry(`${role === "admin" ? "Admin" : role === "viewer" ? "Viewer" : "Devotee"} logged in`);
 }
 
 function logout() {
+  addAuditEntry("User logged out");
   saveSession(null);
   render();
   showToast("Logged out");
 }
 
 function renderLoginRole() {
-  if (!els.loginRole || !els.loginDevoteeLabel) return;
   const isDevotee = els.loginRole.value === "devotee";
   els.loginDevoteeLabel.classList.toggle("hidden", !isDevotee);
 }
@@ -738,6 +603,7 @@ function addDevotee(event) {
   els.devoteeForm.reset();
   saveState();
   render();
+  addAuditEntry(`Added devotee: ${name}`);
   showToast("Devotee added");
 }
 
@@ -752,6 +618,7 @@ function updateAdminPassword(event) {
   state.settings.adminPassword = password;
   els.adminPasswordForm.reset();
   saveState();
+  addAuditEntry("Admin password updated");
   showToast("Admin password updated");
 }
 
@@ -854,6 +721,7 @@ function updateTotalCoupons(event) {
   state.coupons = normalizeCoupons(state.coupons, totalCoupons);
   saveState();
   render();
+  addAuditEntry(`Updated total coupons to ${totalCoupons}`);
   showToast(`Total coupons updated to ${totalCoupons}`);
 }
 
@@ -900,31 +768,6 @@ function resetDevoteeCoupons() {
   resetCouponNumbers(numbers, `Reset all ${numbers.length} coupon(s) assigned to ${devoteeName(devoteeId)}?`);
 }
 
-function resetCouponRange() {
-  const from = positiveInteger(els.resetFrom.value);
-  const to = positiveInteger(els.resetTo.value);
-  if (!from || !to || from > to || from < 1 || to > couponTotal()) {
-    showToast(`Enter a valid range from 1 to ${couponTotal()}`);
-    return;
-  }
-
-  const numbers = [];
-  for (let i = from; i <= to; i++) {
-    if (state.coupons[i - 1].devoteeId || state.coupons[i - 1].buyerName) {
-      numbers.push(i);
-    }
-  }
-
-  if (!numbers.length) {
-    showToast(`No assigned/sold coupons in range ${from}-${to}`);
-    return;
-  }
-
-  resetCouponNumbers(numbers, `Reset ${numbers.length} coupon(s) from ${from} to ${to}? This will clear their assignment and sale details.`);
-  els.resetFrom.value = "";
-  els.resetTo.value = "";
-}
-
 function resetAllCoupons() {
   if (!window.confirm("Reset all coupons? This will clear every assignment, buyer detail, amount, description, and settlement.")) return;
   const typed = window.prompt('Type RESET to confirm resetting all coupons.');
@@ -936,6 +779,7 @@ function resetAllCoupons() {
   const updatedAt = Date.now();
   state.coupons = makeCoupons(couponTotal()).map((coupon) => ({ ...coupon, _updated: updatedAt }));
   state.coupons.forEach(c => dirtyCouponNumbers.add(c.number));
+  addAuditEntry("Reset all coupons");
   saveState();
   render();
   showToast("All coupons reset");
@@ -1019,6 +863,7 @@ function assignCoupons(event) {
   els.assignHint.textContent = "";
   saveState();
   render();
+  addAuditEntry(`Assigned coupons ${from}-${to} to ${devotee ? devotee.name : devoteeId}`);
   showToast(`Assigned coupons ${from} to ${to}`);
 
   if (sendWhatsApp) {
@@ -1042,24 +887,19 @@ function render() {
 
   const view = activeView();
 
-  if (view === "adminView") {
+  if (view === "adminView" || !view) {
     renderDevotees();
     renderSevaSummary();
-    if (activeAdminTab === "reset") renderResetCouponList();
+    renderCharts();
+    renderAuditLog();
   }
-
-  if (view === "devoteeView") {
-    renderEntryList();
-  }
-  if (view === "allCouponsView") {
-    renderAllCoupons();
-    renderPagination();
-  }
-  if (view === "checkinView") {
-    renderCheckinView();
-  }
+  renderResetCouponList();
+  renderEntryList();
+  renderAllCoupons();
+  renderPagination();
+  renderCheckinView();
   updateAdminView();
-  loadInvitationTemplate();
+  loadInvitationTemplate(); // ✅ populate textarea from saved state
 
   const topStats = document.querySelector(".stats-grid");
 
@@ -1070,26 +910,6 @@ function render() {
       topStats.style.display = "grid";
     }
   }
-}
-
-function renderView() {
-  const view = activeView();
-  applyRoleAccess();
-  renderStats();
-
-  if (view === "adminView") {
-    renderDevotees();
-    renderSevaSummary();
-  } else if (view === "devoteeView") {
-    renderEntryList();
-  } else if (view === "allCouponsView") {
-    renderAllCoupons();
-    renderPagination();
-  } else if (view === "checkinView") {
-    renderCheckinView();
-  }
-
-  updateAdminView();
 }
 
 function renderSelectors() {
@@ -1131,20 +951,6 @@ function renderSelectors() {
     )
   ) {
     els.resetDevotee.value = currentResetValue;
-  }
-
-  // ✅ TRANSFER FROM DROPDOWN
-  const currentTransferFromValue = els.transferFromDevotee.value;
-  els.transferFromDevotee.innerHTML = empty + options;
-  if (state.devotees.some(d => d.id === currentTransferFromValue)) {
-    els.transferFromDevotee.value = currentTransferFromValue;
-  }
-
-  // ✅ TRANSFER TO DROPDOWN
-  const currentTransferToValue = els.transferToDevotee.value;
-  els.transferToDevotee.innerHTML = empty + options;
-  if (state.devotees.some(d => d.id === currentTransferToValue)) {
-    els.transferToDevotee.value = currentTransferToValue;
   }
 
   // ✅ ENTRY DROPDOWN
@@ -1209,7 +1015,13 @@ function applyRoleAccess() {
   els.csvBtn.classList.toggle("hidden", !isAdmin);
   els.exportBtn.classList.toggle("hidden", !isAdmin);
   els.importFile.closest(".file-label").classList.toggle("hidden", !isAdmin);
+  if (els.bulkWhatsAppBtn) els.bulkWhatsAppBtn.classList.toggle("hidden", !isAdmin);
+  if (els.bulkPdfBtn) els.bulkPdfBtn.classList.toggle("hidden", !isAdmin);
   if (els.printViewBtn) els.printViewBtn.classList.toggle("hidden", !isAdmin);
+  // Language & dark mode toggle — always visible when logged in
+  if (els.darkToggle) els.darkToggle.classList.toggle("hidden", !session);
+  if (els.langToggle) els.langToggle.classList.toggle("hidden", !session);
+
   // Devotee entry dropdown
   els.entryDevotee.disabled = isDevotee;
   els.entryStatus.classList.toggle("hidden", isDevotee);
@@ -1288,173 +1100,371 @@ function renderStats() {
 }
 
 function renderDevotees() {
+
+  // 🔒 Prevent devotees from seeing admin dashboard
   if (session?.role === "devotee") {
     if (els.devoteeList) els.devoteeList.innerHTML = "";
     return;
   }
 
+  const query = els.devoteeSearch.value.trim().toLowerCase();
+  const statusFilter = els.devoteeStatusFilter?.value || "all";
   const period = settlementPeriod();
+
+  // ✅ FILTER DEVOTEES — by dropdown selection
   const selectedDevotee = els.dashboardDevoteeFilter?.value || "all";
 
+  // ✅ FILTER DEVOTEES — by name/contact search
   let devotees = state.devotees.filter((devotee) => {
     if (selectedDevotee !== "all" && devotee.id !== selectedDevotee) return false;
-    return true;
+    return `${devotee.name} ${devotee.contact}`.toLowerCase().includes(query);
   });
 
-  devotees.sort((a, b) => a.name.localeCompare(b.name));
+  // ✅ FILTER BY STATUS (using cached map for O(1) per devotee)
+  if (statusFilter !== "all") {
+    const cbd = ensureCouponsByDev();
+    devotees = devotees.filter((devotee) => {
+      const assigned = cbd.get(devotee.id) || [];
+      const sold = assigned.filter(isSold);
+      const settled = assigned.filter(c => c.settled);
+      const pending = sold.filter(c => !c.settled);
 
+      if (statusFilter === "has_pending") return pending.length > 0;
+      if (statusFilter === "fully_settled") return sold.length > 0 && pending.length === 0;
+      if (statusFilter === "not_started") return assigned.length > 0 && sold.length === 0;
+      if (statusFilter === "no_coupons") return assigned.length === 0;
+      return true;
+    });
+  }
+
+  // ✅ SORT DEVOTEES BY NAME (ASCENDING)
+  devotees.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  // ✅ HUNDI PERIOD TOTAL
   const hundiPeriod = (state.hundi || [])
     .filter(h => h.settled && inSettlementPeriod({ settledAt: h.date }, period))
     .reduce((sum, h) => sum + h.amount, 0);
 
+  // ✅ COUPON PERIOD TOTAL
   const periodTotal = state.coupons
-    .filter((coupon) => coupon.settled && inSettlementPeriod(coupon, period))
-    .reduce((sum, coupon) => sum + amountValue(coupon.amount), 0) + hundiPeriod;
+    .filter((coupon) =>
+      coupon.settled &&
+      inSettlementPeriod(coupon, period)
+    )
+    .reduce((sum, coupon) =>
+      sum + amountValue(coupon.amount), 0
+    ) + hundiPeriod;
 
-  els.adminPeriodSummary.textContent = `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
+  els.adminPeriodSummary.textContent =
+    `Money settled ${period.label}: ${formatMoney(periodTotal)}`;
 
+  // ✅ EMPTY STATE
   if (!devotees.length) {
-    els.devoteeList.innerHTML = `<div class="empty">No devotees found.</div>`;
+    els.devoteeList.innerHTML =
+      `<div class="empty">No devotees found.</div>`;
     return;
   }
 
+  // ✅ RENDER DEVOTEES
   els.devoteeList.innerHTML = devotees.map((devotee) => {
+
     const summary = devoteeSummary(devotee.id, period);
+
     const assigned = couponsForDevotee(devotee.id);
-    const ranges = summarizeCouponRanges(assigned.map((coupon) => coupon.number));
+
+    const ranges = summarizeCouponRanges(
+      assigned.map((coupon) => coupon.number)
+    );
 
     return `
-      <article class="devotee-row" data-devotee-id="${escapeAttr(devotee.id)}">
+      <article class="devotee-row">
+
         <div>
           <strong>
             ${escapeHtml(devotee.name)}
-            <span class="pin-mask" data-pin="${escapeAttr(devotee.pin || '')}">
+            <span class="pin-mask" title="Click to reveal PIN" data-pin="${escapeAttr(devotee.pin || '')}">
               ${devotee.pin ? '••••' : 'No PIN'}
             </span>
           </strong>
-          <span class="small-stat">${escapeHtml(devotee.contact || "No contact number")}</span>
-          <div>${ranges.map((range) => `<span class="coupon-pill">${range}</span>`).join("") || '<span class="small-stat">No coupons assigned</span>'}</div>
+
+          <span class="small-stat">
+            ${escapeHtml(devotee.contact || "No contact number")}
+          </span>
+
+          <div>
+            ${ranges.map((range) =>
+      `<span class="coupon-pill">${range}</span>`
+    ).join("")
+      ||
+      '<span class="small-stat">No coupons assigned</span>'
+      }
+          </div>
         </div>
-        <span><strong>${summary.issued}</strong> <span class="small-stat">issued</span></span>
-        <span><strong>${summary.sold}</strong> <span class="small-stat">sold</span></span>
-        <span><strong>${summary.left}</strong> <span class="small-stat">left</span></span>
-        <span><strong>${formatMoney(summary.settledAmount)}</strong> <span class="small-stat">coupons</span></span>
-        <span><strong>${formatMoney(summary.hundiAmount || 0)}</strong> <span class="small-stat">hundi</span></span>
-        <span><strong>${formatMoney(summary.totalSettledAmount)}</strong> <span class="small-stat">total</span></span>
-        <span><strong>${formatMoney(summary.templeTransferAmount || 0)}</strong> <span class="small-stat">transfer</span></span>
-        <span><strong>${formatMoney(summary.pendingAmount)}</strong> <span class="small-stat">pending</span></span>
+
+        <span>
+          <strong>${summary.issued}</strong>
+          <span class="small-stat"> issued</span>
+        </span>
+
+        <span>
+          <strong>${summary.sold}</strong>
+          <span class="small-stat"> sold</span>
+        </span>
+
+        <span>
+          <strong>${summary.left}</strong>
+          <span class="small-stat"> left</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.settledAmount)}</strong>
+          <span class="small-stat"> coupons</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.hundiAmount || 0)}</strong>
+          <span class="small-stat"> hundi</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.totalSettledAmount)}</strong>
+          <span class="small-stat"> total settled</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.templeTransferAmount || 0)}</strong>
+          <span class="small-stat"> temple transfer</span>
+        </span>
+
+        <span>
+          <strong>${formatMoney(summary.pendingAmount)}</strong>
+          <span class="small-stat"> pending</span>
+        </span>
+
         ${session?.role === "viewer" ? "" : `
-        <label class="checkbox-line can-checkin-toggle">
-          <input type="checkbox" data-action="can-checkin" value="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}> Check-in
+        <label class="checkbox-line can-checkin-toggle" title="Allow this devotee to mark attendance on event day">
+          <input type="checkbox" data-can-checkin="${escapeAttr(devotee.id)}" ${devotee.canCheckin ? "checked" : ""}>
+          Check-in
         </label>
-        <button class="ghost" type="button" data-action="edit-name" value="${escapeAttr(devotee.id)}" title="Edit devotee name">Rename</button>
-        <button class="ghost" type="button" data-action="set-password" value="${escapeAttr(devotee.id)}">Password</button>
-        <button class="ghost" type="button" data-action="send-whatsapp" value="${escapeAttr(devotee.id)}">WhatsApp</button>
-        <button class="ghost" type="button" data-action="update-contact" value="${escapeAttr(devotee.id)}">Contact</button>
-        <button class="danger" type="button" data-action="delete-devotee" value="${escapeAttr(devotee.id)}">Delete</button>
-        <button class="ghost" type="button" data-action="open-devotee" value="${escapeAttr(devotee.id)}">Open</button>
+        <button
+          class="ghost"
+          type="button"
+          data-set-password="${escapeAttr(devotee.id)}">
+          Set Password
+        </button>
+
+        <button
+          class="ghost"
+          type="button"
+          data-send-whatsapp="${escapeAttr(devotee.id)}">
+          WhatsApp
+        </button>
+
+        <button
+          class="ghost"
+          type="button"
+          data-update-contact="${escapeAttr(devotee.id)}">
+          Update Contact
+        </button>
+
+        <button
+          class="danger"
+          data-delete-devotee="${escapeAttr(devotee.id)}">
+          Delete
+        </button>
+
+        <button
+          class="ghost"
+          type="button"
+          data-open-devotee="${escapeAttr(devotee.id)}">
+          Open
+        </button>
         `}
-      </article>`;
+
+      </article>
+    `;
+
   }).join("");
 
-  // Single event delegation listener
-  if (!els.devoteeList.dataset.hasListener) {
-    els.devoteeList.dataset.hasListener = "1";
-    els.devoteeList.addEventListener("click", (e) => {
-      const actionBtn = e.target.closest("[data-action]");
-      if (actionBtn) {
-        handleDevoteeAction(actionBtn.dataset.action, actionBtn.value, actionBtn);
-        return;
-      }
-      const pinMask = e.target.closest(".pin-mask");
-      if (pinMask) {
-        const revealed = pinMask.dataset.revealed === "1";
-        pinMask.dataset.revealed = revealed ? "0" : "1";
-        pinMask.textContent = revealed
-          ? (pinMask.dataset.pin ? '••••' : 'No PIN')
-          : (pinMask.dataset.pin || 'Not set');
-        pinMask.title = revealed ? 'Click to reveal PIN' : 'Click to hide PIN';
-      }
+  // ✅ PIN REVEAL ON CLICK
+  els.devoteeList.querySelectorAll(".pin-mask")
+    .forEach((span) => {
+      let revealed = false;
+      span.addEventListener("click", () => {
+        revealed = !revealed;
+        span.textContent = revealed
+          ? (span.dataset.pin || 'Not set')
+          : (span.dataset.pin ? '••••' : 'No PIN');
+        span.title = revealed ? 'Click to hide PIN' : 'Click to reveal PIN';
+      });
     });
-    els.devoteeList.addEventListener("change", (e) => {
-      const checkinCb = e.target.closest("[data-action='can-checkin']");
-      if (checkinCb) {
-        const devotee = state.devotees.find((d) => d.id === checkinCb.value);
+
+  // ✅ OPEN DEVOTEE
+  els.devoteeList.querySelectorAll("[data-open-devotee]")
+    .forEach((button) => {
+
+      button.addEventListener("click", () => {
+
+        els.entryDevotee.value = button.dataset.openDevotee;
+
+        document
+          .querySelector('[data-view="devoteeView"]')
+          .click();
+      });
+    });
+
+  // ✅ CAN CHECK-IN TOGGLE
+  els.devoteeList.querySelectorAll("[data-can-checkin]")
+    .forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        const devotee = state.devotees.find(
+          (item) => item.id === checkbox.dataset.canCheckin
+        );
         if (!devotee) return;
-        devotee.canCheckin = checkinCb.checked;
+        devotee.canCheckin = checkbox.checked;
         saveState();
-        showToast(`${devotee.name} check-in ${checkinCb.checked ? "enabled" : "disabled"}`);
-      }
+        showToast(`${devotee.name} check-in ${checkbox.checked ? "enabled" : "disabled"}`);
+      });
     });
-  }
-}
 
-function handleDevoteeAction(action, value, btn) {
-  const devotee = state.devotees.find((d) => d.id === value);
-  if (!devotee) return;
+  // ✅ SET PASSWORD
+  els.devoteeList.querySelectorAll("[data-set-password]")
+    .forEach((button) => {
 
-  if (action === "open-devotee") {
-    els.entryDevotee.value = value;
-    document.querySelector('[data-view="devoteeView"]').click();
-    return;
-  }
+      button.addEventListener("click", () => {
 
-  if (action === "delete-devotee") {
-    deleteDevotee(value);
-    return;
-  }
+        const devotee = state.devotees.find(
+          (item) => item.id === button.dataset.setPassword
+        );
 
-  if (action === "edit-name") {
-    const newName = window.prompt(`Enter new name for ${devotee.name}`, devotee.name);
-    if (newName === null || !newName.trim()) {
-      if (newName !== null) showToast("Name cannot be empty");
-      return;
-    }
-    devotee.name = newName.trim();
-    saveState();
-    renderDevotees();
-    renderSelectors();
-    showToast(`Devotee renamed to ${devotee.name}`);
-    return;
-  }
+        if (!devotee) return;
 
-  if (action === "set-password") {
-    const password = window.prompt(`Enter new password for ${devotee.name}`);
-    if (password === null || password.trim().length < 4) {
-      if (password !== null) showToast("Use at least 4 characters");
-      return;
-    }
-    devotee.pin = password.trim();
-    saveState();
-    renderDevotees();
-    renderSelectors();
-    showToast(`Password updated for ${devotee.name}`);
-    return;
-  }
+        const password = window.prompt(
+          `Enter new password for ${devotee.name}`
+        );
 
-  if (action === "update-contact") {
-    const newContact = window.prompt(`Enter new contact for ${devotee.name}`, devotee.contact || "");
-    if (newContact === null) return;
-    const cleaned = cleanIndianMobile(newContact);
-    if (!cleaned) { showToast("Enter valid 10-digit mobile number"); return; }
-    devotee.contact = cleaned;
-    saveState();
-    render();
-    showToast(`Contact updated for ${devotee.name}`);
-    return;
-  }
+        if (password === null) return;
 
-  if (action === "send-whatsapp") {
-    const period = settlementPeriod();
-    const summary = devoteeSummary(devotee.id, period);
-    const assigned = couponsForDevotee(devotee.id).length;
-    const message = `Hare Krishna 🙏\n\n${devotee.name},\n\nHere is your seva summary:\n\n🔐 PIN: ${devotee.pin || "Not set"}\n\n🎟 Coupons Assigned: ${assigned}\n🟢 Sold Coupons: ${summary.sold}\n🟡 Pending Coupons: ${summary.left}\n\n💰 Amount Settled: ${formatMoney(summary.settledAmount)}\n⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}\n\nPlease continue your seva enthusiastically 🙏\n\nUse the following link to update your coupons:\nhttps://vikram34it.github.io/coupons-tracker/`;
-    const phone = (devotee.contact || "").replace(/\D/g, "");
-    if (!phone) { showToast("No contact number for this devotee"); return; }
-    const url = buildWhatsAppUrl(phone, message);
-    if (!url) { showToast("Enter valid contact number for this devotee"); return; }
-    window.open(url, "_blank");
-  }
+        if (password.trim().length < 4) {
+          showToast("Use at least 4 characters");
+          return;
+        }
+
+        devotee.pin = password.trim();
+
+        saveState();
+        renderDevotees();
+        renderSelectors();
+
+        showToast(`Password updated for ${devotee.name}`);
+      });
+    });
+
+  // ✅ WHATSAPP
+  els.devoteeList.querySelectorAll("[data-send-whatsapp]")
+    .forEach(btn => {
+
+      btn.addEventListener("click", () => {
+
+        const devotee = state.devotees.find(
+          d => d.id === btn.dataset.sendWhatsapp
+        );
+
+        if (!devotee) return;
+
+        const period = settlementPeriod();
+
+        const summary = devoteeSummary(devotee.id, period);
+
+        const assigned = couponsForDevotee(devotee.id).length;
+
+        const message =
+          `Hare Krishna 🙏
+
+${devotee.name},
+
+Here is your seva summary:
+
+🔐 PIN: ${devotee.pin || "Not set"}
+
+🎟 Coupons Assigned: ${assigned}
+🟢 Sold Coupons: ${summary.sold}
+🟡 Pending Coupons: ${summary.left}
+
+💰 Amount Settled: ${formatMoney(summary.settledAmount)}
+⌛ Amount Pending: ${formatMoney(summary.pendingAmount)}
+
+Please continue your seva enthusiastically 🙏
+
+Use the following link to update your coupons:
+https://vikram34it.github.io/coupons-tracker/
+`;
+
+        const phone = (devotee.contact || "")
+          .replace(/\D/g, "");
+
+        if (!phone) {
+          showToast("No contact number for this devotee");
+          return;
+        }
+
+        const url = buildWhatsAppUrl(phone, message);
+        if (!url) {
+          showToast("Enter valid contact number for this devotee");
+          return;
+        }
+
+        window.open(url, "_blank");
+
+      });
+    });
+
+  // ✅ UPDATE CONTACT
+  els.devoteeList.querySelectorAll("[data-update-contact]")
+    .forEach(btn => {
+
+      btn.addEventListener("click", () => {
+
+        const devotee = state.devotees.find(
+          d => d.id === btn.dataset.updateContact
+        );
+
+        if (!devotee) return;
+
+        const newContact = window.prompt(
+          `Enter new contact for ${devotee.name}`,
+          devotee.contact || ""
+        );
+
+        if (newContact === null) return;
+
+        const cleaned = cleanIndianMobile(newContact);
+
+        if (!cleaned) {
+          showToast("Enter valid 10-digit mobile number");
+          return;
+        }
+
+        devotee.contact = cleaned;
+
+        saveState();
+        render();
+
+        showToast(`Contact updated for ${devotee.name}`);
+      });
+    });
+
+  // ✅ DELETE DEVOTEE
+  els.devoteeList.querySelectorAll("[data-delete-devotee]")
+    .forEach(btn => {
+
+      btn.addEventListener("click", () => {
+        deleteDevotee(btn.dataset.deleteDevotee);
+      });
+
+    });
 }
 
 function deleteDevotee(devoteeId) {
@@ -1482,6 +1492,7 @@ function deleteDevotee(devoteeId) {
     }
   });
 
+  addAuditEntry(`Deleted devotee: ${devotee.name}`);
   saveState();
   render();
   showToast("Devotee deleted successfully");
@@ -1568,7 +1579,106 @@ function renderEntryList() {
     </div>
   `;
 
-    // (handled by event delegation below)
+    els.entryList.querySelectorAll("[data-hundi-settle]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can settle hundi");
+          return;
+        }
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiSettle);
+        if (!hundi) return;
+        hundi.settled = !hundi.settled;
+        hundi._updated = Date.now();
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
+      });
+    });
+
+    els.entryList.querySelectorAll("[data-hundi-edit]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can edit hundi");
+          return;
+        }
+
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiEdit);
+        if (!hundi) return;
+
+        const date = window.prompt("Enter hundi date (YYYY-MM-DD)", hundi.date || todayKey());
+        if (date === null) return;
+
+        const amountInput = window.prompt("Enter hundi amount", String(hundi.amount || ""));
+        if (amountInput === null) return;
+
+        const amount = Number(amountInput);
+        if (!date.trim() || !amount || amount < 0) {
+          showToast("Enter a valid date and amount");
+          return;
+        }
+
+        hundi.date = date.trim();
+        hundi.amount = amount;
+        hundi._updated = Date.now();
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast("Hundi entry updated");
+      });
+    });
+
+    els.entryList.querySelectorAll("[data-hundi-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (session?.role !== "admin") {
+          showToast("Only admin can delete hundi");
+          return;
+        }
+
+        const hundi = state.hundi.find(h => h.id === btn.dataset.hundiDelete);
+        if (!hundi) return;
+
+        if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
+
+        state.hundi = state.hundi.filter(h => h.id !== hundi.id);
+        saveState();
+        renderEntryList();
+        renderStats();
+        renderDevoteeStats(hundi.devoteeId);
+        renderSevaSummary();
+        showToast("Hundi entry deleted");
+      });
+    });
+
+    document.getElementById("addHundiBtn").onclick = () => {
+      const amount = Number(document.getElementById("hundiAmount").value);
+      const date = document.getElementById("hundiDate").value || todayKey();
+
+      if (!amount) {
+        showToast("Enter amount");
+        return;
+      }
+
+      state.hundi.push({
+        id: newId(),
+        devoteeId,
+        amount,
+        date,
+        settled: false,
+        _updated: Date.now()
+      });
+
+      saveState();
+      renderEntryList();
+      renderStats();
+      renderDevoteeStats(devoteeId);
+      renderSevaSummary();
+      showToast("Hundi added");
+    };
 
     return;
   }
@@ -1599,14 +1709,21 @@ function renderEntryList() {
   if (activeDevoteeTab === "settled") {
     const hasTemplate = Boolean(state.settings.invitationMessage);
     const noTemplateBanner = !hasTemplate
-      ? `<div class="notice-banner">
+      ? `<div style="background:#fff4df;border:1px solid #f0c46a;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7a5300">
            ⚠️ No invitation template set. <strong>Admin: go to Setup → WhatsApp Invitation Template</strong> to create one.
          </div>`
       : "";
 
     const settledWithContact = coupons.filter(c => c.buyerContact);
+    const bulkWaEnabled = state.settings.invitationMessage && settledWithContact.length > 0;
+
     els.entryList.innerHTML = `
     ${noTemplateBanner}
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <button id="devoteeBulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" ${bulkWaEnabled ? "" : "disabled"} style="font-size:13px">
+        📲 Bulk WhatsApp (${settledWithContact.length})
+      </button>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1615,11 +1732,12 @@ function renderEntryList() {
             <th>Buyer</th>
             <th>Contact</th>
             <th>Call</th>
-            <th>Send Invite</th>
+            <th>Sold Date</th>
             <th>Amount</th>
             <th>Seva</th>
+            <th>Receipt</th>
             <th>Payment Mode</th>
-            <th>Sold Date</th>
+            <th>Send Invite</th>
           </tr>
         </thead>
         <tbody>
@@ -1627,21 +1745,22 @@ function renderEntryList() {
             <tr>
               <td>#${coupon.number}</td>
               <td>${escapeHtml(coupon.buyerName || "-")}</td>
-              <td>${coupon.buyerContact ? `<span class="copy-contact" data-copy="${escapeAttr(coupon.buyerContact)}" title="Click to copy">${escapeHtml(coupon.buyerContact)}</span>` : '-'}</td>
+              <td>${escapeHtml(coupon.buyerContact || "-")}</td>
               <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
+              <td>${escapeHtml(coupon.soldAt || "-")}</td>
+              <td>${formatMoney(coupon.amount)}</td>
+              <td>${escapeHtml(coupon.description || "-")}</td>
+              <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
+              <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
               <td>
                 ${coupon.buyerContact
-        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}" title="Send WhatsApp invitation to buyer">
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
                       Send
                     </button>`
         : `<span class="small-stat">No contact</span>`
       }
               </td>
-              <td>${formatMoney(coupon.amount)}</td>
-              <td>${escapeHtml(coupon.description || "-")}</td>
-              <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
-              <td>${escapeHtml(coupon.soldAt || "-")}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -1649,7 +1768,22 @@ function renderEntryList() {
     </div>
   `;
 
-    // (handled by event delegation below)
+    // Wire up individual send buttons
+    els.entryList.querySelectorAll("[data-wa-coupon]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
+        openWhatsAppForBuyer(coupon);
+      });
+    });
+
+    // Wire up devotee bulk WhatsApp button
+    const bulkWaBtn = document.getElementById("devoteeBulkWhatsAppBtn");
+    if (bulkWaBtn && !bulkWaBtn.disabled) {
+      bulkWaBtn.addEventListener("click", () => {
+        devoteeBulkWhatsApp(devoteeId);
+      });
+    }
+
     return; // 🔥 VERY IMPORTANT (stops card rendering)
   }
   if (status === "sold") coupons = coupons.filter(isSold);
@@ -1665,13 +1799,8 @@ function renderEntryList() {
     return;
   }
 
-  const totalPages = Math.max(1, Math.ceil(coupons.length / ENTRY_PAGE_SIZE));
-  currentEntryPage = Math.max(1, Math.min(currentEntryPage, totalPages));
-  const pageStart = (currentEntryPage - 1) * ENTRY_PAGE_SIZE;
-  const visibleCoupons = coupons.slice(pageStart, pageStart + ENTRY_PAGE_SIZE);
-
-  els.entryList.innerHTML = visibleCoupons.map((coupon) => {
-    const locked = session?.role === "viewer" || (session?.role === "devotee" && coupon.settled) ? "disabled" : "";
+  els.entryList.innerHTML = coupons.map((coupon) => {
+    const locked = session?.role === "devotee" && coupon.settled ? "disabled" : "";
     return `
       <article class="coupon-card" data-coupon-number="${coupon.number}">
         <div class="coupon-number">
@@ -1692,7 +1821,10 @@ function renderEntryList() {
             Amount Received
             <input data-field="amount" type="number" min="0" step="1" value="${escapeAttr(coupon.amount)}" placeholder="0" ${locked}>
           </label>
-
+     <!--     <label>
+            Receipt No
+           <input data-field="receiptNumber" value="${escapeAttr(coupon.receiptNumber)}" placeholder="Receipt number" ${locked}>
+          </label>  -->
           <label>
             Assigned To
             <input value="${escapeAttr(devoteeName(coupon.devoteeId))}" disabled>
@@ -1716,121 +1848,25 @@ function renderEntryList() {
         </div>
       </article>
     `;
-  }).join("") + buildPaginationHtml(
-    coupons.length,
-    currentEntryPage,
-    ENTRY_PAGE_SIZE,
-    "goToEntryPage"
-  );
+  }).join("");
 
-  setupEntryListDelegation();
-}
-
-function setupEntryListDelegation() {
-  if (els.entryList.dataset.hasEntryListener) return;
-  els.entryList.dataset.hasEntryListener = "1";
-
-  els.entryList.addEventListener("click", (e) => {
-    const target = e.target;
-
-    if (target.id === "addHundiBtn") {
-      const devoteeId = els.entryDevotee.value;
-      if (!devoteeId) { showToast("Select a devotee first"); return; }
-      const amount = Number(document.getElementById("hundiAmount")?.value);
-      const date = document.getElementById("hundiDate")?.value || todayKey();
-      if (!amount) { showToast("Enter amount"); return; }
-      state.hundi.push({ id: newId(), devoteeId, amount, date, settled: false, _updated: Date.now() });
-      saveState();
-      renderEntryList();
-      renderStats();
-      renderDevoteeStats(devoteeId);
-      renderSevaSummary();
-      showToast("Hundi added");
-      return;
-    }
-
-    const settleBtn = target.closest("[data-hundi-settle]");
-    if (settleBtn) {
-      if (session?.role !== "admin") { showToast("Only admin can settle hundi"); return; }
-      const hundi = state.hundi.find(h => h.id === settleBtn.dataset.hundiSettle);
-      if (!hundi) return;
-      hundi.settled = !hundi.settled;
-      hundi._updated = Date.now();
-      saveState();
-      renderEntryList();
-      renderStats();
-      renderDevoteeStats(hundi.devoteeId);
-      renderSevaSummary();
-      showToast(hundi.settled ? "Hundi settled" : "Hundi marked pending");
-      return;
-    }
-
-    const editBtn = target.closest("[data-hundi-edit]");
-    if (editBtn) {
-      if (session?.role !== "admin") { showToast("Only admin can edit hundi"); return; }
-      const hundi = state.hundi.find(h => h.id === editBtn.dataset.hundiEdit);
-      if (!hundi) return;
-      const date = window.prompt("Enter hundi date (YYYY-MM-DD)", hundi.date || todayKey());
-      if (date === null) return;
-      const amountInput = window.prompt("Enter hundi amount", String(hundi.amount || ""));
-      if (amountInput === null) return;
-      const amount = Number(amountInput);
-      if (!date.trim() || !amount || amount < 0) { showToast("Enter a valid date and amount"); return; }
-      hundi.date = date.trim();
-      hundi.amount = amount;
-      hundi._updated = Date.now();
-      saveState();
-      renderEntryList();
-      renderStats();
-      renderDevoteeStats(hundi.devoteeId);
-      renderSevaSummary();
-      showToast("Hundi entry updated");
-      return;
-    }
-
-    const deleteBtn = target.closest("[data-hundi-delete]");
-    if (deleteBtn) {
-      if (session?.role !== "admin") { showToast("Only admin can delete hundi"); return; }
-      const hundi = state.hundi.find(h => h.id === deleteBtn.dataset.hundiDelete);
-      if (!hundi) return;
-      if (!window.confirm(`Delete hundi entry ${hundi.date} for ${formatMoney(hundi.amount)}?`)) return;
-      state.hundi = state.hundi.filter(h => h.id !== hundi.id);
-      saveState();
-      renderEntryList();
-      renderStats();
-      renderDevoteeStats(hundi.devoteeId);
-      renderSevaSummary();
-      showToast("Hundi entry deleted");
-      return;
-    }
-
-    const waBtn = target.closest("[data-wa-coupon]");
-    if (waBtn) {
-      const coupon = state.coupons[Number(waBtn.dataset.waCoupon) - 1];
-      openWhatsAppForBuyer(coupon);
-      return;
+  els.entryList.querySelectorAll("[data-field]").forEach((field) => {
+    // ✅ FIX: Use 'input' for text inputs (real-time), 'change' only for <select>
+    if (field.tagName === "SELECT") {
+      field.addEventListener("change", updateCouponField);
+    } else {
+      field.addEventListener("input", updateCouponField);
     }
   });
 
-  els.entryList.addEventListener("input", (e) => {
-    const field = e.target.closest("[data-field]");
-    if (!field || field.tagName === "SELECT") return;
-    updateCouponField(e);
-  });
-
-  els.entryList.addEventListener("change", (e) => {
-    const field = e.target.closest("[data-field]");
-    if (!field || field.tagName !== "SELECT") return;
-    updateCouponField(e);
-  });
-
-  els.entryList.addEventListener("focusout", (e) => {
-    const field = e.target.closest("[data-field='buyerContact']");
-    if (!field) return;
-    const val = field.value.replace(/\D/g, "");
-    if (val && val.length !== 10) {
-      showToast("Contact number should be 10 digits");
-    }
+  // ✅ Buyer contact 10-digit validation on blur
+  els.entryList.querySelectorAll("[data-field='buyerContact']").forEach((input) => {
+    input.addEventListener("blur", () => {
+      const val = input.value.replace(/\D/g, "");
+      if (val && val.length !== 10) {
+        showToast("Contact number should be 10 digits");
+      }
+    });
   });
 }
 
@@ -1844,33 +1880,36 @@ function renderAllCoupons() {
   if (els.bulkSettleBar) els.bulkSettleBar.style.display = isAdmin ? "flex" : "none";
   if (els.bulkSettleTh) els.bulkSettleTh.style.display = isAdmin ? "" : "none";
 
+  selectedCouponsForSettle.clear();
   updateBulkSettleUi();
 
-  const devoteeFilter = els.allDevoteeFilter?.value;
-  const hasDevFilter = devoteeFilter && devoteeFilter !== "all";
-  const hasStatus = status !== "all";
-  const hasSeva = sevaFilter !== "all";
-  const hasPayment = paymentFilter !== "all";
-  const hasQuery = !!query;
-
   let coupons = state.coupons;
-  if (hasStatus || hasDevFilter || hasSeva || hasPayment || hasQuery) {
-    coupons = state.coupons.filter(c => {
-      if (hasStatus) {
-        if (status === "unassigned" && c.devoteeId) return false;
-        if (status === "assigned" && !c.devoteeId) return false;
-        if (status === "sold" && !isSold(c)) return false;
-        if (status === "settled" && !c.settled) return false;
-        if (status === "unsettled" && (!c.devoteeId || !isSold(c) || c.settled)) return false;
-        if (status === "sold_unsettled" && (!c.devoteeId || !isSold(c) || c.settled || amountValue(c.amount) <= 0)) return false;
-      }
-      if (hasDevFilter && c.devoteeId !== devoteeFilter) return false;
-      if (hasSeva && (c.description || "") !== sevaFilter) return false;
-      if (hasPayment && (c.paymentMode || "cash") !== paymentFilter) return false;
-      if (hasQuery && !couponSearchText(c).includes(query)) return false;
-      return true;
-    });
+
+  if (status === "unassigned") coupons = coupons.filter((coupon) => !coupon.devoteeId);
+  if (status === "assigned") coupons = coupons.filter((coupon) => coupon.devoteeId);
+  if (status === "sold") coupons = coupons.filter(isSold);
+  if (status === "settled") coupons = coupons.filter((coupon) => coupon.settled);
+  if (status === "unsettled") coupons = coupons.filter((coupon) => coupon.devoteeId && !coupon.settled);
+  if (status === "sold_unsettled") {
+    coupons = coupons.filter(c =>
+      c.devoteeId &&              // must be assigned
+      isSold(c) &&               // must be sold
+      !c.settled &&              // must NOT be settled
+      amountValue(c.amount) > 0  // must have real amount
+    );
   }
+  const devoteeFilter = els.allDevoteeFilter?.value;
+
+  if (devoteeFilter && devoteeFilter !== "all") {
+    coupons = coupons.filter(c => c.devoteeId === devoteeFilter);
+  }
+  if (sevaFilter !== "all") {
+    coupons = coupons.filter(c => (c.description || "") === sevaFilter);
+  }
+  if (paymentFilter !== "all") {
+    coupons = coupons.filter(c => (c.paymentMode || "cash") === paymentFilter);
+  }
+  if (query) coupons = coupons.filter((coupon) => couponSearchText(coupon).includes(query));
 
   couponDataCache = coupons;
 
@@ -1890,22 +1929,15 @@ function renderAllCoupons() {
     });
   }
 
+  const startIdx = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = couponDataCache.slice(startIdx, startIdx + PAGE_SIZE);
+
   if (els.allCouponCount) {
     const label = coupons.length === 1 ? "Coupon" : "Coupons";
     els.allCouponCount.textContent = `${label}: ${coupons.length.toLocaleString("en-IN")}`;
   }
 
-  const totalPages = Math.max(1, Math.ceil(couponDataCache.length / ALL_COUPONS_PAGE_SIZE));
-  currentPage = Math.max(1, Math.min(currentPage, totalPages));
-  const pageStart = (currentPage - 1) * ALL_COUPONS_PAGE_SIZE;
-  const visibleCoupons = couponDataCache.slice(pageStart, pageStart + ALL_COUPONS_PAGE_SIZE);
-
-  if (!visibleCoupons.length) {
-    els.allCouponsBody.innerHTML = `<tr><td colspan="${isAdmin ? 14 : 13}"><div class="empty">No coupons match the filters.</div></td></tr>`;
-    return;
-  }
-
-  els.allCouponsBody.innerHTML = visibleCoupons.map((coupon) => {
+  els.allCouponsBody.innerHTML = pageItems.map((coupon) => {
     const isViewer = session?.role === "viewer";
     const checked = selectedCouponsForSettle.has(coupon.number);
     return `
@@ -1913,19 +1945,13 @@ function renderAllCoupons() {
       ${isAdmin ? `<td><input type="checkbox" class="coupon-check" data-check="${coupon.number}" ${checked ? 'checked' : ''}></td>` : ''}
       <td>#${coupon.number}</td>
       <td>${escapeHtml(devoteeName(coupon.devoteeId) || "-")}</td>
+      <td>${escapeHtml(coupon.assignedAt || "-")}</td>
       <td>${escapeHtml(coupon.buyerName || "-")}</td>
-      <td>${coupon.buyerContact ? `<span class="copy-contact" data-copy="${escapeAttr(coupon.buyerContact)}" title="Click to copy">${escapeHtml(coupon.buyerContact)}</span>` : '-'}</td>
+      <td>${escapeHtml(coupon.buyerContact || "-")}</td>
       <td>${coupon.buyerContact ? `<a href="tel:${escapeAttr(coupon.buyerContact)}" class="call-btn" title="Call ${escapeAttr(coupon.buyerContact)}">📞</a>` : '-'}</td>
-      <td>
-        ${(!isViewer && coupon.settled && coupon.buyerContact)
-        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}" title="Send WhatsApp invitation to buyer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-              Send
-            </button>`
-        : `<span class="small-stat">\u2013</span>`
-      }
-      </td>
+      <td>${escapeHtml(coupon.soldAt || "-")}</td>
       <td>${coupon.amount ? escapeHtml(formatMoney(amountValue(coupon.amount))) : "-"}</td>
+      <td>${escapeHtml(coupon.receiptNumber || "-")}</td>
       <td>${coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
       <td>
         ${isViewer
@@ -1935,14 +1961,52 @@ function renderAllCoupons() {
             </button>`
       }
       </td>
-      <td>${escapeHtml(coupon.description || "-")}</td>
-      <td>${escapeHtml(coupon.assignedAt || "-")}</td>
-      <td>${escapeHtml(coupon.soldAt || "-")}</td>
       <td>${escapeHtml(coupon.settledAt || "-")}</td>
+      <td>${escapeHtml(coupon.description || "-")}</td>
+      <td>
+        <button class="qr-btn" type="button" data-qr-coupon="${coupon.number}" title="Show QR for coupon #${coupon.number}">QR</button>
+      </td>
+      <td>
+        ${(!isViewer && coupon.settled && coupon.buyerContact)
+        ? `<button class="wa-btn" type="button" data-wa-coupon="${coupon.number}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+              Send
+            </button>`
+        : `<span class="small-stat">\u2013</span>`
+      }
+      </td>
     </tr>
   `;
   }).join("");
 
+  els.allCouponsBody.querySelectorAll("[data-settlement]").forEach((button) => {
+    button.addEventListener("click", toggleSettlement);
+  });
+
+  els.allCouponsBody.querySelectorAll("[data-qr-coupon]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const coupon = state.coupons[Number(btn.dataset.qrCoupon) - 1];
+      if (coupon) showQrModal(coupon);
+    });
+  });
+
+  // Wire up WhatsApp send buttons in All Coupons table (admin)
+  els.allCouponsBody.querySelectorAll("[data-wa-coupon]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const coupon = state.coupons[Number(btn.dataset.waCoupon) - 1];
+      openWhatsAppForBuyer(coupon);
+    });
+  });
+
+  els.allCouponsBody.querySelectorAll(".coupon-check").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const num = Number(cb.dataset.check);
+      if (cb.checked) selectedCouponsForSettle.add(num);
+      else selectedCouponsForSettle.delete(num);
+      cb.closest("tr")?.classList.toggle("selected-row", cb.checked);
+      updateBulkSettleUi();
+    });
+  });
 }
 
 let currentSortColumn = null;
@@ -2020,8 +2084,11 @@ function batchSettle() {
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
+  addAuditEntry(`Batch settled ${unsettled.length} coupons`);
   showToast(`Settled ${unsettled.length} coupons`);
 }
+const PAGE_SIZE = 50;
+
 function toggleSettlement(event) {
 
   if (session?.role !== "admin") {
@@ -2079,6 +2146,11 @@ function toggleSettlement(event) {
 
   if (tableWrap) tableWrap.scrollTop = scrollTop;
 
+  addAuditEntry(
+    coupon.settled
+      ? `Marked coupon #${coupon.number} as settled`
+      : `Marked coupon #${coupon.number} as pending`
+  );
   showToast(
     coupon.settled
       ? `✓ Coupon ${coupon.number} settled`
@@ -2100,7 +2172,11 @@ function updateCouponField(event) {
   coupon[field.dataset.field] = field.value.trimStart();
 
   if (!coupon.soldAt && isSold(coupon)) {
-    coupon.soldAt = todayKey();
+    coupon.soldAt = new Date().toISOString();
+  }
+  if (!coupon.receiptNumber && isSold(coupon) && isAutoReceiptEnabled()) {
+    const nextNum = state.coupons.filter(c => c.receiptNumber).length + 1;
+    coupon.receiptNumber = `REC-${String(nextNum).padStart(4, "0")}`;
   }
   markCouponUpdated(coupon);
   pendingLocalCouponNumbers.add(coupon.number);
@@ -2135,6 +2211,7 @@ function emptyCoupon(number) {
     buyerContact: "",
     amount: "",
     description: "",
+    receiptNumber: "",
     paymentMode: "cash",
     settled: false,
     settledAt: "",
@@ -2158,6 +2235,7 @@ function normalizeCoupons(coupons, totalCoupons) {
       buyerContact: savedCoupon.buyerContact || "",
       amount: savedCoupon.amount || "",
       description: savedCoupon.description || "",
+      receiptNumber: savedCoupon.receiptNumber || "",
       paymentMode: savedCoupon.paymentMode || "cash",
       settled: Boolean(savedCoupon.settled),
       settledAt: savedCoupon.settledAt || "",
@@ -2184,6 +2262,7 @@ function hasCouponData(coupon) {
     coupon.buyerContact ||
     coupon.amount ||
     coupon.description ||
+    coupon.receiptNumber ||
     coupon.settled ||
     coupon.settledAt
   );
@@ -2200,76 +2279,19 @@ function renderDevoteeStats(devoteeId) {
   const summary = devoteeSummary(devoteeId);
 
   els.devoteeStats.innerHTML = `
-  <article class="stat-card stat-overview">
-    <div class="stat-icon">📋</div>
-    <div class="stat-body">
-      <span class="stat-label">Coupons Issued</span>
-      <strong class="stat-value">${summary.issued}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-overview">
-    <div class="stat-icon">✅</div>
-    <div class="stat-body">
-      <span class="stat-label">Coupons Sold</span>
-      <strong class="stat-value">${summary.sold}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-overview">
-    <div class="stat-icon">⏳</div>
-    <div class="stat-body">
-      <span class="stat-label">Coupons Left</span>
-      <strong class="stat-value">${summary.left}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-settlement">
-    <div class="stat-icon">💰</div>
-    <div class="stat-body">
-      <span class="stat-label">Coupons Settled</span>
-      <strong class="stat-value">${formatMoney(summary.settledAmount)}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-settlement">
-    <div class="stat-icon">🪙</div>
-    <div class="stat-body">
-      <span class="stat-label">Hundi Settled</span>
-      <strong class="stat-value">${formatMoney(summary.hundiAmount || 0)}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-total">
-    <div class="stat-icon">💵</div>
-    <div class="stat-body">
-      <span class="stat-label">Total Settled</span>
-      <strong class="stat-value">${formatMoney(summary.totalSettledAmount)}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-pending">
-    <div class="stat-icon">⏳</div>
-    <div class="stat-body">
-      <span class="stat-label">Pending Coupons</span>
-      <strong class="stat-value">${formatMoney(summary.pendingAmount)}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-pending">
-    <div class="stat-icon">📊</div>
-    <div class="stat-body">
-      <span class="stat-label">Total Pending</span>
-      <strong class="stat-value">${formatMoney(summary.totalPendingAmount)}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-count">
-    <div class="stat-icon">🏆</div>
-    <div class="stat-body">
-      <span class="stat-label">Settled Coupons</span>
-      <strong class="stat-value">${summary.settledCount}</strong>
-    </div>
-  </article>
-  <article class="stat-card stat-mode">
-    <div class="stat-icon">🏛️</div>
-    <div class="stat-body">
-      <span class="stat-label">Temple Transfer</span>
-      <strong class="stat-value">${formatMoney(summary.templeTransferAmount || 0)}</strong>
-    </div>
-  </article>
+  <article><span>Coupons Issued</span><strong>${summary.issued}</strong></article>
+  <article><span>Coupons Sold</span><strong>${summary.sold}</strong></article>
+  <article><span>Coupons Left</span><strong>${summary.left}</strong></article>
+
+  <article><span>Coupons Settled</span><strong>${formatMoney(summary.settledAmount)}</strong></article>
+  <article><span>Hundi Settled</span><strong>${formatMoney(summary.hundiAmount || 0)}</strong></article>
+  <article><span>Total Settled Amount</span><strong>${formatMoney(summary.totalSettledAmount)}</strong></article>
+
+  <article><span>Pending Coupons Amount</span><strong>${formatMoney(summary.pendingAmount)}</strong></article>
+  <article><span>Total Pending Amount</span><strong>${formatMoney(summary.totalPendingAmount)}</strong></article>
+
+  <article><span>Settled Coupons</span><strong>${summary.settledCount}</strong></article>
+  <article><span>Temple Transfer</span><strong>${formatMoney(summary.templeTransferAmount || 0)}</strong></article>
 `;
 }
 
@@ -2350,6 +2372,7 @@ function couponSearchText(coupon) {
     coupon.buyerContact,
     coupon.soldAt,
     coupon.amount,
+    coupon.receiptNumber,
     coupon.description,
     coupon.settledAt,
     coupon.settled ? "settled" : "not settled"
@@ -2664,7 +2687,7 @@ function previewInvitationMessage() {
     overlay.innerHTML = `
       <div class="modal-card" role="dialog" aria-modal="true" aria-label="Message preview">
         <h3>📲 Message Preview</h3>
-        <p class="hint mb-sm">Sample preview using placeholder values.</p>
+        <p class="hint" style="margin-bottom:10px">Sample preview using placeholder values.</p>
         <div class="message-preview" id="invitationPreviewText"></div>
         <div class="inline-fields">
           <button type="button" id="invitationPreviewClose">Close</button>
@@ -2800,10 +2823,11 @@ function buildFirebaseUpdates() {
       updates[`coupons/${num - 1}`] = state.coupons[num - 1];
     });
     dirtyCouponNumbers.clear();
+  } else {
+    state.coupons.forEach((coupon, index) => {
+      updates[`coupons/${index}`] = coupon;
+    });
   }
-  // When no coupons changed, omit the coupons path entirely.
-  // Firebase update() only touches paths present in the object,
-  // so existing coupon data on the server stays intact.
   return updates;
 }
 
@@ -2814,8 +2838,6 @@ function flushPendingFirebaseWrite() {
 }
 
 function applyFirebaseData(data, options = {}) {
-  // Stale cache guard: state.coupons is about to be replaced
-  invalidateCaches();
   // ✅ FIX: Skip Firebase echo/updates if a devotee edited a field recently
   // This prevents data rollback when Firebase echoes the saved state back
   if (!options.skipRender && !options.preserveCouponNumbers?.size) {
@@ -2992,6 +3014,7 @@ function spreadsheetRows() {
       buyerContact: coupon.buyerContact || "",
       soldDate: coupon.soldAt || "",
       amount: amountValue(coupon.amount),
+      receiptNumber: coupon.receiptNumber || "",
       paymentMode: coupon.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash",
       settlement: coupon.settled ? "Settled" : "Not Settled",
       settledDate: coupon.settledAt || "",
@@ -3088,6 +3111,261 @@ saveState = function () {
 };
 
 // ═══════════════════════════════════════════════
+// 🌙 DARK MODE
+// ═══════════════════════════════════════════════
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+  const isDark = document.body.classList.contains("dark-mode");
+  els.darkToggle.textContent = isDark ? "☀️" : "🌙";
+  els.darkToggle.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+  try { localStorage.setItem("coupon-seva-darkmode", isDark ? "1" : "0"); } catch {}
+}
+
+function loadDarkModePreference() {
+  const stored = localStorage.getItem("coupon-seva-darkmode");
+  if (stored === "1" || (stored === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    document.body.classList.add("dark-mode");
+    els.darkToggle.textContent = "☀️";
+    els.darkToggle.title = "Switch to light mode";
+  }
+}
+
+// ═══════════════════════════════════════════════
+// 🌐 MULTI-LANGUAGE (i18n)
+// ═══════════════════════════════════════════════
+
+const i18n = {
+  en: {
+    lang: "हि", totalCoupons: "Total Coupons", assigned: "Assigned", sold: "Sold",
+    couponsSettled: "Coupons Settled", hundiSettled: "Hundi Settled", totalSettled: "Total Settled",
+    unsettled: "Unsettled Amount", settledCoupons: "Settled Coupons", templeTransfer: "Temple Transfer",
+    cashTotal: "Cash Total", login: "Login", logout: "Logout", admin: "Admin",
+    viewer: "Viewer", devotee: "Devotee", password: "Password", export: "Export",
+    import: "Import", csv: "CSV", dashboard: "Dashboard", setup: "Setup",
+    reset: "Reset", devoteeEntry: "Devotee Entry", allCoupons: "All Coupons",
+    addDevotee: "Add Devotee", name: "Name", contact: "Contact Number",
+    assignCoupons: "Assign Coupons", from: "From", to: "To", assignDate: "Assign Date",
+    sendWhatsApp: "Send WhatsApp message", couponSettings: "Coupon Settings",
+    totalCouponsLabel: "Total Coupons",
+  },
+  hi: {
+    lang: "EN", totalCoupons: "कुल कूपन", assigned: "आवंटित", sold: "बेचे गए",
+    couponsSettled: "कूपन निपटान", hundiSettled: "हुंडी निपटान", totalSettled: "कुल निपटान",
+    unsettled: "अनसैटल्ड राशि", settledCoupons: "निपटाए गए कूपन", templeTransfer: "मंदिर हस्तांतरण",
+    cashTotal: "नकद कुल", login: "लॉगिन", logout: "लॉगआउट", admin: "प्रशासक",
+    viewer: "दर्शक", devotee: "भक्त", password: "पासवर्ड", export: "निर्यात",
+    import: "आयात", csv: "CSV", dashboard: "डैशबोर्ड", setup: "सेटअप",
+    reset: "रीसेट", devoteeEntry: "भक्त प्रविष्टि", allCoupons: "सभी कूपन",
+    addDevotee: "भक्त जोड़ें", name: "नाम", contact: "संपर्क नंबर",
+    assignCoupons: "कूपन आवंटित करें", from: "से", to: "तक", assignDate: "आवंटन तिथि",
+    sendWhatsApp: "व्हाट्सएप संदेश भेजें", couponSettings: "कूपन सेटिंग्स",
+    totalCouponsLabel: "कुल कूपन",
+  }
+};
+
+let currentLang = "en";
+
+function toggleLanguage() {
+  currentLang = currentLang === "en" ? "hi" : "en";
+  els.langToggle.textContent = i18n[currentLang].lang;
+  try { localStorage.setItem("coupon-seva-lang", currentLang); } catch {}
+  showToast(currentLang === "hi" ? "भाषा बदली: हिंदी" : "Language switched: English");
+}
+
+function loadLangPreference() {
+  const stored = localStorage.getItem("coupon-seva-lang");
+  if (stored === "hi" || stored === "en") {
+    currentLang = stored;
+    els.langToggle.textContent = i18n[currentLang].lang;
+  }
+}
+
+function t(key) {
+  return i18n[currentLang][key] || key;
+}
+
+// ═══════════════════════════════════════════════
+// 📊 CHARTS (Chart.js)
+// ═══════════════════════════════════════════════
+
+let sevaChartInstance = null;
+let trendChartInstance = null;
+let perfChartInstance = null;
+
+function renderCharts() {
+  if (session?.role === "devotee") return;
+  if (!els.sevaChart || !els.trendChart || !els.perfChart) return;
+  const isAdminOrViewer = session?.role === "admin" || session?.role === "viewer";
+  if (!isAdminOrViewer) return;
+  if (typeof Chart === "undefined") {
+    ensureChartsLoaded();
+    return;
+  }
+  renderSevaChart();
+  renderTrendChart();
+  renderPerfChart();
+}
+
+function renderSevaChart() {
+  const sevaMap = {};
+  state.coupons.filter(c => c.settled).forEach(c => {
+    const seva = c.description || "Others";
+    sevaMap[seva] = (sevaMap[seva] || 0) + amountValue(c.amount);
+  });
+  (state.hundi || []).filter(h => h.settled).forEach(h => {
+    sevaMap["Hundi Donation"] = (sevaMap["Hundi Donation"] || 0) + h.amount;
+  });
+
+  const labels = Object.keys(sevaMap);
+  const data = Object.values(sevaMap);
+
+  if (sevaChartInstance) sevaChartInstance.destroy();
+
+  if (!labels.length) {
+    sevaChartInstance = null;
+    return;
+  }
+
+  const colors = ["#14b8a6","#f59e0b","#ef4444","#8b5cf6","#3b82f6","#10b981","#f97316","#ec4899"];
+
+  sevaChartInstance = new Chart(els.sevaChart, {
+    type: "doughnut",
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors.slice(0, labels.length),
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position: "bottom", labels: { boxWidth: 12, padding: 12, font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderTrendChart() {
+  const monthly = {};
+  state.coupons.filter(c => c.settled && c.settledAt).forEach(c => {
+    const month = c.settledAt.slice(0, 7);
+    monthly[month] = (monthly[month] || 0) + amountValue(c.amount);
+  });
+
+  const sorted = Object.entries(monthly).sort((a, b) => a[0].localeCompare(b[0]));
+  const labels = sorted.map(([m]) => m);
+  const data = sorted.map(([, v]) => v);
+
+  if (trendChartInstance) trendChartInstance.destroy();
+  if (!labels.length) { trendChartInstance = null; return; }
+
+  trendChartInstance = new Chart(els.trendChart, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Settled Amount",
+        data,
+        borderColor: "#14b8a6",
+        backgroundColor: "rgba(20,184,166,0.1)",
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 } } },
+        y: { ticks: { font: { size: 10 }, callback: v => "₹" + v.toLocaleString("en-IN") } }
+      }
+    }
+  });
+}
+
+function renderPerfChart() {
+  const sorted = [...state.devotees].map(d => {
+    const s = devoteeSummary(d.id);
+    return { name: d.name, settled: s.settledAmount, pending: s.pendingAmount };
+  }).sort((a, b) => b.settled - a.settled).slice(0, 10);
+
+  if (perfChartInstance) perfChartInstance.destroy();
+  if (!sorted.length) { perfChartInstance = null; return; }
+
+  perfChartInstance = new Chart(els.perfChart, {
+    type: "bar",
+    data: {
+      labels: sorted.map(s => s.name),
+      datasets: [
+        { label: "Settled", data: sorted.map(s => s.settled), backgroundColor: "#14b8a6", borderRadius: 4 },
+        { label: "Pending", data: sorted.map(s => s.pending), backgroundColor: "#f59e0b", borderRadius: 4 },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 10 } } } },
+      scales: {
+        x: { ticks: { font: { size: 9 } } },
+        y: { ticks: { font: { size: 10 }, callback: v => "₹" + v.toLocaleString("en-IN") } }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+// 📋 AUDIT LOG
+// ═══════════════════════════════════════════════
+
+function addAuditEntry(action) {
+  if (!state.auditLog) state.auditLog = [];
+  state.auditLog.unshift({ action, time: Date.now() });
+  if (state.auditLog.length > 200) state.auditLog.length = 200;
+  saveState();
+}
+
+function renderAuditLog() {
+  if (!els.auditLog) return;
+  if (session?.role === "devotee") { els.auditLog.innerHTML = ""; return; }
+
+  const logs = (state.auditLog || []).slice(0, 50);
+  if (!logs.length) {
+    els.auditLog.innerHTML = `<div class="empty with-icon" style="padding:20px"><span class="empty-title">No recent activity</span><span class="empty-desc">Activity will appear here as actions are taken.</span></div>`;
+    return;
+  }
+
+  els.auditLog.innerHTML = logs.map(entry => `
+    <div class="audit-entry">
+      <span class="audit-time">${formatAuditTime(entry.time)}</span>
+      <span class="audit-action">${escapeHtml(entry.action)}</span>
+    </div>
+  `).join("");
+}
+
+function formatAuditTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return "Just now";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
+
+// Patch `saveState` to auto-log key actions (keep wrapper chain)
+const _auditOriginalSave = saveState;
+saveState = function() {
+  _auditOriginalSave();
+};
+// Direct audit logging from action functions is preferred.
+
+// ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON REPORT
 // ═══════════════════════════════════════════════
 
@@ -3135,6 +3413,60 @@ function printCouponReport() {
 }
 
 // ═══════════════════════════════════════════════
+// 📲 QR CODE MODAL
+// ═══════════════════════════════════════════════
+
+function showQrModal(coupon) {
+  let overlay = document.getElementById("qrModalOverlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "qrModalOverlay";
+    overlay.className = "modal-overlay hidden";
+    overlay.innerHTML = `
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="Coupon QR Code">
+        <h3>📱 Coupon QR Code</h3>
+        <div class="qr-modal-body" id="qrModalBody"></div>
+        <div class="inline-fields" style="justify-content:center">
+          <button type="button" id="qrModalClose" class="ghost">Close</button>
+          <button type="button" id="qrPrintBtn">Print Slip</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById("qrModalClose").addEventListener("click", () => overlay.classList.add("hidden"));
+    document.getElementById("qrPrintBtn").addEventListener("click", () => {
+      const num = overlay.dataset.qrNumber;
+      if (num) showPrintSlip(state.coupons[Number(num) - 1]);
+    });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.add("hidden"); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !overlay.classList.contains("hidden")) overlay.classList.add("hidden");
+    });
+  }
+
+  const body = document.getElementById("qrModalBody");
+  body.innerHTML = `<div id="qrCodeContainer"></div><p style="margin-top:12px;font-size:13px;color:var(--muted)">Coupon #${coupon.number}</p>`;
+  overlay.dataset.qrNumber = coupon.number;
+  overlay.classList.remove("hidden");
+
+  try {
+    if (typeof QRCode === "undefined") {
+      body.innerHTML = `<p style="color:var(--muted)">Loading QR library...</p>`;
+      ensureQrLoaded().then(() => showQrModal(coupon));
+      return;
+    }
+    new QRCode(document.getElementById("qrCodeContainer"), {
+      text: `${window.location.origin}${window.location.pathname}?coupon=${coupon.number}`,
+      width: 200, height: 200,
+      colorDark: "#1a1a1a",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  } catch (e) {
+    body.innerHTML = `<p style="color:var(--muted)">QR library not loaded.</p>`;
+  }
+}
+
+// ═══════════════════════════════════════════════
 // 🖨️ PRINT COUPON SLIP
 // ═══════════════════════════════════════════════
 
@@ -3154,7 +3486,7 @@ function showPrintSlip(coupon) {
           <div class="slip-row"><span class="slip-label">Amount</span><span class="slip-value">${formatMoney(amountValue(coupon.amount))}</span></div>
           <div class="slip-row"><span class="slip-label">Date</span><span class="slip-value">${coupon.soldAt || "-"}</span></div>
           <div class="slip-divider"></div>
-          <div class="slip-note">Devotee: ${escapeHtml(devoteeName(coupon.devoteeId))}</div>
+          <div style="font-size:11px;color:#666">Devotee: ${escapeHtml(devoteeName(coupon.devoteeId))}</div>
         </div>
         <div class="slip-actions">
           <button type="button" id="doPrintSlip" class="primary">🖨️ Print</button>
@@ -3167,6 +3499,163 @@ function showPrintSlip(coupon) {
     window.print();
   });
   overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+}
+
+// ═══════════════════════════════════════════════
+// 📲 BULK WHATSAPP
+// ═══════════════════════════════════════════════
+
+function bulkWhatsApp() {
+  const settledWithContact = state.coupons.filter(c => c.settled && c.buyerContact);
+  if (!settledWithContact.length) {
+    showToast("No settled coupons with buyer contact numbers.");
+    return;
+  }
+
+  const confirmed = confirm(`Send invitation to ${settledWithContact.length} settled buyers via WhatsApp? This will open multiple tabs.`);
+  if (!confirmed) return;
+
+  const template = state.settings.invitationMessage;
+  if (!template) {
+    showToast("No invitation template set — Setup → WhatsApp Invitation Template");
+    return;
+  }
+
+  let count = 0;
+  settledWithContact.forEach(coupon => {
+    const message = buildInvitationMessage(coupon);
+    const url = buildWhatsAppUrl(coupon.buyerContact, message);
+    if (url) {
+      setTimeout(() => window.open(url, "_blank"), count * 500);
+      count++;
+    }
+  });
+
+  addAuditEntry(`Bulk WhatsApp sent to ${count} buyers`);
+  showToast(`Opened ${count} WhatsApp chat(s) — check your browser tabs`);
+}
+
+function devoteeBulkWhatsApp(devoteeId) {
+  const coupons = couponsForDevotee(devoteeId).filter(c => c.settled && c.buyerContact);
+  if (!coupons.length) {
+    showToast("No settled coupons with buyer contact numbers for this devotee.");
+    return;
+  }
+
+  const template = state.settings.invitationMessage;
+  if (!template) {
+    showToast("No invitation template set — Admin: Setup → WhatsApp Invitation Template");
+    return;
+  }
+
+  const devotee = state.devotees.find(d => d.id === devoteeId);
+  const confirmed = confirm(`Send invitation to ${coupons.length} settled buyer(s) for ${devotee ? devotee.name : "this devotee"} via WhatsApp? This will open multiple tabs.`);
+  if (!confirmed) return;
+
+  let count = 0;
+  coupons.forEach(coupon => {
+    const message = buildInvitationMessage(coupon);
+    const url = buildWhatsAppUrl(coupon.buyerContact, message);
+    if (url) {
+      setTimeout(() => window.open(url, "_blank"), count * 500);
+      count++;
+    }
+  });
+
+  addAuditEntry(`Devotee bulk WhatsApp sent to ${count} buyers for ${devotee ? devotee.name : devoteeId}`);
+  showToast(`Opened ${count} WhatsApp chat(s) — check your browser tabs`);
+}
+
+// ═══════════════════════════════════════════════
+// 📄 BULK PDF RECEIPTS
+// ═══════════════════════════════════════════════
+
+async function bulkPdfReceipts() {
+  const settled = state.coupons.filter(c => c.settled && c.buyerName);
+  if (!settled.length) {
+    showToast("No settled coupons with buyer names.");
+    return;
+  }
+
+  if (typeof html2pdf === "undefined") {
+    showToast("Loading PDF library...");
+    await ensurePdfLoaded();
+    if (typeof html2pdf === "undefined") {
+      showToast("PDF library failed to load. Check internet connection.");
+      return;
+    }
+  }
+
+  const container = document.createElement("div");
+  container.style.cssText = "padding:20px;font-family:sans-serif";
+  container.innerHTML = `
+    <h1 style="font-size:18px;margin-bottom:16px">Coupon Receipts</h1>
+    ${settled.map(c => `
+      <div style="border:1px solid #ccc;border-radius:8px;padding:16px;margin-bottom:12px;page-break-inside:avoid">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:8px">Receipt #${c.number}</div>
+        <div style="font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
+          <span>Buyer: ${escapeHtml(c.buyerName || "-")}</span>
+          <span>Contact: ${escapeHtml(c.buyerContact || "-")}</span>
+          <span>Seva: ${escapeHtml(c.description || "-")}</span>
+          <span>Amount: ${formatMoney(amountValue(c.amount))}</span>
+          <span>Date: ${c.soldAt || "-"}</span>
+          <span>Devotee: ${escapeHtml(devoteeName(c.devoteeId))}</span>
+        </div>
+      </div>
+    `).join("")}
+  `;
+
+  document.body.appendChild(container);
+  html2pdf().from(container).set({
+    margin: [10, 10],
+    filename: `coupon-receipts-${new Date().toISOString().slice(0,10)}.pdf`,
+    image: { type: "jpeg", quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+  }).save().then(() => {
+    document.body.removeChild(container);
+    showToast("PDF downloaded");
+  }).catch(() => {
+    document.body.removeChild(container);
+    showToast("PDF generation failed");
+  });
+}
+
+// ═══════════════════════════════════════════════
+// 📅 DATE PRESETS
+// ═══════════════════════════════════════════════
+
+function applyDatePreset(preset) {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  const dd = String(today.getDate()).padStart(2, "0");
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  document.querySelectorAll("[data-preset]").forEach(b => b.classList.remove("active-preset"));
+  document.querySelector(`[data-preset="${preset}"]`)?.classList.add("active-preset");
+
+  if (preset === "all") {
+    els.settledFromDate.value = "";
+    els.settledToDate.value = "";
+  } else if (preset === "today") {
+    els.settledFromDate.value = todayStr;
+    els.settledToDate.value = todayStr;
+  } else if (preset === "week") {
+    const start = new Date(today);
+    start.setDate(start.getDate() - start.getDay());
+    els.settledFromDate.value = start.toISOString().slice(0, 10);
+    els.settledToDate.value = todayStr;
+  } else if (preset === "month") {
+    els.settledFromDate.value = `${yyyy}-${mm}-01`;
+    els.settledToDate.value = todayStr;
+  } else if (preset === "year") {
+    els.settledFromDate.value = `${yyyy}-01-01`;
+    els.settledToDate.value = todayStr;
+  }
+
+  renderDevotees();
+  renderSevaSummary();
 }
 
 // ═══════════════════════════════════════════════
@@ -3197,53 +3686,36 @@ function sortTable(column) {
 
 function renderPagination() {
   if (!els.allPagination) return;
-  els.allPagination.innerHTML = buildPaginationHtml(
-    couponDataCache.length,
-    currentPage,
-    ALL_COUPONS_PAGE_SIZE,
-    "goToPage"
-  );
+  const totalItems = couponDataCache.length;
+  const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+
+  if (totalPages <= 1) {
+    els.allPagination.innerHTML = "";
+    return;
+  }
+
+  let html = "";
+  html += `<button class="ghost" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? "disabled" : ""}>‹ Prev</button>`;
+
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, currentPage + 2);
+  if (startPage > 1) html += `<button class="ghost" onclick="goToPage(1)">1</button>${startPage > 2 ? '<span class="page-info">…</span>' : ""}`;
+  for (let i = startPage; i <= endPage; i++) {
+    html += `<button class="ghost ${i === currentPage ? "active-page" : ""}" onclick="goToPage(${i})">${i}</button>`;
+  }
+  if (endPage < totalPages) html += `${endPage < totalPages - 1 ? '<span class="page-info">…</span>' : ""}<button class="ghost" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+  html += `<button class="ghost" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? "disabled" : ""}>Next ›</button>`;
+  html += `<span class="page-info">Page ${currentPage} of ${totalPages} (${totalItems} items)</span>`;
+
+  els.allPagination.innerHTML = html;
 }
 
 function goToPage(page) {
-  const totalPages = Math.max(1, Math.ceil(couponDataCache.length / ALL_COUPONS_PAGE_SIZE));
+  const totalPages = Math.ceil(couponDataCache.length / PAGE_SIZE);
   currentPage = Math.max(1, Math.min(page, totalPages));
   renderAllCoupons();
   renderPagination();
   els.allCouponsBody.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function goToEntryPage(page) {
-  currentEntryPage = Math.max(1, Number(page) || 1);
-  renderEntryList();
-  els.entryList?.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function buildPaginationHtml(totalItems, current, pageSize, callbackName) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  if (totalPages <= 1) return "";
-
-  const pages = new Set([1, totalPages, current - 1, current, current + 1]);
-  const sortedPages = [...pages]
-    .filter(page => page >= 1 && page <= totalPages)
-    .sort((a, b) => a - b);
-
-  let lastPage = 0;
-  const pageButtons = sortedPages.map((page) => {
-    const gap = page - lastPage > 1 ? `<span class="page-gap">...</span>` : "";
-    lastPage = page;
-    return `${gap}<button type="button" class="${page === current ? "active-page" : ""}" onclick="${callbackName}(${page})">${page}</button>`;
-  }).join("");
-
-  const firstItem = (current - 1) * pageSize + 1;
-  const lastItem = Math.min(totalItems, current * pageSize);
-
-  return `
-    <button type="button" onclick="${callbackName}(${current - 1})" ${current === 1 ? "disabled" : ""}>Prev</button>
-    ${pageButtons}
-    <button type="button" onclick="${callbackName}(${current + 1})" ${current === totalPages ? "disabled" : ""}>Next</button>
-    <span class="page-info">${firstItem.toLocaleString("en-IN")}-${lastItem.toLocaleString("en-IN")} of ${totalItems.toLocaleString("en-IN")}</span>
-  `;
 }
 
 // ═══════════════════════════════════════════════
@@ -3253,7 +3725,7 @@ function buildPaginationHtml(totalItems, current, pageSize, callbackName) {
 let lastCheckinNumber = null;
 
 function canCurrentUserCheckin() {
-  if (session?.role === "admin") return true;
+  if (session?.role === "admin" || session?.role === "viewer") return true;
   if (session?.role === "devotee") {
     const devotee = state.devotees.find(d => d.id === session.devoteeId);
     return devotee ? devotee.canCheckin : false;
@@ -3267,8 +3739,8 @@ function renderCheckinView() {
   els.checkinResult.classList.toggle("hidden", !canCheckin);
   if (els.checkinActionHeader) els.checkinActionHeader.classList.toggle("hidden", !canCheckin);
   renderCheckinStats();
-  populateCheckinFilters();
   renderCheckinReport();
+  populateCheckinFilters();
   els.checkinInput.value = "";
   if (canCheckin) els.checkinInput.focus();
   els.checkinResult.className = "checkin-result";
@@ -3278,19 +3750,12 @@ function renderCheckinView() {
 }
 
 function populateCheckinFilters() {
-  const currentDevotee = els.checkinDevoteeFilter.value || "all";
-  const currentSeva = els.checkinSevaFilter.value || "all";
   const sorted = [...state.devotees].sort((a, b) => a.name.localeCompare(b.name));
   els.checkinDevoteeFilter.innerHTML = '<option value="all">All Devotees</option>' +
     sorted.map(d => `<option value="${escapeAttr(d.id)}">${escapeHtml(d.name)}</option>`).join("");
 
   els.checkinSevaFilter.innerHTML = '<option value="all">All Seva Types</option>' +
     SEVA_TYPES.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join("");
-
-  els.checkinDevoteeFilter.value = currentDevotee;
-  if (els.checkinDevoteeFilter.value !== currentDevotee) els.checkinDevoteeFilter.value = "all";
-  els.checkinSevaFilter.value = currentSeva;
-  if (els.checkinSevaFilter.value !== currentSeva) els.checkinSevaFilter.value = "all";
 }
 
 function handleCheckin() {
@@ -3340,6 +3805,7 @@ function handleCheckin() {
   els.checkinInput.focus();
   renderCheckinStats();
   renderCheckinReport();
+  addAuditEntry("checkin: Coupon #" + num + " checked in - " + (coupon.buyerName || "?"));
 }
 
 function handleUndoCheckin() {
@@ -3351,6 +3817,7 @@ function handleUndoCheckin() {
     coupon.attendedAt = "";
     markCouponUpdated(coupon);
     saveState();
+    addAuditEntry("checkin_undo: Coupon #" + lastCheckinNumber + " check-in undone");
   }
   els.checkinResult.className = "checkin-result error";
   els.checkinResult.innerHTML = "<strong>↩ Check-in undone for Coupon #" + lastCheckinNumber + "</strong>";
@@ -3389,30 +3856,24 @@ function renderCheckinReport() {
   if (statusFilter === "checked_in") coupons = coupons.filter(c => c.attended);
   else if (statusFilter === "not_checked_in") coupons = coupons.filter(c => !c.attended);
 
-  const searchQuery = els.checkinSearch?.value.trim().toLowerCase();
+  const searchQuery = els.checkinSearch?.value.trim();
   if (searchQuery) {
-    coupons = coupons.filter(c =>
-      String(c.number).includes(searchQuery) ||
-      (c.buyerName || "").toLowerCase().includes(searchQuery) ||
-      (c.buyerContact || "").includes(searchQuery)
-    );
+    const searchNum = Number(searchQuery);
+    if (!isNaN(searchNum)) coupons = coupons.filter(c => c.number === searchNum);
+    else coupons = coupons.filter(c => String(c.number).includes(searchQuery));
   }
 
   els.checkinCount.textContent = "Coupons: " + coupons.length.toLocaleString("en-IN");
 
   const canCheckin = canCurrentUserCheckin();
-  const totalPages = Math.max(1, Math.ceil(coupons.length / CHECKIN_PAGE_SIZE));
-  currentCheckinPage = Math.max(1, Math.min(currentCheckinPage, totalPages));
-  const pageStart = (currentCheckinPage - 1) * CHECKIN_PAGE_SIZE;
-  const visibleCoupons = coupons.slice(pageStart, pageStart + CHECKIN_PAGE_SIZE);
 
-  els.checkinReportBody.innerHTML = visibleCoupons.map(c => {
+  els.checkinReportBody.innerHTML = coupons.map(c => {
     const attended = c.attended;
     return `
       <tr>
         <td>#${c.number}</td>
         <td>${escapeHtml(c.buyerName || "-")}</td>
-        <td><span class="copy-contact" data-copy="${escapeHtml(c.buyerContact || "-")}">${escapeHtml(c.buyerContact || "-")}</span></td>
+        <td>${escapeHtml(c.buyerContact || "-")}</td>
         <td>${escapeHtml(devoteeName(c.devoteeId))}</td>
         <td>${escapeHtml(c.description || "-")}</td>
         <td><span class="attended-badge ${attended ? '' : 'missed'}">${attended ? "✓ Checked In" : "○ Not Yet"}</span></td>
@@ -3427,15 +3888,6 @@ function renderCheckinReport() {
       </tr>
     `;
   }).join("") || '<tr><td colspan="8"><div class="empty">No coupons match the filters.</div></td></tr>';
-
-  if (els.checkinPagination) {
-    els.checkinPagination.innerHTML = buildPaginationHtml(
-      coupons.length,
-      currentCheckinPage,
-      CHECKIN_PAGE_SIZE,
-      "goToCheckinPage"
-    );
-  }
 }
 
 function checkinFromReport(num) {
@@ -3448,11 +3900,27 @@ function undoCheckinFromReport(num) {
   handleUndoCheckin();
 }
 
-function goToCheckinPage(page) {
-  currentCheckinPage = Math.max(1, Number(page) || 1);
-  renderCheckinReport();
-  els.checkinReportBody?.closest(".table-wrap")?.scrollTo({ top: 0, behavior: "smooth" });
+// ═══════════════════════════════════════════════
+// 🔢 RECEIPT AUTO-GENERATION
+// ═══════════════════════════════════════════════
+
+function isAutoReceiptEnabled() {
+  return Boolean(els.autoReceiptCheck?.checked);
 }
+
+function loadAutoReceiptSetting() {
+  const val = state.settings.autoReceipt;
+  if (els.autoReceiptCheck) els.autoReceiptCheck.checked = Boolean(val);
+}
+
+// Patch assignCoupons to save the setting
+const _origUpdateTotalCoupons = updateTotalCoupons;
+updateTotalCoupons = function(event) {
+  if (els.autoReceiptCheck) {
+    state.settings.autoReceipt = els.autoReceiptCheck.checked;
+  }
+  _origUpdateTotalCoupons(event);
+};
 
 // ═══════════════════════════════════════════════
 // 🗄️ INDEXEDDB FALLBACK
@@ -3532,13 +4000,48 @@ function loadScript(src) {
   });
 }
 
+let _chartsLoaded = false;
+let _pdfLoaded = false;
+let _qrLoaded = false;
+
+function ensureChartsLoaded() {
+  if (typeof Chart !== "undefined") { _chartsLoaded = true; return Promise.resolve(); }
+  if (_chartsLoaded) return Promise.resolve();
+  return loadScript("https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js")
+    .then(() => { _chartsLoaded = true; renderCharts(); })
+    .catch(() => {});
+}
+
+function ensurePdfLoaded() {
+  if (typeof html2pdf !== "undefined") { _pdfLoaded = true; return Promise.resolve(); }
+  if (_pdfLoaded) return Promise.resolve();
+  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.3/html2pdf.bundle.min.js")
+    .then(() => { _pdfLoaded = true; })
+    .catch(() => {});
+}
+
+function ensureQrLoaded() {
+  if (typeof QRCode !== "undefined") { _qrLoaded = true; return Promise.resolve(); }
+  if (_qrLoaded) return Promise.resolve();
+  return loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js")
+    .then(() => { _qrLoaded = true; })
+    .catch(() => {});
+}
 
 // ═══════════════════════════════════════════════
 // 🚀 INIT NEW FEATURES
 // ═══════════════════════════════════════════════
 
+function initNewFeatures() {
+  loadDarkModePreference();
+  loadLangPreference();
+  loadAutoReceiptSetting();
+  ensureChartsLoaded();
+}
+
 // Defer init until after Firebase loads
 setTimeout(() => {
+  initNewFeatures();
   try {
     loadFromIndexedDB().then(data => {
       if (data && !hasStateData(state)) {

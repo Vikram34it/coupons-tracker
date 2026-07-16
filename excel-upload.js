@@ -43,7 +43,7 @@ function renderExcelUploadTab() {
           <div>
             <strong>Fill in the Excel</strong>
             <p class="hint" style="margin-top:4px">
-              Fill columns: Buyer Name, Contact, Amount, Seva Type, Payment Mode.
+              Fill columns: Buyer Name, Contact, Amount, Seva Type, Receipt No, Payment Mode.
               Leave any column blank to keep the existing value.
             </p>
           </div>
@@ -70,6 +70,7 @@ function renderExcelUploadTab() {
           <span class="coupon-pill">Contact</span>
           <span class="coupon-pill">Amount</span>
           <span class="coupon-pill">Seva Type</span>
+          <span class="coupon-pill">Receipt No</span>
           <span class="coupon-pill">Payment Mode</span>
         </div>
         <p class="hint" style="margin-top:10px;line-height:1.6">
@@ -113,7 +114,7 @@ function downloadExcelTemplate(devoteeId) {
 
   const headers = [
     "Coupon Number", "Buyer Name", "Contact", "Amount",
-    "Seva Type", "Payment Mode"
+    "Seva Type", "Receipt No", "Payment Mode"
   ];
 
   const rows = assigned.map(c => [
@@ -122,6 +123,7 @@ function downloadExcelTemplate(devoteeId) {
     c.buyerContact || "",
     c.amount || "",
     c.description || "",
+    c.receiptNumber || "",
     c.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"
   ]);
 
@@ -131,7 +133,7 @@ function downloadExcelTemplate(devoteeId) {
   // Column widths
   ws["!cols"] = [
     { wch: 16 }, { wch: 24 }, { wch: 16 }, { wch: 12 },
-    { wch: 26 }, { wch: 18 }
+    { wch: 26 }, { wch: 14 }, { wch: 18 }
   ];
 
   const wb = XLSX.utils.book_new();
@@ -172,6 +174,10 @@ const _EXCEL_FIELD_MAP = {
   "seva":          "description",
   "description":   "description",
   "type":          "description",
+
+  "receiptno":     "receiptNumber",
+  "receiptnumber": "receiptNumber",
+  "receipt":       "receiptNumber",
 
   "paymentmode":   "paymentMode",
   "payment":       "paymentMode",
@@ -288,6 +294,7 @@ function importFromExcel(file, devoteeId) {
           buyerContact: row.buyerContact || "",
           amount: amount ? String(Number(amount)) : "",
           description,
+          receiptNumber: row.receiptNumber || "",
           paymentMode
         });
       });
@@ -314,6 +321,7 @@ function importFromExcel(file, devoteeId) {
           <td>${escapeHtml(r.buyerContact || "–")}</td>
           <td>${r.amount ? formatMoney(Number(r.amount)) : "–"}</td>
           <td>${escapeHtml(r.description || "–")}</td>
+          <td>${escapeHtml(r.receiptNumber || "–")}</td>
           <td>${r.paymentMode === "temple_transfer" ? "Temple Transfer" : "Cash"}</td>
         </tr>`).join("");
 
@@ -333,7 +341,7 @@ function importFromExcel(file, devoteeId) {
             <thead>
               <tr>
                 <th>Coupon</th><th>Buyer Name</th><th>Contact</th>
-                <th>Amount</th><th>Seva Type</th><th>Payment Mode</th>
+                <th>Amount</th><th>Seva Type</th><th>Receipt No</th><th>Payment Mode</th>
               </tr>
             </thead>
             <tbody>${previewRows}</tbody>
@@ -351,6 +359,7 @@ function importFromExcel(file, devoteeId) {
           if (row.buyerContact)  coupon.buyerContact  = row.buyerContact;
           if (row.amount)        coupon.amount        = row.amount;
           if (row.description)   coupon.description   = row.description;
+          if (row.receiptNumber) coupon.receiptNumber = row.receiptNumber;
           coupon.paymentMode = row.paymentMode; // always set (has a default)
           if (typeof markCouponUpdated === "function") {
             markCouponUpdated(coupon);

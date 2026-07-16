@@ -9,24 +9,18 @@
   <meta http-equiv="Expires" content="0">
   <meta name="description"
     content="Coupon Seva Tracker — manage and track coupon assignments, collections, and settlements for your temple sevas.">
-  <meta name="theme-color" content="#7c3aed">
+  <meta name="theme-color" content="#0d9488">
   <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="assets/iskcon-mangalagiri-logo.png">
-  <link rel="apple-touch-icon" href="assets/iskcon-mangalagiri-logo.png">
-  <title>ISKCON Mangalagiri Coupon Seva Tracker</title>
+  <title>Coupon Seva Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=2026-06-24-1">
+  <link rel="stylesheet" href="styles.css?v=2026-05-31-1">
 </head>
 
 <body>
   <section id="loginScreen" class="login-screen">
     <form id="loginForm" class="login-card">
-      <div class="login-icon">
-        <img src="assets/iskcon-mangalagiri-logo.png" alt="ISKCON Mangalagiri logo">
-      </div>
-      <h1>ISKCON Mangalagiri</h1>
-      <h2>Coupon Seva Tracker</h2>
+      <h1>Coupon Seva Tracker</h1>
       <p>Login as admin or as a devotee to continue.</p>
       <label>
         Login Type
@@ -50,17 +44,15 @@
   </section>
 
   <header class="topbar">
-    <div class="brand-mark">
-      <img src="assets/iskcon-mangalagiri-logo.png" alt="ISKCON Mangalagiri logo">
-      <div>
-        <h1>ISKCON Mangalagiri</h1>
-        <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
-      </div>
+    <div>
+      <h1>Coupon Seva Tracker</h1>
+      <p id="couponSubtitle">Track assignment, collections, and buyer details for your coupons.</p>
     </div>
     <div class="toolbar">
       <span id="syncBadge" class="user-badge">Local</span>
       <span id="userBadge" class="user-badge"></span>
-
+      <button id="langToggle" class="lang-toggle" type="button" title="Toggle language">हि</button>
+      <button id="darkToggle" class="dark-toggle" type="button" title="Toggle dark mode">🌙</button>
       <button id="printViewBtn" class="ghost" type="button" title="Print coupon report">🖨️</button>
       <button id="csvBtn" class="ghost" type="button" title="Export spreadsheet CSV">CSV</button>
       <button id="exportBtn" class="ghost" type="button" title="Export backup">Export</button>
@@ -74,103 +66,55 @@
 
   <main>
     <section class="stats-grid top-stats" aria-label="Coupon summary">
-      <article class="stat-card stat-overview">
-        <div class="stat-icon">🎫</div>
-        <div class="stat-body">
-          <span class="stat-label">Total Coupons</span>
-          <strong id="totalCoupons" class="stat-value">0</strong>
-        </div>
+      <article>
+        <span>Total Coupons</span>
+        <strong id="totalCoupons">0</strong>
       </article>
-      <article class="stat-card stat-overview">
-        <div class="stat-icon">📋</div>
-        <div class="stat-body">
-          <span class="stat-label">Assigned</span>
-          <strong id="assignedCoupons" class="stat-value">0</strong>
-        </div>
+      <article>
+        <span>Assigned</span>
+        <strong id="assignedCoupons">0</strong>
       </article>
-      <article class="stat-card stat-overview">
-        <div class="stat-icon">✅</div>
-        <div class="stat-body">
-          <span class="stat-label">Sold</span>
-          <strong id="soldCoupons" class="stat-value">0</strong>
-        </div>
+      <article>
+        <span>Sold</span>
+        <strong id="soldCoupons">0</strong>
       </article>
-      <article class="stat-card stat-settlement">
-        <div class="stat-icon">💰</div>
-        <div class="stat-body">
-          <span class="stat-label">Coupons Settled</span>
-          <strong id="couponSettledMoney" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Coupons Settled</span>
+        <strong id="couponSettledMoney">₹0</strong>
       </article>
-      <article class="stat-card stat-settlement">
-        <div class="stat-icon">🪙</div>
-        <div class="stat-body">
-          <span class="stat-label">Hundi Settled</span>
-          <strong id="hundiSettledMoney" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Hundi Settled</span>
+        <strong id="hundiSettledMoney">₹0</strong>
       </article>
-      <article class="stat-card stat-total">
-        <div class="stat-icon">💵</div>
-        <div class="stat-body">
-          <span class="stat-label">Total Settled</span>
-          <strong id="moneyReceived" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Total Settled</span>
+        <strong id="moneyReceived">₹0</strong>
       </article>
-      <article class="stat-card stat-pending">
-        <div class="stat-icon">⏳</div>
-        <div class="stat-body">
-          <span class="stat-label">Unsettled Amount</span>
-          <strong id="unsettledMoney" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Unsettled Amount</span>
+        <strong id="unsettledMoney">₹0</strong>
       </article>
-      <article class="stat-card stat-count">
-        <div class="stat-icon">🏆</div>
-        <div class="stat-body">
-          <span class="stat-label">Settled Coupons</span>
-          <strong id="settledCoupons" class="stat-value">0</strong>
-        </div>
+      <article>
+        <span>Settled Coupons</span>
+        <strong id="settledCoupons">0</strong>
       </article>
-      <article class="stat-card stat-mode">
-        <div class="stat-icon">🏛️</div>
-        <div class="stat-body">
-          <span class="stat-label">Temple Transfer</span>
-          <strong id="templeTransferMoney" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Temple Transfer</span>
+        <strong id="templeTransferMoney">₹0</strong>
       </article>
-      <article class="stat-card stat-mode">
-        <div class="stat-icon">🪙</div>
-        <div class="stat-body">
-          <span class="stat-label">Cash Total</span>
-          <strong id="cashTotalMoney" class="stat-value">₹0</strong>
-        </div>
+      <article>
+        <span>Cash Total</span>
+        <strong id="cashTotalMoney">₹0</strong>
       </article>
     </section>
 
-    <nav class="tabs" aria-label="Views and admin sections">
-      <button class="subtab active" data-admin-tab="dashboard">
-        <span class="tab-icon">📊</span>
-        <span class="tab-label">Dashboard</span>
-      </button>
-      <button class="subtab" data-admin-tab="setup">
-        <span class="tab-icon">⚙️</span>
-        <span class="tab-label">Setup</span>
-      </button>
-      <button class="subtab" data-admin-tab="reset">
-        <span class="tab-icon">🔄</span>
-        <span class="tab-label">Reset</span>
-      </button>
-      <button class="tab" type="button" data-view="devoteeView">
-        <span class="tab-icon">👤</span>
-        <span class="tab-label">Devotee Entry</span>
-      </button>
-      <button class="tab" type="button" data-view="allCouponsView">
-        <span class="tab-icon">📋</span>
-        <span class="tab-label">All Coupons</span>
-      </button>
-      <button class="tab" type="button" data-view="checkinView">
-        <span class="tab-icon">✅</span>
-        <span class="tab-label">Check-in</span>
-      </button>
+    <nav class="tabs app-nav-row" aria-label="Views and admin sections">
+      <button class="subtab active" data-admin-tab="dashboard">Dashboard</button>
+      <button class="subtab" data-admin-tab="setup">Setup</button>
+      <button class="subtab" data-admin-tab="reset">Reset</button>
+      <button class="tab" type="button" data-view="devoteeView">Devotee Entry</button>
+      <button class="tab" type="button" data-view="allCouponsView">All Coupons</button>
+      <button class="tab" type="button" data-view="checkinView">Check-in</button>
     </nav>
 
     <section id="adminView" class="view active">
@@ -224,35 +168,15 @@
           <p id="assignHint" class="hint"></p>
         </form>
 
-        <form id="transferForm" class="panel">
-          <h2>Transfer Coupons</h2>
-          <label>
-            From Devotee
-            <select id="transferFromDevotee" required></select>
-          </label>
-          <label>
-            To Devotee
-            <select id="transferToDevotee" required></select>
-          </label>
-          <div class="inline-fields">
-            <label>
-              From
-              <input id="transferFrom" type="number" min="1" required placeholder="1">
-            </label>
-            <label>
-              To
-              <input id="transferTo" type="number" min="1" required placeholder="100">
-            </label>
-          </div>
-          <button type="submit">Transfer Range</button>
-          <p id="transferHint" class="hint"></p>
-        </form>
-
         <form id="couponSettingsForm" class="panel">
           <h2>Coupon Settings</h2>
           <label>
             Total Coupons
             <input id="totalCouponInput" type="number" min="1" required placeholder="Example: 3000">
+          </label>
+          <label class="checkbox-line">
+            <input id="autoReceiptCheck" type="checkbox">
+            Auto-generate receipt numbers (REC-XXXX format)
           </label>
           <button type="submit">Update Total</button>
           <p class="hint">Increasing adds new coupon numbers. Reducing removes coupons above the new total.</p>
@@ -272,7 +196,7 @@
             Apps Script Web App URL
             <input id="sheetWebhookUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
           </label>
-          <div class="inline-fields flex-center">
+          <div class="inline-fields" style="align-items:center">
             <button type="submit">Save Sheet Settings</button>
             <button id="sheetSyncNowBtn" type="button" class="ghost">Update Now</button>
           </div>
@@ -291,7 +215,7 @@
 
         <form id="viewerPasswordForm" class="panel">
           <h2>Viewer Password</h2>
-          <p class="hint mb-sm">Viewer can see the admin dashboard and all coupons but cannot edit
+          <p class="hint" style="margin-bottom:8px">Viewer can see the admin dashboard and all coupons but cannot edit
             anything.</p>
           <label>
             New Password
@@ -300,9 +224,9 @@
           <button type="submit">Set Viewer Password</button>
         </form>
 
-        <form id="invitationForm" class="panel full-width">
+        <form id="invitationForm" class="panel" style="grid-column: 1 / -1">
           <h2>📲 WhatsApp Invitation Template</h2>
-          <p class="hint mb-md">Write the message devotees will send to their buyers. Use
+          <p class="hint" style="margin-bottom:12px">Write the message devotees will send to their buyers. Use
             <strong>{name}</strong> for buyer name, <strong>{coupon}</strong> for coupon number, <strong>{seva}</strong>
             for seva type, <strong>{amount}</strong> for amount paid, <strong>{devotee}</strong> for devotee name.</p>
           <label>
@@ -310,10 +234,11 @@
             <textarea id="invitationMessageInput" rows="8"
               placeholder="Hare Krishna 🙏&#10;&#10;Dear {name},&#10;&#10;You are cordially invited to our seva event..."></textarea>
           </label>
-          <div class="inline-fields flex-center">
+          <div class="inline-fields" style="align-items:center">
             <button type="submit">Save Template</button>
             <button type="button" id="previewInvitationBtn" class="ghost">Preview</button>
-            <span id="invitationSavedBadge" class="hidden user-badge badge-saved">✓ Saved</span>
+            <span id="invitationSavedBadge" class="hidden user-badge"
+              style="background:#e6f4ec;border-color:#a8d8be;color:#1e7a45">✓ Saved</span>
           </div>
         </form>
       </div>
@@ -326,18 +251,6 @@
             Coupon Number
             <input id="resetCouponNumber" type="number" min="1" placeholder="Reset one coupon">
           </label>
-
-          <div class="inline-fields">
-            <label>
-              From
-              <input id="resetFrom" type="number" min="1" placeholder="1">
-            </label>
-            <label>
-              To
-              <input id="resetTo" type="number" min="1" placeholder="100">
-            </label>
-            <button id="resetRangeBtn" type="button" class="danger">Reset Range</button>
-          </div>
 
           <label>
             Devotee
@@ -372,18 +285,46 @@
               <p id="adminPeriodSummary" class="hint"></p>
             </div>
             <div class="entry-controls compact">
+              <div class="date-presets no-print">
+                <button type="button" class="ghost" data-preset="today">Today</button>
+                <button type="button" class="ghost" data-preset="week">This Week</button>
+                <button type="button" class="ghost" data-preset="month">This Month</button>
+                <button type="button" class="ghost" data-preset="year">This Year</button>
+                <button type="button" class="ghost active-preset" data-preset="all">All Time</button>
+              </div>
               <select id="dashboardDevoteeFilter">
                 <option value="all">All Devotees</option>
               </select>
+              <input id="devoteeSearch" type="search" placeholder="Search devotees">
+              <select id="devoteeStatusFilter">
+                <option value="all">All Devotees</option>
+                <option value="has_pending">Has Pending Amount</option>
+                <option value="fully_settled">Fully Settled</option>
+                <option value="not_started">No Coupons Sold</option>
+                <option value="no_coupons">No Coupons Assigned</option>
+              </select>
+              <input id="settledFromDate" type="date" title="Settled from date">
+              <input id="settledToDate" type="date" title="Settled to date">
             </div>
           </div>
+          <section class="charts-grid no-print">
+            <div class="chart-card"><h3>📊 Seva-wise Collection</h3><canvas id="sevaChart"></canvas></div>
+            <div class="chart-card"><h3>📈 Settlement Trend</h3><canvas id="trendChart"></canvas></div>
+            <div class="chart-card"><h3>🏆 Devotee Performance</h3><canvas id="perfChart"></canvas></div>
+          </section>
           <section class="panel">
             <h3>Seva-wise Summary</h3>
             <div id="sevaSummary"></div>
           </section>
           <div id="devoteeList" class="devotee-list"></div>
         </section>
-        <section class="panel mt-md">
+        <section class="panel" style="margin-top:16px">
+          <div class="section-head">
+            <h2>📋 Recent Activity</h2>
+          </div>
+          <div id="auditLog" class="audit-log">
+            <div class="empty">No recent activity.</div>
+          </div>
         </section>
       </div>
     </section>
@@ -420,33 +361,45 @@
 
     <section id="allCouponsView" class="view">
       <section class="panel">
-        <h2 class="panel-heading">All Coupon Records</h2>
-        <div class="filter-bar">
-          <input id="allSearch" type="search" placeholder="Search all coupons">
-          <select id="allDevoteeFilter">
-            <option value="all">All Devotees</option>
-          </select>
-          <select id="allStatus">
-            <option value="all">All</option>
-            <option value="unassigned">Unassigned</option>
-            <option value="assigned">Assigned</option>
-            <option value="sold">Sold</option>
-            <option value="sold_unsettled">Sold & Unsettled</option>
-            <option value="unsettled">Settlement Pending</option>
-            <option value="settled">Settled</option>
-          </select>
-          <select id="allSevaFilter">
-            <option value="all">All Seva Types</option>
-          </select>
-          <select id="allPaymentFilter">
-            <option value="all">All Payment Modes</option>
-            <option value="cash">Cash</option>
-            <option value="temple_transfer">Temple Transfer</option>
-          </select>
-          <span id="allCouponCount" class="small-stat">Coupons: 0</span>
-          <span id="devoteePendingDisplay" class="small-stat">Pending: ₹0</span>
+        <div class="section-head">
+          <h2>All Coupon Records</h2>
+          <div class="entry-controls compact">
+            <input id="allSearch" type="search" placeholder="Search all coupons">
+            <select id="allDevoteeFilter">
+              <option value="all">All Devotees</option>
+            </select>
+            <select id="allStatus">
+              <option value="all">All</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="assigned">Assigned</option>
+              <option value="sold">Sold</option>
+              <option value="sold_unsettled">Sold & Unsettled</option>
+              <option value="unsettled">Settlement Pending</option>
+              <option value="settled">Settled</option>
+            </select>
+            <select id="allSevaFilter">
+              <option value="all">All Seva Types</option>
+            </select>
+            <select id="allPaymentFilter">
+              <option value="all">All Payment Modes</option>
+              <option value="cash">Cash</option>
+              <option value="temple_transfer">Temple Transfer</option>
+            </select>
+            <span id="allCouponCount" class="small-stat">
+              Coupons: 0
+            </span>
+            <span id="devoteePendingDisplay" class="small-stat" style="margin-left:10px;">
+              Pending: ₹0
+            </span>
+            <button id="bulkWhatsAppBtn" class="ghost bulk-wa-btn no-print" type="button" title="Send WhatsApp to all settled buyers">
+              📲 Bulk WhatsApp
+            </button>
+            <button id="bulkPdfBtn" class="ghost pdf-btn no-print" type="button" title="Download all receipts as PDF">
+              📄 Bulk PDF
+            </button>
+          </div>
         </div>
-        <div id="bulkSettleBar" class="bulk-settle-bar no-print init-hidden">
+        <div id="bulkSettleBar" class="bulk-settle-bar no-print" style="display:none">
           <label class="bulk-check-label">
             <input type="checkbox" id="selectAllSettle"> Select All
           </label>
@@ -457,25 +410,25 @@
           <table>
             <thead>
               <tr>
-                <th id="bulkSettleTh" class="init-hidden"><input type="checkbox" id="selectAllSettleHead"></th>
+                <th id="bulkSettleTh" style="display:none"><input type="checkbox" id="selectAllSettleHead"></th>
                 <th class="sortable" data-sort="number">Coupon</th>
                 <th class="sortable" data-sort="devotee">Assigned To</th>
+                <th class="sortable" data-sort="assignedAt">Assigned Date</th>
                 <th class="sortable" data-sort="buyerName">Buyer</th>
                 <th>Contact</th>
                 <th>Call</th>
-                <th>Send Invite</th>
+                <th class="sortable" data-sort="soldAt">Sold Date</th>
                 <th class="sortable" data-sort="amount">Amount</th>
+                <th>Receipt No</th>
                 <th>Payment Mode</th>
                 <th class="sortable" data-sort="settled">Settlement</th>
-                <th>Description</th>
-                <th class="sortable" data-sort="assignedAt">Assigned Date</th>
-                <th class="sortable" data-sort="soldAt">Sold Date</th>
                 <th class="sortable" data-sort="settledAt">Settled Date</th>
+                <th>Description</th>
+                <th>QR</th>
+                <th>Send Invite</th>
               </tr>
             </thead>
-            <tbody id="allCouponsBody">
-              <tr class="skeleton-row"><td colspan="14"><div class="skeleton">Loading</div></td></tr>
-            </tbody>
+            <tbody id="allCouponsBody"></tbody>
           </table>
         </div>
         <div id="allPagination" class="pagination no-print"></div>
@@ -491,7 +444,7 @@
         <div class="checkin-scanner">
           <input id="checkinInput" type="number" min="1" placeholder="Enter coupon number..." autofocus>
           <button id="checkinBtn" type="button" class="primary">Check In</button>
-          <button id="checkinUndoBtn" type="button" class="ghost init-hidden">Undo</button>
+          <button id="checkinUndoBtn" type="button" class="ghost" style="display:none">Undo</button>
         </div>
         <div id="checkinResult" class="checkin-result"></div>
         <div class="stats-grid compact-stats checkin-stats">
@@ -500,7 +453,7 @@
           <article><span>Pending</span><strong id="checkinPending">0</strong></article>
         </div>
       </section>
-      <section class="panel mt-md">
+      <section class="panel" style="margin-top:16px">
         <div class="section-head">
           <h2>Attendance Report</h2>
           <div class="entry-controls compact">
@@ -511,7 +464,7 @@
               <option value="checked_in">Checked In</option>
               <option value="not_checked_in">Not Checked In</option>
             </select>
-            <input id="checkinSearch" type="search" placeholder="Search by #, name or contact" class="input-sm">
+            <input id="checkinSearch" type="search" placeholder="Search coupon #" style="max-width:140px">
             <span id="checkinCount" class="small-stat">Coupons: 0</span>
             <button id="checkinPrintBtn" type="button" class="ghost no-print" title="Print attendance report">🖨️ Print</button>
           </div>
@@ -533,7 +486,6 @@
             <tbody id="checkinReportBody"></tbody>
           </table>
         </div>
-        <div id="checkinPagination" class="pagination no-print"></div>
       </section>
     </section>
   </main>
@@ -544,7 +496,7 @@
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-database-compat.js"></script>
   <script src="firebase-config.js?v=2026-05-23-1"></script>
-  <script src="app.js?v=2026-06-24-1"></script>
+  <script src="app.js?v=2026-06-20-1"></script>
 </body>
 
 </html>
