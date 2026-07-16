@@ -447,6 +447,14 @@ function bindEvents() {
   els.loginForm.addEventListener("submit", login);
   els.loginRole.addEventListener("change", renderLoginRole);
   els.logoutBtn.addEventListener("click", logout);
+  document.getElementById("resetAdminPwdBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!confirm("Reset admin password to 'hare krishna'?")) return;
+    state.settings.adminPassword = DEFAULT_ADMIN_PASSWORD;
+    saveState();
+    els.loginPassword.value = DEFAULT_ADMIN_PASSWORD;
+    showToast("Admin password reset to default");
+  });
   els.devoteeForm.addEventListener("submit", addDevotee);
   els.assignForm.addEventListener("submit", assignCoupons);
   els.transferForm.addEventListener("submit", transferCouponRange);
