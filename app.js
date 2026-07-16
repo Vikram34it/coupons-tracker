@@ -133,9 +133,15 @@ function updateLoginSyncHint(status) {
     hint.textContent = "⏳ Loading devotee list from server...";
     hint.style.color = "#888";
   } else if (status === "ready") {
-    hint.textContent = "✅ Devotee list loaded. Please select your name.";
+    const count = state.devotees.length;
+    hint.textContent = count
+      ? `✅ ${count} devotee${count > 1 ? "s" : ""} loaded. Please select your name.`
+      : "✅ Devotee list loaded. Please select your name.";
     hint.style.color = "#1e7a45";
     setTimeout(() => { hint.textContent = ""; }, 4000);
+  } else if (status === "nobody") {
+    hint.textContent = "ℹ️ No devotees found. Login as Admin to add devotees.";
+    hint.style.color = "#b8860b";
   } else if (status === "local") {
     hint.textContent = "";
   }
@@ -2796,14 +2802,12 @@ function buildFirebaseUpdates() {
     hundi: state.hundi
   };
   if (dirtyCouponNumbers.size > 0) {
-    dirtyCouponNumbers.forEach(num => {
-      updates[`coupons/${num - 1}`] = state.coupons[num - 1];
-    });
+    // Write the full coupons array so Firebase stores it as an array,
+    // not as an object (which happens with individual path updates).
+    // This ensures other devices can read it back as an array.
+    updates.coupons = state.coupons;
     dirtyCouponNumbers.clear();
   }
-  // When no coupons changed, omit the coupons path entirely.
-  // Firebase update() only touches paths present in the object,
-  // so existing coupon data on the server stays intact.
   return updates;
 }
 
@@ -2845,8 +2849,13 @@ function applyFirebaseData(data, options = {}) {
       ? mergeRemoteDevotees(remoteDevotees)
       : remoteDevotees;
   }
-  if (Array.isArray(data.coupons)) {
-    const remoteCoupons = normalizeCoupons(data.coupons, couponTotal());
+  // Handle both array (properly stored) and object (from old individual path updates)
+  let couponsData = data.coupons;
+  if (couponsData && !Array.isArray(couponsData)) {
+    couponsData = Object.values(couponsData);
+  }
+  if (Array.isArray(couponsData)) {
+    const remoteCoupons = normalizeCoupons(couponsData, couponTotal());
     state.coupons = mergeRemoteCoupons(remoteCoupons, preserveCouponNumbers);
   }
   if (Array.isArray(data.hundi) && (data.hundi.length || !state.hundi.length)) {
@@ -2855,8 +2864,9 @@ function applyFirebaseData(data, options = {}) {
 
   // ✅ IMPORTANT FIX - save to localStorage only (not Firebase yet)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // Always refresh selectors so login dropdown shows devotee names
+  renderSelectors();
   if (!options.skipRender) {
-    renderSelectors();   // 🔥 force sorted dropdown refresh
     render();
   }
   flushPendingFirebaseWrite();
@@ -2930,21 +2940,22 @@ function initFirebaseSync() {
         dbRef.on("value", (snapshot) => {
           if (!snapshot.exists()) return;
 
+          const data = snapshot.val();
+
           // ✅ FIX: Mark Firebase as loaded on first data arrival
           if (!firebaseHasLoaded) {
             firebaseHasLoaded = true;
             firebaseCanWrite = true;
             // Refresh the login dropdown with real devotee data
-            updateLoginSyncHint("ready");
+            const hasDevotees = Array.isArray(data.devotees) && data.devotees.length > 0;
+            updateLoginSyncHint(hasDevotees ? "ready" : "nobody");
           }
 
           // 🚫 Don't re-render while typing
           if (isEditing || saveTimer) {
-            pendingFirebaseData = snapshot.val();
+            pendingFirebaseData = data;
             return;
           }
-
-          const data = snapshot.val();
 
           applyFirebaseData(data);
           flushPendingFirebaseWrite();
@@ -2959,8 +2970,10 @@ function initFirebaseSync() {
             firebaseCanWrite = true;
             if (hasStateData(state)) {
               dbRef.set(state);
+              updateLoginSyncHint("ready");
+            } else {
+              updateLoginSyncHint("nobody");
             }
-            updateLoginSyncHint("ready");
             flushPendingFirebaseWrite();
           }
         });
