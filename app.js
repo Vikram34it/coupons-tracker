@@ -2965,8 +2965,11 @@ function initFirebaseSync() {
             return;
           }
 
-          applyFirebaseData(data);
+          // Flush any pending local writes BEFORE applying remote data.
+          // This ensures critical changes (password reset, etc.) reach
+          // Firebase before remote data overwrites them.
           flushPendingFirebaseWrite();
+          applyFirebaseData(data);
         });
 
         updateSyncBadge("Realtime");
@@ -3098,13 +3101,13 @@ saveState = function () {
   _localSaveState();
   queueSheetAutoUpdate();
 
-  if (firebaseReady && dbRef) {
-    if (firebaseCanWrite) {
-      dbRef.update(buildFirebaseUpdates());
-    } else {
-      pendingFirebaseWrite = true;
-      updateSyncBadge("Sync pending");
-    }
+  if (dbRef && firebaseReady && firebaseCanWrite) {
+    dbRef.update(buildFirebaseUpdates());
+  } else {
+    // Always queue the write so it goes to Firebase when ready.
+    // This ensures password resets and other critical changes sync.
+    pendingFirebaseWrite = true;
+    updateSyncBadge("Sync pending");
   }
 };
 
